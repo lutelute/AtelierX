@@ -1,0 +1,10 @@
+{
+  "id": "sample-grid-layouts",
+  "name": "Sample Grid Layouts",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "サンプルのグリッドレイアウトプリセット（開発・プレゼン・フォーカス）",
+  "author": "Window Board Team",
+  "repository": "example/sample-grid-layouts",
+  "type": "grid-layout"
+}

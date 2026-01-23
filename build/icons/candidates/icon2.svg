@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0EA5E9"/>
+      <stop offset="100%" style="stop-color:#0284C7"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg2)"/>
+  <!-- ウィンドウフレーム -->
+  <rect x="140" y="180" width="744" height="664" rx="40" fill="rgba(255,255,255,0.95)"/>
+  <!-- ウィンドウヘッダー -->
+  <rect x="140" y="180" width="744" height="80" rx="40" fill="#E0F2FE"/>
+  <rect x="140" y="220" width="744" height="40" fill="#E0F2FE"/>
+  <!-- ウィンドウボタン -->
+  <circle cx="200" cy="220" r="20" fill="#EF4444"/>
+  <circle cx="260" cy="220" r="20" fill="#F59E0B"/>
+  <circle cx="320" cy="220" r="20" fill="#22C55E"/>
+  <!-- カード配置 -->
+  <rect x="180" y="300" width="200" height="140" rx="16" fill="#38BDF8"/>
+  <rect x="180" y="460" width="200" height="100" rx="16" fill="#7DD3FC"/>
+  <rect x="180" y="580" width="200" height="120" rx="16" fill="#BAE6FD"/>
+  <rect x="410" y="300" width="200" height="180" rx="16" fill="#FB923C"/>
+  <rect x="410" y="500" width="200" height="100" rx="16" fill="#FDBA74"/>
+  <rect x="640" y="300" width="200" height="120" rx="16" fill="#A78BFA"/>
+  <rect x="640" y="440" width="200" height="140" rx="16" fill="#C4B5FD"/>
+</svg>

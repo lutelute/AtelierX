@@ -1,0 +1,75 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg8" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg8)"/>
+
+  <!-- 左: Terminalウィンドウ -->
+  <g transform="translate(80, 180) rotate(-6)">
+    <rect width="420" height="340" rx="20" fill="#1e1e1e" stroke="#333" stroke-width="4"/>
+    <rect width="420" height="44" rx="20" fill="#333"/>
+    <rect y="30" width="420" height="14" fill="#333"/>
+    <circle cx="30" cy="22" r="10" fill="#ff5f56"/>
+    <circle cx="58" cy="22" r="10" fill="#ffbd2e"/>
+    <circle cx="86" cy="22" r="10" fill="#27ca40"/>
+    <text x="210" y="28" font-family="system-ui" font-size="14" fill="#999" text-anchor="middle">Terminal</text>
+    <!-- Terminal content -->
+    <text x="20" y="80" font-family="SF Mono, monospace" font-size="18" fill="#27ca40">$ ls -la</text>
+    <text x="20" y="110" font-family="SF Mono, monospace" font-size="16" fill="#ccc">drwxr-xr-x  src/</text>
+    <text x="20" y="135" font-family="SF Mono, monospace" font-size="16" fill="#ccc">-rw-r--r--  package.json</text>
+    <text x="20" y="165" font-family="SF Mono, monospace" font-size="18" fill="#27ca40">$ npm run dev</text>
+    <text x="20" y="195" font-family="SF Mono, monospace" font-size="16" fill="#61dafb">Starting server...</text>
+    <text x="20" y="225" font-family="SF Mono, monospace" font-size="16" fill="#98c379">✓ Ready on :5173</text>
+    <rect x="20" y="250" width="10" height="20" fill="#27ca40"/>
+  </g>
+
+  <!-- 右: Finderウィンドウ -->
+  <g transform="translate(500, 220) rotate(4)">
+    <rect width="440" height="360" rx="20" fill="#f5f5f7" stroke="#d1d1d6" stroke-width="4"/>
+    <rect width="440" height="48" rx="20" fill="#e8e8ed"/>
+    <rect y="32" width="440" height="16" fill="#e8e8ed"/>
+    <circle cx="30" cy="24" r="10" fill="#ff5f56"/>
+    <circle cx="58" cy="24" r="10" fill="#ffbd2e"/>
+    <circle cx="86" cy="24" r="10" fill="#27ca40"/>
+    <text x="220" y="30" font-family="system-ui" font-size="14" fill="#666" text-anchor="middle">Finder - Projects</text>
+    <!-- Finder sidebar -->
+    <rect x="0" y="48" width="110" height="312" rx="0" fill="#e8e8ed"/>
+    <rect x="8" y="65" width="94" height="26" rx="6" fill="#007aff" opacity="0.2"/>
+    <rect x="16" y="72" width="16" height="12" rx="2" fill="#007aff"/>
+    <text x="38" y="83" font-family="system-ui" font-size="12" fill="#007aff">Projects</text>
+    <rect x="16" y="102" width="16" height="12" rx="2" fill="#8e8e93"/>
+    <text x="38" y="113" font-family="system-ui" font-size="12" fill="#666">Desktop</text>
+    <!-- Finder content -->
+    <rect x="130" y="70" width="80" height="70" rx="8" fill="#54aeff"/>
+    <rect x="130" y="62" width="52" height="16" rx="4" fill="#54aeff"/>
+    <text x="170" y="160" font-family="system-ui" font-size="13" fill="#333" text-anchor="middle">kanban_app</text>
+    <rect x="240" y="70" width="80" height="70" rx="8" fill="#30d158"/>
+    <rect x="240" y="62" width="52" height="16" rx="4" fill="#30d158"/>
+    <text x="280" y="160" font-family="system-ui" font-size="13" fill="#333" text-anchor="middle">web_app</text>
+    <rect x="350" y="70" width="80" height="70" rx="8" fill="#ff9f0a"/>
+    <rect x="350" y="62" width="52" height="16" rx="4" fill="#ff9f0a"/>
+    <text x="390" y="160" font-family="system-ui" font-size="13" fill="#333" text-anchor="middle">docs</text>
+  </g>
+
+  <!-- 中央: カンバンカード（結合シンボル） -->
+  <g transform="translate(420, 520)">
+    <rect x="0" y="0" width="200" height="280" rx="20" fill="white" stroke="#764ba2" stroke-width="6"/>
+    <text x="100" y="45" font-family="system-ui" font-size="22" font-weight="bold" fill="#333" text-anchor="middle">Board</text>
+    <!-- ミニTerminal -->
+    <rect x="20" y="70" width="160" height="60" rx="8" fill="#1e1e1e"/>
+    <text x="30" y="95" font-family="SF Mono, monospace" font-size="12" fill="#27ca40">$ build</text>
+    <text x="30" y="115" font-family="SF Mono, monospace" font-size="11" fill="#98c379">✓ done</text>
+    <!-- ミニFolder -->
+    <rect x="20" y="145" width="160" height="60" rx="8" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="2"/>
+    <rect x="32" y="157" width="28" height="22" rx="4" fill="#54aeff"/>
+    <rect x="32" y="152" width="18" height="10" rx="2" fill="#54aeff"/>
+    <text x="70" y="173" font-family="system-ui" font-size="14" fill="#333">release/</text>
+    <!-- チェックマーク -->
+    <circle cx="100" y="235" r="28" fill="#27ca40"/>
+    <path d="M85 235 L95 245 L118 220" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>

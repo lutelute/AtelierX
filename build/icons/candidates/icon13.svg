@@ -1,0 +1,113 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg13" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="200" fill="url(#bg13)"/>
+
+  <!-- 上部: Terminal ウィンドウ（左） -->
+  <g transform="translate(80, 80)">
+    <rect width="420" height="280" rx="16" fill="#0d1117" stroke="#22c55e" stroke-width="4"/>
+    <rect width="420" height="40" rx="16" fill="#21262d"/>
+    <rect y="28" width="420" height="12" fill="#21262d"/>
+    <circle cx="28" cy="20" r="10" fill="#ff5f56"/>
+    <circle cx="56" cy="20" r="10" fill="#ffbd2e"/>
+    <circle cx="84" cy="20" r="10" fill="#27ca40"/>
+    <text x="210" y="26" font-family="system-ui" font-size="16" fill="#8b949e" text-anchor="middle">Terminal</text>
+    <!-- Terminal content -->
+    <text x="24" y="80" font-family="SF Mono, monospace" font-size="20" fill="#7ee787">$ cd ~/projects</text>
+    <text x="24" y="115" font-family="SF Mono, monospace" font-size="20" fill="#7ee787">$ npm run dev</text>
+    <text x="24" y="150" font-family="SF Mono, monospace" font-size="18" fill="#58a6ff">Starting server...</text>
+    <text x="24" y="185" font-family="SF Mono, monospace" font-size="18" fill="#3fb950">✓ Ready on :5173</text>
+    <text x="24" y="220" font-family="SF Mono, monospace" font-size="20" fill="#7ee787">$</text>
+    <rect x="40" y="203" width="12" height="22" fill="#7ee787"/>
+  </g>
+
+  <!-- 上部: Finder ウィンドウ（右） -->
+  <g transform="translate(524, 80)">
+    <rect width="420" height="280" rx="16" fill="#f5f5f7" stroke="#3b82f6" stroke-width="4"/>
+    <rect width="420" height="40" rx="16" fill="#e8e8ed"/>
+    <rect y="28" width="420" height="12" fill="#e8e8ed"/>
+    <circle cx="28" cy="20" r="10" fill="#ff5f56"/>
+    <circle cx="56" cy="20" r="10" fill="#ffbd2e"/>
+    <circle cx="84" cy="20" r="10" fill="#27ca40"/>
+    <text x="210" y="26" font-family="system-ui" font-size="16" fill="#666" text-anchor="middle">Finder</text>
+    <!-- Finder sidebar -->
+    <rect x="0" y="40" width="100" height="240" fill="#e8e8ed"/>
+    <rect x="10" y="55" width="80" height="24" rx="6" fill="rgba(0, 122, 255, 0.15)"/>
+    <rect x="18" y="62" width="14" height="10" rx="2" fill="#007aff"/>
+    <text x="38" y="72" font-family="system-ui" font-size="11" fill="#007aff">Projects</text>
+    <rect x="18" y="92" width="14" height="10" rx="2" fill="#8e8e93"/>
+    <text x="38" y="102" font-family="system-ui" font-size="11" fill="#666">Desktop</text>
+    <rect x="18" y="117" width="14" height="10" rx="2" fill="#8e8e93"/>
+    <text x="38" y="127" font-family="system-ui" font-size="11" fill="#666">Downloads</text>
+    <!-- Finder content -->
+    <rect x="120" y="60" width="70" height="56" rx="6" fill="#54aeff"/>
+    <rect x="120" y="54" width="45" height="12" rx="4" fill="#54aeff"/>
+    <text x="155" y="135" font-family="system-ui" font-size="12" fill="#333" text-anchor="middle">kanban</text>
+    <rect x="210" y="60" width="70" height="56" rx="6" fill="#30d158"/>
+    <rect x="210" y="54" width="45" height="12" rx="4" fill="#30d158"/>
+    <text x="245" y="135" font-family="system-ui" font-size="12" fill="#333" text-anchor="middle">src</text>
+    <rect x="300" y="60" width="70" height="56" rx="6" fill="#ff9f0a"/>
+    <rect x="300" y="54" width="45" height="12" rx="4" fill="#ff9f0a"/>
+    <text x="335" y="135" font-family="system-ui" font-size="12" fill="#333" text-anchor="middle">docs</text>
+    <rect x="120" y="160" width="70" height="56" rx="6" fill="#af52de"/>
+    <rect x="120" y="154" width="45" height="12" rx="4" fill="#af52de"/>
+    <text x="155" y="235" font-family="system-ui" font-size="12" fill="#333" text-anchor="middle">build</text>
+  </g>
+
+  <!-- 下部: カンバンボード -->
+  <!-- 列1: 未着手 -->
+  <rect x="80" y="400" width="280" height="540" rx="16" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2"/>
+  <text x="220" y="450" font-family="system-ui" font-size="18" font-weight="600" fill="#a1a1aa" text-anchor="middle" letter-spacing="1">未着手</text>
+
+  <!-- Terminalカード -->
+  <rect x="100" y="480" width="240" height="100" rx="12" fill="rgba(255, 255, 255, 0.08)"/>
+  <rect x="116" y="498" width="80" height="24" rx="6" fill="rgba(34, 197, 94, 0.25)"/>
+  <text x="156" y="516" font-family="system-ui" font-size="12" font-weight="600" fill="#22c55e" text-anchor="middle">TERMINAL</text>
+  <rect x="116" y="535" width="150" height="12" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <rect x="116" y="555" width="100" height="10" rx="3" fill="rgba(255,255,255,0.08)"/>
+
+  <!-- Finderカード -->
+  <rect x="100" y="600" width="240" height="100" rx="12" fill="rgba(255, 255, 255, 0.08)"/>
+  <rect x="116" y="618" width="65" height="24" rx="6" fill="rgba(59, 130, 246, 0.25)"/>
+  <text x="148" y="636" font-family="system-ui" font-size="12" font-weight="600" fill="#3b82f6" text-anchor="middle">FINDER</text>
+  <rect x="116" y="655" width="130" height="12" rx="4" fill="rgba(255,255,255,0.15)"/>
+  <rect x="116" y="675" width="80" height="10" rx="3" fill="rgba(255,255,255,0.08)"/>
+
+  <!-- 列2: 実行中 -->
+  <rect x="380" y="400" width="280" height="540" rx="16" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2"/>
+  <text x="520" y="450" font-family="system-ui" font-size="18" font-weight="600" fill="#fbbf24" text-anchor="middle" letter-spacing="1">実行中</text>
+
+  <!-- アクティブカード -->
+  <rect x="400" y="480" width="240" height="130" rx="12" fill="rgba(255, 255, 255, 0.12)" stroke="rgba(99, 102, 241, 0.5)" stroke-width="2"/>
+  <rect x="416" y="498" width="80" height="24" rx="6" fill="rgba(34, 197, 94, 0.25)"/>
+  <text x="456" y="516" font-family="system-ui" font-size="12" font-weight="600" fill="#22c55e" text-anchor="middle">TERMINAL</text>
+  <rect x="416" y="535" width="170" height="12" rx="4" fill="rgba(255,255,255,0.2)"/>
+  <rect x="416" y="555" width="120" height="10" rx="3" fill="rgba(255,255,255,0.1)"/>
+  <!-- ジャンプボタン -->
+  <rect x="416" y="575" width="208" height="26" rx="6" fill="rgba(34, 197, 94, 0.2)" stroke="rgba(34, 197, 94, 0.4)" stroke-width="1"/>
+  <text x="520" y="594" font-family="system-ui" font-size="13" font-weight="500" fill="#22c55e" text-anchor="middle">▶ ウィンドウにジャンプ</text>
+
+  <!-- 列3: 完了 -->
+  <rect x="680" y="400" width="280" height="540" rx="16" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2"/>
+  <text x="820" y="450" font-family="system-ui" font-size="18" font-weight="600" fill="#22c55e" text-anchor="middle" letter-spacing="1">完了</text>
+
+  <!-- 完了カード -->
+  <rect x="700" y="480" width="240" height="90" rx="12" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(34, 197, 94, 0.3)" stroke-width="1"/>
+  <rect x="716" y="498" width="80" height="24" rx="6" fill="rgba(34, 197, 94, 0.25)"/>
+  <text x="756" y="516" font-family="system-ui" font-size="12" font-weight="600" fill="#22c55e" text-anchor="middle">TERMINAL</text>
+  <rect x="716" y="535" width="120" height="12" rx="4" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="910" cy="525" r="16" fill="rgba(34, 197, 94, 0.3)"/>
+  <text x="910" y="531" font-family="system-ui" font-size="18" fill="#22c55e" text-anchor="middle">✓</text>
+
+  <rect x="700" y="590" width="240" height="90" rx="12" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(59, 130, 246, 0.3)" stroke-width="1"/>
+  <rect x="716" y="608" width="65" height="24" rx="6" fill="rgba(59, 130, 246, 0.25)"/>
+  <text x="748" y="626" font-family="system-ui" font-size="12" font-weight="600" fill="#3b82f6" text-anchor="middle">FINDER</text>
+  <rect x="716" y="645" width="100" height="12" rx="4" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="910" cy="635" r="16" fill="rgba(59, 130, 246, 0.3)"/>
+  <text x="910" y="641" font-family="system-ui" font-size="18" fill="#3b82f6" text-anchor="middle">✓</text>
+</svg>

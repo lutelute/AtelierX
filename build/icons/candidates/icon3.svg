@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg3)"/>
+  <!-- グリッドタイル配置 -->
+  <rect x="140" y="140" width="320" height="320" rx="40" fill="rgba(255,255,255,0.95)" transform="rotate(-3 300 300)"/>
+  <rect x="500" y="160" width="380" height="260" rx="40" fill="rgba(255,255,255,0.85)" transform="rotate(2 690 290)"/>
+  <rect x="160" y="500" width="280" height="380" rx="40" fill="rgba(255,255,255,0.9)" transform="rotate(2 300 690)"/>
+  <rect x="480" y="460" width="400" height="420" rx="40" fill="rgba(255,255,255,0.95)" transform="rotate(-2 680 670)"/>
+  <!-- ウィンドウコントロール -->
+  <circle cx="200" cy="200" r="16" fill="#EF4444"/>
+  <circle cx="250" cy="200" r="16" fill="#F59E0B"/>
+  <circle cx="300" cy="200" r="16" fill="#22C55E"/>
+  <circle cx="560" cy="220" r="14" fill="#EF4444"/>
+  <circle cx="605" cy="220" r="14" fill="#F59E0B"/>
+  <circle cx="650" cy="220" r="14" fill="#22C55E"/>
+  <circle cx="220" cy="560" r="14" fill="#EF4444"/>
+  <circle cx="265" cy="560" r="14" fill="#F59E0B"/>
+  <circle cx="310" cy="560" r="14" fill="#22C55E"/>
+  <circle cx="540" cy="520" r="16" fill="#EF4444"/>
+  <circle cx="590" cy="520" r="16" fill="#F59E0B"/>
+  <circle cx="640" cy="520" r="16" fill="#22C55E"/>
+</svg>

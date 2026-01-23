@@ -1,0 +1,25 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366F1"/>
+      <stop offset="100%" style="stop-color:#4F46E5"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg1)"/>
+  <!-- カンバン3列 -->
+  <rect x="140" y="200" width="220" height="624" rx="24" fill="rgba(255,255,255,0.95)"/>
+  <rect x="400" y="200" width="220" height="624" rx="24" fill="rgba(255,255,255,0.95)"/>
+  <rect x="660" y="200" width="220" height="624" rx="24" fill="rgba(255,255,255,0.95)"/>
+  <!-- カード - 列1 -->
+  <rect x="164" y="280" width="172" height="100" rx="12" fill="#818CF8"/>
+  <rect x="164" y="400" width="172" height="80" rx="12" fill="#A5B4FC"/>
+  <rect x="164" y="500" width="172" height="120" rx="12" fill="#C7D2FE"/>
+  <!-- カード - 列2 -->
+  <rect x="424" y="280" width="172" height="140" rx="12" fill="#F472B6"/>
+  <rect x="424" y="440" width="172" height="90" rx="12" fill="#F9A8D4"/>
+  <!-- カード - 列3 -->
+  <rect x="684" y="280" width="172" height="80" rx="12" fill="#34D399"/>
+  <rect x="684" y="380" width="172" height="100" rx="12" fill="#6EE7B7"/>
+  <rect x="684" y="500" width="172" height="70" rx="12" fill="#A7F3D0"/>
+</svg>

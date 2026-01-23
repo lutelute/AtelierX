@@ -1,0 +1,565 @@
+import { useState, useEffect } from 'react';
+import { Settings, CardClickBehavior, CustomSubtag, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin } from '../types';
+
+export { type CardClickBehavior };
+export { type Settings };
+
+type SettingsTab = 'general' | 'plugins';
+
+interface SettingsModalProps {
+  onClose: () => void;
+  onSave: (settings: Settings) => void;
+  initialSettings: Settings;
+  onExportBackup?: () => void;
+  onImportBackup?: () => void;
+  lastBackupTime?: number;
+}
+
+export const defaultSettings: Settings = {
+  obsidianVaultPath: '',
+  dailyNotePath: 'Daily Notes/{{date}}.md',
+  insertMarker: '## Window Board',
+  cardClickBehavior: 'edit',  // デフォルトはカード編集
+  customSubtags: [],
+};
+
+// プリセットカラー
+const PRESET_COLORS = [
+  '#ef4444', // 赤
+  '#f97316', // オレンジ
+  '#f59e0b', // アンバー
+  '#eab308', // イエロー
+  '#84cc16', // ライム
+  '#22c55e', // グリーン
+  '#14b8a6', // ティール
+  '#06b6d4', // シアン
+  '#3b82f6', // ブルー
+  '#6366f1', // インディゴ
+  '#8b5cf6', // バイオレット
+  '#a855f7', // パープル
+  '#d946ef', // フクシア
+  '#ec4899', // ピンク
+  '#6b7280', // グレー
+];
+
+export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup, onImportBackup, lastBackupTime }: SettingsModalProps) {
+  const [settings, setSettings] = useState<Settings>(initialSettings);
+  const [newSubtagName, setNewSubtagName] = useState('');
+  const [newSubtagColor, setNewSubtagColor] = useState(PRESET_COLORS[0]);
+  const [editingSubtagId, setEditingSubtagId] = useState<string | null>(null);
+
+  // タブ管理
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
+  // プラグイン管理
+  const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
+  const [pluginRepoUrl, setPluginRepoUrl] = useState('');
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [pluginError, setPluginError] = useState<string | null>(null);
+  const [pluginSuccess, setPluginSuccess] = useState<string | null>(null);
+
+  // プラグイン一覧を取得
+  useEffect(() => {
+    loadPlugins();
+  }, []);
+
+  const loadPlugins = async () => {
+    if (window.electronAPI?.plugins) {
+      const result = await window.electronAPI.plugins.list();
+      if (result.success) {
+        setPlugins(result.data);
+      }
+    }
+  };
+
+  // プラグインをインストール
+  const handleInstallPlugin = async () => {
+    if (!pluginRepoUrl.trim()) return;
+    setIsInstalling(true);
+    setPluginError(null);
+    setPluginSuccess(null);
+
+    try {
+      const result = await window.electronAPI?.plugins.install(pluginRepoUrl.trim());
+      if (result?.success) {
+        setPluginSuccess('プラグインをインストールしました');
+        setPluginRepoUrl('');
+        await loadPlugins();
+      } else {
+        setPluginError(result?.error || 'インストールに失敗しました');
+      }
+    } catch (error) {
+      setPluginError('インストール中にエラーが発生しました');
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  // プラグインを有効化/無効化
+  const handleTogglePlugin = async (pluginId: string, enabled: boolean) => {
+    try {
+      const result = enabled
+        ? await window.electronAPI?.plugins.enable(pluginId)
+        : await window.electronAPI?.plugins.disable(pluginId);
+      if (result?.success) {
+        await loadPlugins();
+      } else {
+        setPluginError(result?.error || '操作に失敗しました');
+      }
+    } catch (error) {
+      setPluginError('操作中にエラーが発生しました');
+    }
+  };
+
+  // プラグインをアンインストール
+  const handleUninstallPlugin = async (pluginId: string, pluginName: string) => {
+    if (!confirm(`「${pluginName}」をアンインストールしますか？`)) return;
+
+    try {
+      const result = await window.electronAPI?.plugins.uninstall(pluginId);
+      if (result?.success) {
+        setPluginSuccess('プラグインをアンインストールしました');
+        await loadPlugins();
+      } else {
+        setPluginError(result?.error || 'アンインストールに失敗しました');
+      }
+    } catch (error) {
+      setPluginError('アンインストール中にエラーが発生しました');
+    }
+  };
+
+  const handleSave = () => {
+    onSave(settings);
+    onClose();
+  };
+
+  // サブタグを追加
+  const handleAddSubtag = () => {
+    if (!newSubtagName.trim()) return;
+    const newSubtag: CustomSubtag = {
+      id: `subtag-${Date.now()}`,
+      name: newSubtagName.trim(),
+      color: newSubtagColor,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      customSubtags: [...(prev.customSubtags || []), newSubtag],
+    }));
+    setNewSubtagName('');
+    setNewSubtagColor(PRESET_COLORS[0]);
+  };
+
+  // サブタグを削除
+  const handleDeleteSubtag = (id: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      customSubtags: (prev.customSubtags || []).filter((st) => st.id !== id),
+    }));
+  };
+
+  // サブタグを編集
+  const handleUpdateSubtag = (id: string, updates: Partial<CustomSubtag>) => {
+    setSettings((prev) => ({
+      ...prev,
+      customSubtags: (prev.customSubtags || []).map((st) =>
+        st.id === id ? { ...st, ...updates } : st
+      ),
+    }));
+  };
+
+  // デフォルトサブタグの一覧
+  const defaultSubtags: { id: SubTagType; name: string; color: string }[] = [
+    { id: 'research', name: SUBTAG_LABELS.research, color: SUBTAG_COLORS.research },
+    { id: 'routine', name: SUBTAG_LABELS.routine, color: SUBTAG_COLORS.routine },
+    { id: 'misc', name: SUBTAG_LABELS.misc, color: SUBTAG_COLORS.misc },
+  ];
+
+  const handleBrowseVault = async () => {
+    if (window.electronAPI?.selectFolder) {
+      const path = await window.electronAPI.selectFolder();
+      if (path) {
+        setSettings((prev) => ({ ...prev, obsidianVaultPath: path }));
+      }
+    }
+  };
+
+  const handleBrowseDailyNote = async () => {
+    if (window.electronAPI?.selectFolder) {
+      const path = await window.electronAPI.selectFolder();
+      if (path && settings.obsidianVaultPath) {
+        // Vaultパスからの相対パスを計算
+        let relativePath = path;
+        if (path.startsWith(settings.obsidianVaultPath)) {
+          relativePath = path.slice(settings.obsidianVaultPath.length + 1);
+        }
+        // フォルダパス + {{date}}.md を設定
+        const dailyNotePath = relativePath ? `${relativePath}/{{date}}.md` : '{{date}}.md';
+        setSettings((prev) => ({ ...prev, dailyNotePath }));
+      }
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>設定</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        {/* タブナビゲーション */}
+        <div className="settings-tabs">
+          <button
+            className={`settings-tab ${activeTab === 'general' ? 'active' : ''}`}
+            onClick={() => setActiveTab('general')}
+          >
+            一般
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'plugins' ? 'active' : ''}`}
+            onClick={() => setActiveTab('plugins')}
+          >
+            プラグイン
+          </button>
+        </div>
+
+        <div className="settings-content">
+          {activeTab === 'general' && (
+            <>
+          <div className="settings-section">
+            <h3>Obsidian連携</h3>
+
+            <div className="form-group">
+              <label>Vault パス</label>
+              <div className="path-input-container">
+                <div className="path-input-wrapper">
+                  <span className="path-prefix">$</span>
+                  <input
+                    type="text"
+                    className="path-input"
+                    value={settings.obsidianVaultPath}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, obsidianVaultPath: e.target.value }))}
+                    placeholder="パスを入力 または 参照ボタンで選択"
+                  />
+                </div>
+                <button type="button" className="btn-browse" onClick={handleBrowseVault}>
+                  フォルダ参照
+                </button>
+              </div>
+              <span className="form-hint">直接パスを入力するか、参照ボタンでフォルダを選択</span>
+            </div>
+
+            <div className="form-group">
+              <label>デイリーノートパス</label>
+              <div className="path-input-container">
+                <input
+                  type="text"
+                  value={settings.dailyNotePath}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, dailyNotePath: e.target.value }))}
+                  placeholder="Daily Notes/{{date}}.md"
+                />
+                <button type="button" className="btn-browse" onClick={handleBrowseDailyNote}>
+                  フォルダ参照
+                </button>
+              </div>
+              <span className="form-hint">{'{{date}}'} は YYYY-MM-DD に置換。フォルダ選択時は自動で /{'{{date}}'}.md を追加</span>
+            </div>
+
+            <div className="form-group">
+              <label>差し込みマーカー</label>
+              <input
+                type="text"
+                value={settings.insertMarker}
+                onChange={(e) => setSettings((prev) => ({ ...prev, insertMarker: e.target.value }))}
+                placeholder="## Window Board"
+              />
+              <span className="form-hint">この見出しの下に差し込みます（なければ末尾に追加）</span>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>動作設定</h3>
+
+            <div className="form-group">
+              <label>カードクリック時の動作</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="cardClickBehavior"
+                    value="edit"
+                    checked={settings.cardClickBehavior === 'edit'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
+                  />
+                  <span>カード編集を開く</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="cardClickBehavior"
+                    value="jump"
+                    checked={settings.cardClickBehavior === 'jump'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
+                  />
+                  <span>ウィンドウにジャンプ</span>
+                </label>
+              </div>
+              <span className="form-hint">カードをクリックした時のデフォルト動作を選択</span>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>サブタグ管理</h3>
+
+            <div className="form-group">
+              <label>デフォルトタグ</label>
+              <div className="subtag-list">
+                {defaultSubtags.map((st) => (
+                  <div key={st.id} className="subtag-item default">
+                    <span className="subtag-color" style={{ backgroundColor: st.color }} />
+                    <span className="subtag-name">{st.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>カスタムタグ</label>
+              <div className="subtag-list">
+                {(settings.customSubtags || []).map((st) => (
+                  <div key={st.id} className="subtag-item">
+                    {editingSubtagId === st.id ? (
+                      <>
+                        <input
+                          type="text"
+                          className="subtag-edit-name"
+                          value={st.name}
+                          onChange={(e) => handleUpdateSubtag(st.id, { name: e.target.value })}
+                          autoFocus
+                        />
+                        <div className="color-picker-inline">
+                          {PRESET_COLORS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              className={`color-option ${st.color === color ? 'selected' : ''}`}
+                              style={{ backgroundColor: color }}
+                              onClick={() => handleUpdateSubtag(st.id, { color })}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="subtag-action-btn done"
+                          onClick={() => setEditingSubtagId(null)}
+                        >
+                          完了
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="subtag-color" style={{ backgroundColor: st.color }} />
+                        <span className="subtag-name">{st.name}</span>
+                        <button
+                          type="button"
+                          className="subtag-action-btn edit"
+                          onClick={() => setEditingSubtagId(st.id)}
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          className="subtag-action-btn delete"
+                          onClick={() => handleDeleteSubtag(st.id)}
+                        >
+                          削除
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>新しいタグを追加</label>
+              <div className="add-subtag-form">
+                <input
+                  type="text"
+                  placeholder="タグ名"
+                  value={newSubtagName}
+                  onChange={(e) => setNewSubtagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSubtag();
+                    }
+                  }}
+                />
+                <div className="color-picker-inline">
+                  {PRESET_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={`color-option ${newSubtagColor === color ? 'selected' : ''}`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setNewSubtagColor(color)}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="btn-add-subtag"
+                  onClick={handleAddSubtag}
+                  disabled={!newSubtagName.trim()}
+                >
+                  追加
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>データバックアップ</h3>
+
+            <div className="form-group">
+              <label>自動バックアップ</label>
+              <p className="backup-info">
+                {lastBackupTime
+                  ? `最終バックアップ: ${new Date(lastBackupTime).toLocaleString()}`
+                  : 'バックアップはまだありません'}
+              </p>
+              <span className="form-hint">データは1分ごとに自動でバックアップされます</span>
+            </div>
+
+            <div className="form-group">
+              <label>手動バックアップ</label>
+              <div className="backup-buttons">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={onExportBackup}
+                  disabled={!onExportBackup}
+                >
+                  JSONにエクスポート
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={onImportBackup}
+                  disabled={!onImportBackup}
+                >
+                  JSONからインポート
+                </button>
+              </div>
+              <span className="form-hint">バックアップファイルを保存・復元できます</span>
+            </div>
+          </div>
+            </>
+          )}
+
+          {/* プラグインタブ */}
+          {activeTab === 'plugins' && (
+            <>
+              <div className="settings-section">
+                <h3>プラグインをインストール</h3>
+                <div className="form-group">
+                  <label>GitHubリポジトリ</label>
+                  <div className="plugin-install-form">
+                    <input
+                      type="text"
+                      className="plugin-install-input"
+                      placeholder="owner/repo"
+                      value={pluginRepoUrl}
+                      onChange={(e) => setPluginRepoUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleInstallPlugin();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-install"
+                      onClick={handleInstallPlugin}
+                      disabled={isInstalling || !pluginRepoUrl.trim()}
+                    >
+                      {isInstalling ? 'インストール中...' : 'インストール'}
+                    </button>
+                  </div>
+                  <span className="form-hint">GitHubリポジトリを「owner/repo」形式で入力</span>
+
+                  {pluginError && (
+                    <div className="plugin-message error">{pluginError}</div>
+                  )}
+                  {pluginSuccess && (
+                    <div className="plugin-message success">{pluginSuccess}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h3>インストール済みプラグイン</h3>
+                {plugins.length === 0 ? (
+                  <div className="plugins-empty">
+                    <div className="plugins-empty-icon">📦</div>
+                    <div className="plugins-empty-text">
+                      インストールされたプラグインはありません
+                    </div>
+                  </div>
+                ) : (
+                  <div className="plugin-list">
+                    {plugins.map((plugin) => (
+                      <div key={plugin.manifest.id} className="plugin-card">
+                        <div className="plugin-header">
+                          <div className="plugin-info">
+                            <span className="plugin-name">
+                              {plugin.manifest.name}
+                              <span className="plugin-version">v{plugin.manifest.version}</span>
+                            </span>
+                            <span className="plugin-author">by {plugin.manifest.author}</span>
+                          </div>
+                          <div className="plugin-actions">
+                            <button
+                              type="button"
+                              className={`toggle-switch ${plugin.state.enabled ? 'enabled' : ''}`}
+                              onClick={() => handleTogglePlugin(plugin.manifest.id, !plugin.state.enabled)}
+                              title={plugin.state.enabled ? '無効化' : '有効化'}
+                            >
+                              <span className="toggle-switch-knob" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="plugin-description">{plugin.manifest.description}</p>
+                        <div className="plugin-footer">
+                          <span className="plugin-type">{plugin.manifest.type}</span>
+                          <button
+                            type="button"
+                            className="btn-uninstall"
+                            onClick={() => handleUninstallPlugin(plugin.manifest.id, plugin.manifest.name)}
+                          >
+                            アンインストール
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            キャンセル
+          </button>
+          <button type="button" className="btn-primary" onClick={handleSave}>
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

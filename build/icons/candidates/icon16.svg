@@ -1,0 +1,69 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg16" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景（青みがかった暗い色 + 明るい縁） -->
+  <rect x="16" y="16" width="992" height="992" rx="200" fill="url(#bg16)" stroke="rgba(99, 179, 237, 0.5)" stroke-width="16"/>
+
+  <!-- 超シンプル: Terminal & Finder を上半分に大きく -->
+  <!-- Terminal（左） -->
+  <g transform="translate(60, 100)">
+    <rect width="440" height="380" rx="32" fill="#0d1117" stroke="#22c55e" stroke-width="10"/>
+    <rect width="440" height="64" rx="32" fill="#161b22"/>
+    <rect y="48" width="440" height="16" fill="#161b22"/>
+    <circle cx="48" cy="32" r="18" fill="#ff5f56"/>
+    <circle cx="96" cy="32" r="18" fill="#ffbd2e"/>
+    <circle cx="144" cy="32" r="18" fill="#27ca40"/>
+    <!-- ターミナル内容（大きく見やすく） -->
+    <text x="40" y="130" font-family="SF Mono, monospace" font-size="36" font-weight="600" fill="#7ee787">$ dev</text>
+    <text x="40" y="190" font-family="SF Mono, monospace" font-size="32" fill="#3fb950">✓ Ready</text>
+    <rect x="40" y="230" width="20" height="36" fill="#7ee787"/>
+  </g>
+
+  <!-- Finder（右） -->
+  <g transform="translate(524, 100)">
+    <rect width="440" height="380" rx="32" fill="#ffffff" stroke="#3b82f6" stroke-width="10"/>
+    <rect width="440" height="64" rx="32" fill="#f3f4f6"/>
+    <rect y="48" width="440" height="16" fill="#f3f4f6"/>
+    <circle cx="48" cy="32" r="18" fill="#ff5f56"/>
+    <circle cx="96" cy="32" r="18" fill="#ffbd2e"/>
+    <circle cx="144" cy="32" r="18" fill="#27ca40"/>
+    <!-- フォルダ（大きく2x2） -->
+    <rect x="40" y="100" width="170" height="110" rx="16" fill="#54aeff"/>
+    <rect x="40" y="86" width="110" height="24" rx="8" fill="#54aeff"/>
+    <rect x="230" y="100" width="170" height="110" rx="16" fill="#30d158"/>
+    <rect x="230" y="86" width="110" height="24" rx="8" fill="#30d158"/>
+    <rect x="40" y="240" width="170" height="110" rx="16" fill="#ff9f0a"/>
+    <rect x="40" y="226" width="110" height="24" rx="8" fill="#ff9f0a"/>
+    <rect x="230" y="240" width="170" height="110" rx="16" fill="#af52de"/>
+    <rect x="230" y="226" width="110" height="24" rx="8" fill="#af52de"/>
+  </g>
+
+  <!-- 下部: カンバン（超シンプル・大きめ） -->
+  <g transform="translate(60, 520)">
+    <!-- 3列のバー -->
+    <rect x="0" y="0" width="280" height="420" rx="24" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+    <rect x="312" y="0" width="280" height="420" rx="24" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+    <rect x="624" y="0" width="280" height="420" rx="24" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+
+    <!-- 大きなカード -->
+    <!-- 列1 -->
+    <rect x="24" y="50" width="232" height="100" rx="18" fill="#22c55e" opacity="0.4"/>
+    <rect x="24" y="170" width="232" height="100" rx="18" fill="#3b82f6" opacity="0.4"/>
+
+    <!-- 列2（アクティブ） -->
+    <rect x="336" y="50" width="232" height="130" rx="18" fill="#6366f1" opacity="0.35" stroke="#a78bfa" stroke-width="4"/>
+
+    <!-- 列3（完了） -->
+    <rect x="648" y="50" width="232" height="90" rx="18" fill="#22c55e" opacity="0.3"/>
+    <circle cx="840" cy="95" r="28" fill="#22c55e"/>
+    <text x="840" y="106" font-family="system-ui" font-size="32" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+
+    <rect x="648" y="160" width="232" height="90" rx="18" fill="#3b82f6" opacity="0.3"/>
+    <circle cx="840" cy="205" r="28" fill="#3b82f6"/>
+    <text x="840" y="216" font-family="system-ui" font-size="32" font-weight="bold" fill="white" text-anchor="middle">✓</text>
+  </g>
+</svg>
