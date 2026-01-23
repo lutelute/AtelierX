@@ -14,11 +14,12 @@ export interface CustomSubtag {
 // アプリウィンドウ情報
 export interface AppWindow {
   app: 'Terminal' | 'Finder';
-  id: string;           // ウィンドウID（一意）
+  id: string;           // ウィンドウID（Terminalの場合はttyパス）
   name: string;
   path?: string;
   preview?: string;     // ターミナルの実行中プロセス
   windowIndex?: number; // ウィンドウインデックス
+  tty?: string;         // ターミナルのttyパス（例: /dev/ttys001）
 }
 
 // ウィンドウ履歴（過去にリンクされていたウィンドウ）
@@ -52,6 +53,12 @@ export interface ObsidianSettings {
   insertMarker: string;
 }
 
+// デフォルトサブタグの設定（編集・削除対応）
+export interface DefaultSubtagSettings {
+  hidden: string[];  // 非表示（削除）にしたデフォルトサブタグのID
+  overrides: Record<string, { name?: string; color?: string }>;  // 名前・色の上書き
+}
+
 // アプリ設定
 export type CardClickBehavior = 'edit' | 'jump';
 
@@ -61,6 +68,7 @@ export interface Settings {
   insertMarker: string;
   cardClickBehavior: CardClickBehavior;
   customSubtags?: CustomSubtag[];
+  defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
 // ノート情報

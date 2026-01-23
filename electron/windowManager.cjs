@@ -22,13 +22,18 @@ function getAppWindows() {
               try
                 set windowName to name of w
                 set windowId to id of w
+                -- ttyパスを取得（セッション中ユニーク）
+                set ttyPath to ""
+                try
+                  set ttyPath to tty of selected tab of w
+                end try
                 -- 実行中のプロセス一覧を取得
                 set procList to ""
                 try
                   set procs to processes of selected tab of w
                   set procList to procs as text
                 end try
-                set end of windowList to "Terminal|" & windowId & "|" & windowName & "|" & procList & "|" & windowIndex
+                set end of windowList to "Terminal|" & windowId & "|" & windowName & "|" & procList & "|" & windowIndex & "|" & ttyPath
                 set windowIndex to windowIndex + 1
               end try
             end repeat
@@ -76,12 +81,17 @@ function getAppWindows() {
             preview = parts[3].trim();
           }
 
+          // Terminalの場合はttyをIDとして使用（より安定）
+          const tty = parts[5]?.trim();
+          const stableId = (app === 'Terminal' && tty) ? tty : (parts[1] || String(index + 1));
+
           return {
             app,
-            id: parts[1] || String(index + 1),  // ウィンドウID
+            id: stableId,  // ttyまたはウィンドウID
             name: parts[2] || 'Window',
             preview: preview || undefined,
-            windowIndex: parseInt(parts[4]) || (index + 1),  // ウィンドウインデックス
+            windowIndex: parseInt(parts[4]) || (index + 1),
+            tty: tty || undefined,  // ttyパス（Terminal専用）
           };
         });
 
@@ -92,15 +102,46 @@ function getAppWindows() {
 
 /**
  * Terminalウィンドウをポップして前面に表示
- * @param {string} windowId - ウィンドウID
+ * @param {string} windowId - ウィンドウID（ttyパスまたは数値ID）
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  */
 function activateTerminalWindow(windowId, windowName) {
+  const isTtyPath = windowId.startsWith('/dev/');
   const isNumericId = /^\d+$/.test(windowId);
 
   let script;
-  if (isNumericId) {
-    // IDで検索（最も確実）
+  if (isTtyPath) {
+    // ttyパスで検索（最も確実）
+    const escapedTty = windowId.replace(/"/g, '\\"');
+    script = `
+      set targetTty to "${escapedTty}"
+      set found to false
+      tell application "Terminal"
+        repeat with w in windows
+          try
+            if tty of selected tab of w is equal to targetTty then
+              set miniaturized of w to true
+              set found to true
+              exit repeat
+            end if
+          end try
+        end repeat
+        delay 0.2
+        repeat with w in windows
+          try
+            if tty of selected tab of w is equal to targetTty then
+              set miniaturized of w to false
+              set index of w to 1
+              exit repeat
+            end if
+          end try
+        end repeat
+        activate
+      end tell
+      return found
+    `;
+  } else if (isNumericId) {
+    // IDで検索
     script = `
       set targetId to ${windowId}
       set found to false
