@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings } from '../types';
+import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -23,6 +23,7 @@ import { SettingsModal, defaultSettings } from './SettingsModal';
 import { NoteSelectModal } from './NoteSelectModal';
 import { ArchiveSection } from './ArchiveSection';
 import { GridArrangeModal } from './GridArrangeModal';
+import { RelinkWindowModal } from './RelinkWindowModal';
 
 const initialData: BoardData = {
   columns: [
@@ -57,6 +58,8 @@ export function Board() {
   const [backupToRestore, setBackupToRestore] = useState<{ boardData: BoardData; activityLogs: ActivityLog[]; settings: Settings } | null>(null);
   const hasCheckedBackup = useRef(false);
   const [showGridModal, setShowGridModal] = useState(false);
+  const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
+  const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
 
   // アクティビティログを追加
   const addLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
@@ -499,7 +502,7 @@ export function Board() {
     setModalColumnId(columnId);
   };
 
-  const handleCreateCard = (title: string, description: string, tag: TagType, subtag?: SubTagType) => {
+  const handleCreateCard = (title: string, description: string, tag: TagType, subtags?: SubTagType[]) => {
     if (!modalColumnId) return;
 
     const cardId = `card-${Date.now()}`;
@@ -508,7 +511,7 @@ export function Board() {
       title,
       description: description || undefined,
       tag,
-      subtag,
+      subtags,
       createdAt: Date.now(),
     };
 
@@ -540,7 +543,7 @@ export function Board() {
   };
 
   // 新しいターミナルを開いてカードを作成
-  const handleCreateCardWithNewTerminal = async (title: string, description: string, subtag?: SubTagType) => {
+  const handleCreateCardWithNewTerminal = async (title: string, description: string, subtags?: SubTagType[]) => {
     if (!modalColumnId) return;
     if (!window.electronAPI?.openNewTerminal) return;
 
@@ -557,7 +560,7 @@ export function Board() {
       title,
       description: description || undefined,
       tag: 'terminal',
-      subtag,
+      subtags,
       createdAt: Date.now(),
       windowApp: 'Terminal',
       windowName: result.windowName,
@@ -676,30 +679,192 @@ export function Board() {
     }));
   };
 
-  const handleJumpToWindow = (card: CardType) => {
-    if (card.windowApp && (card.windowId || card.windowName) && window.electronAPI?.activateWindow) {
-      // awaitせずに実行（Electronに戻らないようにする）
-      window.electronAPI.activateWindow(card.windowApp, card.windowId || card.windowName!, card.windowName);
+  // ウィンドウ履歴に追加
+  const addToWindowHistory = useCallback((card: CardType) => {
+    if (!card.windowApp || !card.windowId || !card.windowName) return;
+
+    const historyEntry: WindowHistory = {
+      id: `history-${Date.now()}`,
+      app: card.windowApp,
+      windowId: card.windowId,
+      windowName: card.windowName,
+      cardTitle: card.title,
+      lastUsed: Date.now(),
+    };
+
+    setWindowHistory((prev) => {
+      // 同じウィンドウIDの履歴を削除して新しいものを追加
+      const filtered = prev.filter((h) => h.windowId !== card.windowId);
+      // 最大20件まで保持
+      const updated = [historyEntry, ...filtered].slice(0, 20);
+      return updated;
+    });
+  }, [setWindowHistory]);
+
+  // ウィンドウが存在するかチェック
+  const checkWindowExists = async (card: CardType): Promise<boolean> => {
+    if (!window.electronAPI?.getAppWindows) return false;
+    if (!card.windowId) return false;
+
+    try {
+      const windows = await window.electronAPI.getAppWindows();
+      return windows.some((w: AppWindow) => w.id === card.windowId);
+    } catch {
+      return false;
     }
   };
 
-  const handleJumpCard = (cardId: string) => {
+  const handleJumpToWindow = async (card: CardType) => {
+    if (!card.windowApp || (!card.windowId && !card.windowName)) return;
+    if (!window.electronAPI?.activateWindow) return;
+
+    // ウィンドウが存在するかチェック
+    const exists = await checkWindowExists(card);
+
+    if (exists) {
+      // 履歴に追加
+      addToWindowHistory(card);
+      // ウィンドウをアクティブ化
+      window.electronAPI.activateWindow(card.windowApp, card.windowId || card.windowName!, card.windowName);
+    } else {
+      // ウィンドウが見つからない場合は再リンクモーダルを表示
+      setRelinkingCard(card);
+    }
+  };
+
+  const handleJumpCard = async (cardId: string) => {
     const card = data.cards[cardId];
     if (card) {
-      handleJumpToWindow(card);
+      await handleJumpToWindow(card);
     }
   };
 
   // カードクリック時のハンドラ（設定に応じて動作を変更）
-  const handleCardClick = (cardId: string) => {
+  const handleCardClick = async (cardId: string) => {
     const card = data.cards[cardId];
     if (!card) return;
 
     if (settings.cardClickBehavior === 'jump' && card.windowApp && card.windowName) {
-      handleJumpToWindow(card);
+      await handleJumpToWindow(card);
     } else {
       handleEditCard(cardId);
     }
+  };
+
+  // 再リンク: 現在のウィンドウを選択
+  const handleRelinkSelectCurrent = (appWindow: AppWindow) => {
+    if (!relinkingCard) return;
+
+    // 履歴に古いウィンドウ情報を追加
+    addToWindowHistory(relinkingCard);
+
+    // カードを更新
+    setData((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [relinkingCard.id]: {
+          ...prev.cards[relinkingCard.id],
+          windowId: appWindow.id,
+          windowName: appWindow.name,
+        },
+      },
+    }));
+
+    setRelinkingCard(null);
+
+    // 新しいウィンドウをアクティブ化
+    if (window.electronAPI?.activateWindow) {
+      window.electronAPI.activateWindow(appWindow.app, appWindow.id, appWindow.name);
+    }
+  };
+
+  // 再リンク: 履歴から選択
+  const handleRelinkSelectHistory = async (history: WindowHistory) => {
+    if (!relinkingCard) return;
+
+    // 履歴のウィンドウが存在するかチェック
+    if (window.electronAPI?.getAppWindows) {
+      const windows = await window.electronAPI.getAppWindows();
+      const existingWindow = windows.find((w: AppWindow) => w.id === history.windowId);
+
+      if (existingWindow) {
+        // ウィンドウが存在する場合はリンク
+        setData((prev) => ({
+          ...prev,
+          cards: {
+            ...prev.cards,
+            [relinkingCard.id]: {
+              ...prev.cards[relinkingCard.id],
+              windowId: existingWindow.id,
+              windowName: existingWindow.name,
+            },
+          },
+        }));
+
+        setRelinkingCard(null);
+
+        if (window.electronAPI?.activateWindow) {
+          window.electronAPI.activateWindow(existingWindow.app, existingWindow.id, existingWindow.name);
+        }
+      } else {
+        alert('このウィンドウは現在存在しません');
+      }
+    }
+  };
+
+  // 再リンク: 新しいターミナルを開く
+  const handleRelinkOpenNew = async () => {
+    if (!relinkingCard || !window.electronAPI?.openNewTerminal) return;
+
+    const result = await window.electronAPI.openNewTerminal();
+    if (result.success && result.windowName) {
+      // 少し待ってからウィンドウ一覧を再取得
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const windows = await window.electronAPI.getAppWindows();
+      const newWindow = windows.find(
+        (w: AppWindow) => w.app === 'Terminal' && w.name.includes(result.windowName!)
+      );
+
+      if (newWindow) {
+        setData((prev) => ({
+          ...prev,
+          cards: {
+            ...prev.cards,
+            [relinkingCard.id]: {
+              ...prev.cards[relinkingCard.id],
+              windowId: newWindow.id,
+              windowName: newWindow.name,
+            },
+          },
+        }));
+      }
+
+      setRelinkingCard(null);
+    }
+  };
+
+  // 再リンク: リンクを解除
+  const handleRelinkUnlink = () => {
+    if (!relinkingCard) return;
+
+    // 履歴に古いウィンドウ情報を追加
+    addToWindowHistory(relinkingCard);
+
+    setData((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [relinkingCard.id]: {
+          ...prev.cards[relinkingCard.id],
+          windowApp: undefined,
+          windowId: undefined,
+          windowName: undefined,
+        },
+      },
+    }));
+
+    setRelinkingCard(null);
   };
 
   // カードの説明を更新（タスクチェック用）
@@ -775,7 +940,7 @@ export function Board() {
   return (
     <div className="board-container">
       <header className="board-header">
-        <h1>Window Board</h1>
+        <h1>AtelierX</h1>
         <div className="board-tabs">
           <button
             className={`board-tab ${activeBoard === 'terminal' ? 'active' : ''}`}
@@ -941,6 +1106,17 @@ export function Board() {
           appType={activeBoard === 'terminal' ? 'Terminal' : 'Finder'}
           onClose={() => setShowGridModal(false)}
           onArrange={handleArrangeGrid}
+        />
+      )}
+      {relinkingCard && (
+        <RelinkWindowModal
+          card={relinkingCard}
+          windowHistory={windowHistory}
+          onClose={() => setRelinkingCard(null)}
+          onSelectCurrent={handleRelinkSelectCurrent}
+          onSelectHistory={handleRelinkSelectHistory}
+          onOpenNew={handleRelinkOpenNew}
+          onUnlink={handleRelinkUnlink}
         />
       )}
     </div>

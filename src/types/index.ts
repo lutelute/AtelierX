@@ -21,6 +21,16 @@ export interface AppWindow {
   windowIndex?: number; // ウィンドウインデックス
 }
 
+// ウィンドウ履歴（過去にリンクされていたウィンドウ）
+export interface WindowHistory {
+  id: string;           // 履歴ID
+  app: 'Terminal' | 'Finder';
+  windowId: string;     // 元のウィンドウID
+  windowName: string;   // ウィンドウ名
+  cardTitle: string;    // 紐付いていたカードのタイトル
+  lastUsed: number;     // 最後に使用された時刻
+}
+
 // アクティビティログ
 export type ActivityType = 'move' | 'create' | 'delete' | 'complete';
 
@@ -201,7 +211,8 @@ export interface Card {
   description?: string;  // タスクの詳細説明
   comment?: string;      // 完了時のコメント
   tag: TagType;
-  subtag?: SubTagType;   // サブタグ（研究/雑務/その他）
+  subtag?: SubTagType;   // 旧形式（後方互換性用）
+  subtags?: SubTagType[]; // サブタグ（複数選択可能）
   createdAt: number;
   completedAt?: number;  // 完了時刻
   archived?: boolean;    // アーカイブ済みフラグ
