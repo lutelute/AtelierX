@@ -13,6 +13,7 @@ interface CardProps {
   onArchive?: (id: string) => void;
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
+  isBrokenLink?: boolean;
 }
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
@@ -74,7 +75,7 @@ function MarkdownContent({
   );
 }
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false }: CardProps) {
   const {
     attributes,
     listeners,
@@ -135,9 +136,9 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     onCardClick?.(card.id);
   };
 
-  // ウィンドウリンクの有無でクラスを追加
+  // ウィンドウリンクの状態でクラスを追加
   const hasWindowLink = !!card.windowApp;
-  const linkClass = hasWindowLink ? 'card-linked' : 'card-unlinked';
+  const linkClass = isBrokenLink ? 'card-broken-link' : hasWindowLink ? 'card-linked' : 'card-unlinked';
 
   return (
     <div

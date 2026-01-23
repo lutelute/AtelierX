@@ -16,9 +16,10 @@ interface ColumnProps {
   onArchiveCard?: (cardId: string) => void;
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
+  brokenLinkCardIds?: Set<string>;
 }
 
-export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings }: ColumnProps) {
+export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set() }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -43,6 +44,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               onArchive={column.id === 'done' ? onArchiveCard : undefined}
               customSubtags={customSubtags}
               defaultSubtagSettings={defaultSubtagSettings}
+              isBrokenLink={brokenLinkCardIds.has(card.id)}
             />
           ))}
         </SortableContext>

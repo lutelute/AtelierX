@@ -1221,6 +1221,37 @@ body {
   color: #fff;
 }
 
+.reminder-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.reminder-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reminder-tab {
+  flex: 1;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: #71717a;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.reminder-tab:hover {
+  color: #a1a1aa;
+}
+
+.reminder-tab.active {
+  color: #fbbf24;
+  border-bottom-color: #fbbf24;
+}
+
 .reminder-list {
   padding: 12px;
   max-height: 250px;
@@ -1290,6 +1321,28 @@ body {
 .reminder-add-button:hover {
   background: rgba(99, 102, 241, 0.3);
   border-color: rgba(99, 102, 241, 0.5);
+}
+
+.reminder-item.broken {
+  border-left: 3px solid #ef4444;
+}
+
+.reminder-relink-button {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.reminder-relink-button:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* Export Modal Styles */
@@ -1796,6 +1849,28 @@ body {
 
 .card.card-unlinked:hover {
   border-left-color: rgba(113, 113, 122, 0.5);
+}
+
+.card.card-broken-link {
+  border-left: 3px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.03);
+  opacity: 0.7;
+}
+
+.card.card-broken-link:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-left-color: rgba(239, 68, 68, 0.8);
+  opacity: 1;
+}
+
+.card.card-broken-link .card-jump-button {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.card.card-broken-link .card-jump-button:hover {
+  background: rgba(239, 68, 68, 0.25);
 }
 
 /* Settings Section Spacing */

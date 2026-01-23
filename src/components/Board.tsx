@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -60,6 +60,7 @@ export function Board() {
   const [showGridModal, setShowGridModal] = useState(false);
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
+  const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
 
   // アクティビティログを追加
   const addLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
@@ -251,42 +252,59 @@ export function Board() {
     alert('ノートに差し込みました');
   };
 
-  // ボードに登録されていないウィンドウをチェック
-  const checkUnaddedWindows = useCallback(async () => {
+  // ウィンドウの状態をチェック（未追加ウィンドウ＆リンク切れカード）
+  const checkWindowStatus = useCallback(async () => {
     if (!window.electronAPI?.getAppWindows) return;
 
     try {
       const currentWindows = await window.electronAPI.getAppWindows();
+      const currentWindowIds = new Set(currentWindows.map((w: AppWindow) => w.id));
 
-      // ボードに登録されているウィンドウ名を取得
-      const registeredWindowNames = new Set(
+      // ボードに登録されているウィンドウIDを取得
+      const registeredWindowIds = new Set(
         Object.values(data.cards)
-          .filter((card) => card.windowName)
-          .map((card) => card.windowName?.split(' — ')[0])
+          .filter((card) => card.windowId && !card.archived)
+          .map((card) => card.windowId)
       );
 
       // 未登録のウィンドウをフィルタ（アクティブなボードに応じて）
       const unadded = currentWindows.filter((win: AppWindow) => {
-        const shortName = win.name.split(' — ')[0];
-        const isRegistered = registeredWindowNames.has(shortName);
+        const isRegistered = registeredWindowIds.has(win.id);
         const matchesActiveBoard = activeBoard === 'terminal'
           ? win.app === 'Terminal'
           : win.app === 'Finder';
         return !isRegistered && matchesActiveBoard;
       });
 
+      // リンク切れカードをチェック
+      // windowAppがあるがウィンドウが存在しない（windowIdがないか、windowIdのウィンドウが存在しない）
+      const broken = Object.values(data.cards).filter((card) => {
+        if (!card.windowApp || card.archived) return false;
+        const matchesActiveBoard = activeBoard === 'terminal'
+          ? card.windowApp === 'Terminal' || card.tag === 'terminal'
+          : card.windowApp === 'Finder' || card.tag === 'finder';
+        if (!matchesActiveBoard) return false;
+
+        // windowIdがない場合はリンク切れ
+        if (!card.windowId) return true;
+
+        // windowIdがあるがウィンドウが存在しない場合もリンク切れ
+        return !currentWindowIds.has(card.windowId);
+      });
+
       setUnaddedWindows(unadded);
+      setBrokenLinkCards(broken);
     } catch (error) {
-      console.error('Failed to check unadded windows:', error);
+      console.error('Failed to check window status:', error);
     }
   }, [data.cards, activeBoard]);
 
   // 定期的にチェック
   useEffect(() => {
-    checkUnaddedWindows();
-    const interval = setInterval(checkUnaddedWindows, REMINDER_INTERVAL);
+    checkWindowStatus();
+    const interval = setInterval(checkWindowStatus, REMINDER_INTERVAL);
     return () => clearInterval(interval);
-  }, [checkUnaddedWindows]);
+  }, [checkWindowStatus]);
 
   // リマインダから直接ウィンドウを追加
   const handleAddFromReminder = (appWindow: AppWindow) => {
@@ -323,7 +341,7 @@ export function Board() {
     }));
 
     // 追加後にリストを更新
-    checkUnaddedWindows();
+    checkWindowStatus();
   };
 
   // 未追加のウィンドウを全て追加
@@ -367,7 +385,7 @@ export function Board() {
       }),
     }));
 
-    checkUnaddedWindows();
+    checkWindowStatus();
   };
 
   const sensors = useSensors(
@@ -941,6 +959,11 @@ export function Board() {
       });
   };
 
+  // リンク切れカードのIDセット
+  const brokenLinkCardIds = useMemo(() => {
+    return new Set(brokenLinkCards.map((card) => card.id));
+  }, [brokenLinkCards]);
+
   return (
     <div className="board-container">
       <header className="board-header">
@@ -998,6 +1021,7 @@ export function Board() {
               onArchiveCard={handleArchiveCard}
               customSubtags={settings.customSubtags}
               defaultSubtagSettings={settings.defaultSubtagSettings}
+              brokenLinkCardIds={brokenLinkCardIds}
             />
           ))}
         </div>
@@ -1085,7 +1109,9 @@ export function Board() {
       {!reminderDismissed && (
         <ReminderNotification
           unaddedWindows={unaddedWindows}
+          brokenLinkCards={brokenLinkCards}
           onAddWindow={handleAddFromReminder}
+          onRelinkCard={(card) => setRelinkingCard(card)}
           onDismiss={() => setReminderDismissed(true)}
         />
       )}
