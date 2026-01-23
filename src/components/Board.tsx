@@ -701,16 +701,37 @@ export function Board() {
     });
   }, [setWindowHistory]);
 
-  // ウィンドウが存在するかチェック
-  const checkWindowExists = async (card: CardType): Promise<boolean> => {
-    if (!window.electronAPI?.getAppWindows) return false;
-    if (!card.windowId) return false;
+  // ウィンドウが存在するかチェック（IDで見つからない場合は名前でフォールバック）
+  const findMatchingWindow = async (card: CardType): Promise<AppWindow | null> => {
+    if (!window.electronAPI?.getAppWindows) return null;
+    if (!card.windowApp) return null;
 
     try {
       const windows = await window.electronAPI.getAppWindows();
-      return windows.some((w: AppWindow) => w.id === card.windowId);
+      const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
+
+      // まずIDで検索
+      if (card.windowId) {
+        const byId = appWindows.find((w: AppWindow) => w.id === card.windowId);
+        if (byId) return byId;
+      }
+
+      // IDで見つからない場合、名前で検索（完全一致）
+      if (card.windowName) {
+        const byName = appWindows.find((w: AppWindow) => w.name === card.windowName);
+        if (byName) return byName;
+
+        // 名前の先頭部分（フォルダ名）で検索
+        const shortName = card.windowName.split(' — ')[0];
+        const byShortName = appWindows.find((w: AppWindow) =>
+          w.name.split(' — ')[0] === shortName
+        );
+        if (byShortName) return byShortName;
+      }
+
+      return null;
     } catch {
-      return false;
+      return null;
     }
   };
 
@@ -718,14 +739,29 @@ export function Board() {
     if (!card.windowApp || (!card.windowId && !card.windowName)) return;
     if (!window.electronAPI?.activateWindow) return;
 
-    // ウィンドウが存在するかチェック
-    const exists = await checkWindowExists(card);
+    // ウィンドウを検索（IDまたは名前で）
+    const matchedWindow = await findMatchingWindow(card);
 
-    if (exists) {
+    if (matchedWindow) {
+      // IDが変わっていた場合はカードを更新
+      if (matchedWindow.id !== card.windowId || matchedWindow.name !== card.windowName) {
+        setData((prev) => ({
+          ...prev,
+          cards: {
+            ...prev.cards,
+            [card.id]: {
+              ...prev.cards[card.id],
+              windowId: matchedWindow.id,
+              windowName: matchedWindow.name,
+            },
+          },
+        }));
+      }
+
       // 履歴に追加
-      addToWindowHistory(card);
+      addToWindowHistory({ ...card, windowId: matchedWindow.id, windowName: matchedWindow.name });
       // ウィンドウをアクティブ化
-      window.electronAPI.activateWindow(card.windowApp, card.windowId || card.windowName!, card.windowName);
+      window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name);
     } else {
       // ウィンドウが見つからない場合は再リンクモーダルを表示
       setRelinkingCard(card);
@@ -993,6 +1029,7 @@ export function Board() {
               onCardClick={handleCardClick}
               onArchiveCard={handleArchiveCard}
               customSubtags={settings.customSubtags}
+              defaultSubtagSettings={settings.defaultSubtagSettings}
             />
           ))}
         </div>
@@ -1006,6 +1043,8 @@ export function Board() {
         cards={getArchivedCards()}
         onRestore={handleRestoreCard}
         onDelete={handleDeleteCard}
+        customSubtags={settings.customSubtags}
+        defaultSubtagSettings={settings.defaultSubtagSettings}
       />
       {modalColumnId && (
         <AddCardModal
@@ -1019,6 +1058,7 @@ export function Board() {
               customSubtags: [...(prev.customSubtags || []), newSubtag],
             }));
           }}
+          defaultSubtagSettings={settings.defaultSubtagSettings}
         />
       )}
       {windowSelectColumnId && (
@@ -1041,6 +1081,7 @@ export function Board() {
               customSubtags: [...(prev.customSubtags || []), newSubtag],
             }));
           }}
+          defaultSubtagSettings={settings.defaultSubtagSettings}
         />
       )}
       {!reminderDismissed && (
