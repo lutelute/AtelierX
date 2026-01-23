@@ -701,65 +701,33 @@ export function Board() {
     });
   }, [setWindowHistory]);
 
-  // ウィンドウが存在するかチェック（IDで見つからない場合は名前でフォールバック）
+  // ウィンドウが存在するかチェック（IDのみで検索、名前は信頼できない）
   const findMatchingWindow = async (card: CardType): Promise<AppWindow | null> => {
     if (!window.electronAPI?.getAppWindows) return null;
-    if (!card.windowApp) return null;
+    if (!card.windowApp || !card.windowId) return null;
 
     try {
       const windows = await window.electronAPI.getAppWindows();
       const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
 
-      // まずIDで検索
-      if (card.windowId) {
-        const byId = appWindows.find((w: AppWindow) => w.id === card.windowId);
-        if (byId) return byId;
-      }
-
-      // IDで見つからない場合、名前で検索（完全一致）
-      if (card.windowName) {
-        const byName = appWindows.find((w: AppWindow) => w.name === card.windowName);
-        if (byName) return byName;
-
-        // 名前の先頭部分（フォルダ名）で検索
-        const shortName = card.windowName.split(' — ')[0];
-        const byShortName = appWindows.find((w: AppWindow) =>
-          w.name.split(' — ')[0] === shortName
-        );
-        if (byShortName) return byShortName;
-      }
-
-      return null;
+      // IDで検索（名前は同じディレクトリ名の場合があるため使用しない）
+      const byId = appWindows.find((w: AppWindow) => w.id === card.windowId);
+      return byId || null;
     } catch {
       return null;
     }
   };
 
   const handleJumpToWindow = async (card: CardType) => {
-    if (!card.windowApp || (!card.windowId && !card.windowName)) return;
+    if (!card.windowApp || !card.windowId) return;
     if (!window.electronAPI?.activateWindow) return;
 
-    // ウィンドウを検索（IDまたは名前で）
+    // ウィンドウをIDで検索
     const matchedWindow = await findMatchingWindow(card);
 
     if (matchedWindow) {
-      // IDが変わっていた場合はカードを更新
-      if (matchedWindow.id !== card.windowId || matchedWindow.name !== card.windowName) {
-        setData((prev) => ({
-          ...prev,
-          cards: {
-            ...prev.cards,
-            [card.id]: {
-              ...prev.cards[card.id],
-              windowId: matchedWindow.id,
-              windowName: matchedWindow.name,
-            },
-          },
-        }));
-      }
-
       // 履歴に追加
-      addToWindowHistory({ ...card, windowId: matchedWindow.id, windowName: matchedWindow.name });
+      addToWindowHistory(card);
       // ウィンドウをアクティブ化
       window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name);
     } else {
@@ -1079,6 +1047,36 @@ export function Board() {
             setSettings((prev) => ({
               ...prev,
               customSubtags: [...(prev.customSubtags || []), newSubtag],
+            }));
+          }}
+          onUpdateSubtag={(id, updates) => {
+            setSettings((prev) => ({
+              ...prev,
+              customSubtags: (prev.customSubtags || []).map((st) =>
+                st.id === id ? { ...st, ...updates } : st
+              ),
+            }));
+          }}
+          onDeleteSubtag={(id) => {
+            setSettings((prev) => ({
+              ...prev,
+              customSubtags: (prev.customSubtags || []).filter((st) => st.id !== id),
+            }));
+          }}
+          onUpdateDefaultSubtag={(id, updates) => {
+            const current = settings.defaultSubtagSettings || { hidden: [], overrides: {} };
+            setSettings((prev) => ({
+              ...prev,
+              defaultSubtagSettings: {
+                ...current,
+                overrides: {
+                  ...current.overrides,
+                  [id]: {
+                    ...current.overrides[id],
+                    ...updates,
+                  },
+                },
+              },
             }));
           }}
           defaultSubtagSettings={settings.defaultSubtagSettings}
