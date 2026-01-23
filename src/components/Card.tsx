@@ -100,7 +100,9 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     return null;
   };
 
-  const subtagInfo = card.subtag ? getSubtagInfo(card.subtag) : null;
+  // 後方互換性: subtag と subtags 両方をサポート
+  const cardSubtags = card.subtags || (card.subtag ? [card.subtag] : []);
+  const subtagInfos = cardSubtags.map(st => getSubtagInfo(st)).filter((info): info is { color: string; label: string } => info !== null);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -131,11 +133,15 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     onCardClick?.(card.id);
   };
 
+  // ウィンドウリンクの有無でクラスを追加
+  const hasWindowLink = !!card.windowApp;
+  const linkClass = hasWindowLink ? 'card-linked' : 'card-unlinked';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`card ${onCardClick ? 'card-clickable' : ''}`}
+      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass}`}
       onClick={handleCardClick}
       {...attributes}
       {...listeners}
@@ -148,14 +154,15 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
           >
             {TAG_LABELS[card.tag]}
           </span>
-          {subtagInfo && (
+          {subtagInfos.map((info, index) => (
             <span
+              key={index}
               className="card-subtag"
-              style={{ backgroundColor: subtagInfo.color }}
+              style={{ backgroundColor: info.color }}
             >
-              {subtagInfo.label}
+              {info.label}
             </span>
-          )}
+          ))}
         </div>
         <div className="card-actions">
           {onArchive && (
