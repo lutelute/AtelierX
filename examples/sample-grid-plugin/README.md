@@ -1,6 +1,6 @@
 # Sample Grid Layouts Plugin
 
-Window Board のサンプルプラグインです。グリッドレイアウトプリセットを追加します。
+AtelierX のサンプルプラグインです。グリッドレイアウトプリセットを追加します。
 
 ## 含まれるレイアウト
 
@@ -16,19 +16,19 @@ Window Board のサンプルプラグインです。グリッドレイアウト�
 
 ### 方法1: ローカルテスト
 
-1. このフォルダを Window Board のプラグインディレクトリにコピー:
+1. このフォルダを AtelierX のプラグインディレクトリにコピー:
    ```
-   ~/Library/Application Support/Window Board/plugins/sample-grid-layouts/
+   ~/Library/Application Support/AtelierX/plugins/sample-grid-layouts/
    ```
 
-2. Window Board を再起動
+2. AtelierX を再起動
 
 3. `Cmd + ,` → プラグインタブ → 有効化
 
 ### 方法2: GitHub経由
 
 1. このフォルダを GitHub リポジトリとして公開
-2. Window Board で `Cmd + ,` → プラグインタブ
+2. AtelierX で `Cmd + ,` → プラグインタブ
 3. `your-username/sample-grid-layouts` を入力
 4. インストール
 

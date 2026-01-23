@@ -67,7 +67,7 @@ module.exports = {
 
 ### 5. テスト
 
-1. Window Board を再起動（または `Cmd + R` でリロード）
+1. AtelierX を再起動（または `Cmd + R` でリロード）
 2. `Cmd + ,` で設定を開く
 3. プラグインタブで有効化
 4. 動作確認
@@ -78,7 +78,7 @@ module.exports = {
 
 ```bash
 ./install-local.sh my-plugin
-# Window Board を再起動
+# AtelierX を再起動
 ```
 
 ## デバッグ
@@ -91,13 +91,13 @@ module.exports = {
 ### インストール先の確認
 
 ```bash
-ls -la ~/Library/Application\ Support/Window\ Board/plugins/
+ls -la ~/Library/Application\ Support/AtelierX/plugins/
 ```
 
 ### プラグインを削除
 
 ```bash
-rm -rf ~/Library/Application\ Support/Window\ Board/plugins/my-plugin
+rm -rf ~/Library/Application\ Support/AtelierX/plugins/my-plugin
 ```
 
 ## 注意事項

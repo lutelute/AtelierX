@@ -1,7 +1,7 @@
 /**
  * Sample Grid Layouts Plugin
  *
- * Window Board のプラグイン開発サンプル
+ * AtelierX のプラグイン開発サンプル
  * グリッドレイアウトプリセットを追加します
  */
 

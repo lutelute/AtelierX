@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Column as ColumnType, Card as CardType, CustomSubtag } from '../types';
+import { Column as ColumnType, Card as CardType, CustomSubtag, DefaultSubtagSettings } from '../types';
 import { Card } from './Card';
 
 interface ColumnProps {
@@ -15,9 +15,10 @@ interface ColumnProps {
   onCardClick?: (cardId: string) => void;
   onArchiveCard?: (cardId: string) => void;
   customSubtags?: CustomSubtag[];
+  defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
-export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [] }: ColumnProps) {
+export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -41,6 +42,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               onCardClick={onCardClick}
               onArchive={column.id === 'done' ? onArchiveCard : undefined}
               customSubtags={customSubtags}
+              defaultSubtagSettings={defaultSubtagSettings}
             />
           ))}
         </SortableContext>

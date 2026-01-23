@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CardClickBehavior, CustomSubtag, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin } from '../types';
+import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin } from '../types';
 
 export { type CardClickBehavior };
 export { type Settings };
@@ -18,7 +18,7 @@ interface SettingsModalProps {
 export const defaultSettings: Settings = {
   obsidianVaultPath: '',
   dailyNotePath: 'Daily Notes/{{date}}.md',
-  insertMarker: '## Window Board',
+  insertMarker: '## AtelierX',
   cardClickBehavior: 'edit',  // デフォルトはカード編集
   customSubtags: [],
 };
@@ -47,6 +47,7 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
   const [newSubtagName, setNewSubtagName] = useState('');
   const [newSubtagColor, setNewSubtagColor] = useState(PRESET_COLORS[0]);
   const [editingSubtagId, setEditingSubtagId] = useState<string | null>(null);
+  const [editingDefaultSubtagId, setEditingDefaultSubtagId] = useState<string | null>(null);
 
   // タブ管理
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -167,12 +168,90 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
     }));
   };
 
-  // デフォルトサブタグの一覧
-  const defaultSubtags: { id: SubTagType; name: string; color: string }[] = [
-    { id: 'research', name: SUBTAG_LABELS.research, color: SUBTAG_COLORS.research },
-    { id: 'routine', name: SUBTAG_LABELS.routine, color: SUBTAG_COLORS.routine },
-    { id: 'misc', name: SUBTAG_LABELS.misc, color: SUBTAG_COLORS.misc },
-  ];
+  // デフォルトサブタグの設定を取得（上書きを適用）
+  const getDefaultSubtagSettings = (): DefaultSubtagSettings => {
+    return settings.defaultSubtagSettings || { hidden: [], overrides: {} };
+  };
+
+  // デフォルトサブタグを非表示にする
+  const handleHideDefaultSubtag = (id: string) => {
+    const current = getDefaultSubtagSettings();
+    setSettings((prev) => ({
+      ...prev,
+      defaultSubtagSettings: {
+        ...current,
+        hidden: [...current.hidden, id],
+      },
+    }));
+  };
+
+  // デフォルトサブタグを再表示する
+  const handleShowDefaultSubtag = (id: string) => {
+    const current = getDefaultSubtagSettings();
+    setSettings((prev) => ({
+      ...prev,
+      defaultSubtagSettings: {
+        ...current,
+        hidden: current.hidden.filter((h) => h !== id),
+      },
+    }));
+  };
+
+  // デフォルトサブタグの名前・色を更新
+  const handleUpdateDefaultSubtag = (id: string, updates: { name?: string; color?: string }) => {
+    const current = getDefaultSubtagSettings();
+    setSettings((prev) => ({
+      ...prev,
+      defaultSubtagSettings: {
+        ...current,
+        overrides: {
+          ...current.overrides,
+          [id]: {
+            ...current.overrides[id],
+            ...updates,
+          },
+        },
+      },
+    }));
+  };
+
+  // デフォルトサブタグをリセット（元に戻す）
+  const handleResetDefaultSubtag = (id: string) => {
+    const current = getDefaultSubtagSettings();
+    const newOverrides = { ...current.overrides };
+    delete newOverrides[id];
+    setSettings((prev) => ({
+      ...prev,
+      defaultSubtagSettings: {
+        ...current,
+        overrides: newOverrides,
+      },
+    }));
+  };
+
+  // デフォルトサブタグの一覧（上書きを適用済み）
+  const defaultSubtags: { id: SubTagType; name: string; color: string; originalName: string; originalColor: string }[] = [
+    { id: 'research', name: SUBTAG_LABELS.research, color: SUBTAG_COLORS.research, originalName: SUBTAG_LABELS.research, originalColor: SUBTAG_COLORS.research },
+    { id: 'routine', name: SUBTAG_LABELS.routine, color: SUBTAG_COLORS.routine, originalName: SUBTAG_LABELS.routine, originalColor: SUBTAG_COLORS.routine },
+    { id: 'misc', name: SUBTAG_LABELS.misc, color: SUBTAG_COLORS.misc, originalName: SUBTAG_LABELS.misc, originalColor: SUBTAG_COLORS.misc },
+  ].map((st) => {
+    const override = getDefaultSubtagSettings().overrides[st.id];
+    return {
+      ...st,
+      name: override?.name || st.name,
+      color: override?.color || st.color,
+    };
+  });
+
+  // 非表示のデフォルトサブタグ
+  const hiddenDefaultSubtags = defaultSubtags.filter((st) =>
+    getDefaultSubtagSettings().hidden.includes(st.id)
+  );
+
+  // 表示中のデフォルトサブタグ
+  const visibleDefaultSubtags = defaultSubtags.filter(
+    (st) => !getDefaultSubtagSettings().hidden.includes(st.id)
+  );
 
   const handleBrowseVault = async () => {
     if (window.electronAPI?.selectFolder) {
@@ -271,7 +350,7 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
                 type="text"
                 value={settings.insertMarker}
                 onChange={(e) => setSettings((prev) => ({ ...prev, insertMarker: e.target.value }))}
-                placeholder="## Window Board"
+                placeholder="## AtelierX"
               />
               <span className="form-hint">この見出しの下に差し込みます（なければ末尾に追加）</span>
             </div>
@@ -314,13 +393,92 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
             <div className="form-group">
               <label>デフォルトタグ</label>
               <div className="subtag-list">
-                {defaultSubtags.map((st) => (
-                  <div key={st.id} className="subtag-item default">
-                    <span className="subtag-color" style={{ backgroundColor: st.color }} />
-                    <span className="subtag-name">{st.name}</span>
+                {visibleDefaultSubtags.map((st) => (
+                  <div key={st.id} className="subtag-item">
+                    {editingDefaultSubtagId === st.id ? (
+                      <>
+                        <input
+                          type="text"
+                          className="subtag-edit-name"
+                          value={st.name}
+                          onChange={(e) => handleUpdateDefaultSubtag(st.id, { name: e.target.value })}
+                          autoFocus
+                        />
+                        <div className="color-picker-inline">
+                          {PRESET_COLORS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              className={`color-option ${st.color === color ? 'selected' : ''}`}
+                              style={{ backgroundColor: color }}
+                              onClick={() => handleUpdateDefaultSubtag(st.id, { color })}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="subtag-action-btn done"
+                          onClick={() => setEditingDefaultSubtagId(null)}
+                        >
+                          完了
+                        </button>
+                        {(st.name !== st.originalName || st.color !== st.originalColor) && (
+                          <button
+                            type="button"
+                            className="subtag-action-btn reset"
+                            onClick={() => handleResetDefaultSubtag(st.id)}
+                            title="元に戻す"
+                          >
+                            リセット
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="subtag-color" style={{ backgroundColor: st.color }} />
+                        <span className="subtag-name">{st.name}</span>
+                        {(st.name !== st.originalName || st.color !== st.originalColor) && (
+                          <span className="subtag-modified">(変更済み)</span>
+                        )}
+                        <button
+                          type="button"
+                          className="subtag-action-btn edit"
+                          onClick={() => setEditingDefaultSubtagId(st.id)}
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          className="subtag-action-btn delete"
+                          onClick={() => handleHideDefaultSubtag(st.id)}
+                        >
+                          非表示
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
+              {hiddenDefaultSubtags.length > 0 && (
+                <div className="hidden-subtags">
+                  <label>非表示のデフォルトタグ</label>
+                  <div className="subtag-list">
+                    {hiddenDefaultSubtags.map((st) => (
+                      <div key={st.id} className="subtag-item hidden">
+                        <span className="subtag-color" style={{ backgroundColor: st.color, opacity: 0.5 }} />
+                        <span className="subtag-name" style={{ opacity: 0.5 }}>{st.name}</span>
+                        <button
+                          type="button"
+                          className="subtag-action-btn restore"
+                          onClick={() => handleShowDefaultSubtag(st.id)}
+                        >
+                          再表示
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="form-group">

@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Card as CardType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS } from '../types';
+import { Card as CardType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings } from '../types';
 
 interface ArchiveSectionProps {
   cards: CardType[];
   onRestore: (cardId: string) => void;
   onDelete: (cardId: string) => void;
+  customSubtags?: CustomSubtag[];
+  defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
 interface GroupedCards {
   [key: string]: CardType[];
 }
 
-export function ArchiveSection({ cards, onRestore, onDelete }: ArchiveSectionProps) {
+export function ArchiveSection({ cards, onRestore, onDelete, customSubtags = [], defaultSubtagSettings }: ArchiveSectionProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -43,12 +45,26 @@ export function ArchiveSection({ cards, onRestore, onDelete }: ArchiveSectionPro
 
   const getGroupLabel = (key: string) => {
     if (key === 'none') return 'サブタグなし';
-    return SUBTAG_LABELS[key as SubTagType];
+    // デフォルトサブタグの場合
+    if (key in SUBTAG_LABELS) {
+      const override = defaultSubtagSettings?.overrides?.[key];
+      return override?.name || SUBTAG_LABELS[key as SubTagType];
+    }
+    // カスタムサブタグの場合
+    const customTag = customSubtags.find((st) => st.id === key);
+    return customTag?.name || key;
   };
 
   const getGroupColor = (key: string) => {
     if (key === 'none') return '#6b7280';
-    return SUBTAG_COLORS[key as SubTagType];
+    // デフォルトサブタグの場合
+    if (key in SUBTAG_COLORS) {
+      const override = defaultSubtagSettings?.overrides?.[key];
+      return override?.color || SUBTAG_COLORS[key as SubTagType];
+    }
+    // カスタムサブタグの場合
+    const customTag = customSubtags.find((st) => st.id === key);
+    return customTag?.color || '#6b7280';
   };
 
   const formatDate = (timestamp?: number) => {

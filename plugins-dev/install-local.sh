@@ -6,7 +6,7 @@
 # 例: ./install-local.sh hello-plugin
 
 PLUGIN_NAME=$1
-PLUGINS_DIR="$HOME/Library/Application Support/Window Board/plugins"
+PLUGINS_DIR="$HOME/Library/Application Support/AtelierX/plugins"
 REGISTRY_FILE="$PLUGINS_DIR/plugins.json"
 
 if [ -z "$PLUGIN_NAME" ]; then

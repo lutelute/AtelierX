@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, TagType, SubTagType, TAG_LABELS, TAG_COLORS, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, AppWindow } from '../types';
+import { Card, TagType, SubTagType, TAG_LABELS, TAG_COLORS, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow } from '../types';
 
 // プリセットカラー
 const PRESET_COLORS = [
@@ -15,9 +15,13 @@ interface EditCardModalProps {
   onJump: () => void;
   customSubtags?: CustomSubtag[];
   onAddSubtag?: (subtag: CustomSubtag) => void;
+  onUpdateSubtag?: (id: string, updates: Partial<CustomSubtag>) => void;
+  onDeleteSubtag?: (id: string) => void;
+  onUpdateDefaultSubtag?: (id: string, updates: { name?: string; color?: string }) => void;
+  defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
-export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [], onAddSubtag }: EditCardModalProps) {
+export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings }: EditCardModalProps) {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [comment, setComment] = useState(card.comment || '');
@@ -28,6 +32,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
   const [showAddSubtag, setShowAddSubtag] = useState(false);
   const [newSubtagName, setNewSubtagName] = useState('');
   const [newSubtagColor, setNewSubtagColor] = useState(PRESET_COLORS[0]);
+  const [editingSubtagId, setEditingSubtagId] = useState<string | null>(null);
 
   // ウィンドウ紐付け用の状態
   const [windowApp, setWindowApp] = useState<'Terminal' | 'Finder' | undefined>(card.windowApp);
@@ -159,6 +164,20 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
     }
   };
 
+  // デフォルトサブタグの情報を取得（上書きを適用）
+  const getDefaultSubtagInfo = (id: SubTagType) => {
+    const override = defaultSubtagSettings?.overrides?.[id];
+    return {
+      name: override?.name || SUBTAG_LABELS[id as keyof typeof SUBTAG_LABELS],
+      color: override?.color || SUBTAG_COLORS[id as keyof typeof SUBTAG_COLORS],
+    };
+  };
+
+  // 表示するデフォルトサブタグ（非表示を除外）
+  const visibleDefaultSubtags = (Object.keys(SUBTAG_LABELS) as SubTagType[]).filter(
+    (id) => !defaultSubtagSettings?.hidden?.includes(id)
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
@@ -281,42 +300,139 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
               >
                 なし
               </button>
-              {(Object.keys(SUBTAG_LABELS) as SubTagType[]).map((subtagOption) => (
-                <button
-                  key={subtagOption}
-                  type="button"
-                  className={`tag-option ${subtags.includes(subtagOption) ? 'selected' : ''}`}
-                  style={{
-                    borderColor: subtags.includes(subtagOption) ? SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS] : 'transparent',
-                    backgroundColor: subtags.includes(subtagOption) ? `${SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS]}20` : 'transparent',
-                  }}
-                  onClick={() => toggleSubtag(subtagOption)}
-                >
-                  <span
-                    className="tag-dot"
-                    style={{ backgroundColor: SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS] }}
-                  />
-                  {SUBTAG_LABELS[subtagOption as keyof typeof SUBTAG_LABELS]}
-                </button>
-              ))}
-              {customSubtags.map((customTag) => (
-                <button
-                  key={customTag.id}
-                  type="button"
-                  className={`tag-option ${subtags.includes(customTag.id) ? 'selected' : ''}`}
-                  style={{
-                    borderColor: subtags.includes(customTag.id) ? customTag.color : 'transparent',
-                    backgroundColor: subtags.includes(customTag.id) ? `${customTag.color}20` : 'transparent',
-                  }}
-                  onClick={() => toggleSubtag(customTag.id)}
-                >
-                  <span
-                    className="tag-dot"
-                    style={{ backgroundColor: customTag.color }}
-                  />
-                  {customTag.name}
-                </button>
-              ))}
+              {visibleDefaultSubtags.map((subtagOption) => {
+                const info = getDefaultSubtagInfo(subtagOption);
+                const isEditing = editingSubtagId === subtagOption;
+                return isEditing && onUpdateDefaultSubtag ? (
+                  <div key={subtagOption} className="tag-option-edit">
+                    <input
+                      type="text"
+                      className="subtag-edit-input"
+                      value={info.name}
+                      onChange={(e) => onUpdateDefaultSubtag(subtagOption, { name: e.target.value })}
+                      autoFocus
+                    />
+                    <div className="color-picker-mini">
+                      {PRESET_COLORS.slice(0, 8).map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={`color-option-mini ${info.color === color ? 'selected' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => onUpdateDefaultSubtag(subtagOption, { color })}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-edit-done"
+                      onClick={() => setEditingSubtagId(null)}
+                    >
+                      完了
+                    </button>
+                  </div>
+                ) : (
+                  <div key={subtagOption} className="tag-option-wrapper">
+                    <button
+                      type="button"
+                      className={`tag-option ${subtags.includes(subtagOption) ? 'selected' : ''}`}
+                      style={{
+                        borderColor: subtags.includes(subtagOption) ? info.color : 'transparent',
+                        backgroundColor: subtags.includes(subtagOption) ? `${info.color}20` : 'transparent',
+                      }}
+                      onClick={() => toggleSubtag(subtagOption)}
+                    >
+                      <span
+                        className="tag-dot"
+                        style={{ backgroundColor: info.color }}
+                      />
+                      {info.name}
+                    </button>
+                    {onUpdateDefaultSubtag && (
+                      <button
+                        type="button"
+                        className="tag-edit-btn"
+                        onClick={() => setEditingSubtagId(subtagOption)}
+                        title="編集"
+                      >
+                        ✎
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {customSubtags.map((customTag) => {
+                const isEditing = editingSubtagId === customTag.id;
+                return isEditing && onUpdateSubtag ? (
+                  <div key={customTag.id} className="tag-option-edit">
+                    <input
+                      type="text"
+                      className="subtag-edit-input"
+                      value={customTag.name}
+                      onChange={(e) => onUpdateSubtag(customTag.id, { name: e.target.value })}
+                      autoFocus
+                    />
+                    <div className="color-picker-mini">
+                      {PRESET_COLORS.slice(0, 8).map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={`color-option-mini ${customTag.color === color ? 'selected' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => onUpdateSubtag(customTag.id, { color })}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-edit-done"
+                      onClick={() => setEditingSubtagId(null)}
+                    >
+                      完了
+                    </button>
+                    {onDeleteSubtag && (
+                      <button
+                        type="button"
+                        className="btn-edit-delete"
+                        onClick={() => {
+                          onDeleteSubtag(customTag.id);
+                          setEditingSubtagId(null);
+                        }}
+                      >
+                        削除
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div key={customTag.id} className="tag-option-wrapper">
+                    <button
+                      type="button"
+                      className={`tag-option ${subtags.includes(customTag.id) ? 'selected' : ''}`}
+                      style={{
+                        borderColor: subtags.includes(customTag.id) ? customTag.color : 'transparent',
+                        backgroundColor: subtags.includes(customTag.id) ? `${customTag.color}20` : 'transparent',
+                      }}
+                      onClick={() => toggleSubtag(customTag.id)}
+                    >
+                      <span
+                        className="tag-dot"
+                        style={{ backgroundColor: customTag.color }}
+                      />
+                      {customTag.name}
+                    </button>
+                    {onUpdateSubtag && (
+                      <button
+                        type="button"
+                        className="tag-edit-btn"
+                        onClick={() => setEditingSubtagId(customTag.id)}
+                        title="編集"
+                      >
+                        ✎
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               {onAddSubtag && (
                 <button
                   type="button"

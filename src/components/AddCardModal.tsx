@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TagType, SubTagType, TAG_LABELS, TAG_COLORS, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag } from '../types';
+import { TagType, SubTagType, TAG_LABELS, TAG_COLORS, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings } from '../types';
 
 // プリセットカラー
 const PRESET_COLORS = [
@@ -10,17 +10,18 @@ const PRESET_COLORS = [
 
 interface AddCardModalProps {
   onClose: () => void;
-  onAdd: (title: string, description: string, tag: TagType, subtag?: SubTagType) => void;
-  onAddWithNewTerminal?: (title: string, description: string, subtag?: SubTagType) => void;
+  onAdd: (title: string, description: string, tag: TagType, subtags?: SubTagType[]) => void;
+  onAddWithNewTerminal?: (title: string, description: string, subtags?: SubTagType[]) => void;
   customSubtags?: CustomSubtag[];
   onAddSubtag?: (subtag: CustomSubtag) => void;
+  defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
-export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubtags = [], onAddSubtag }: AddCardModalProps) {
+export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubtags = [], onAddSubtag, defaultSubtagSettings }: AddCardModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tag, setTag] = useState<TagType>('terminal');
-  const [subtag, setSubtag] = useState<SubTagType | undefined>(undefined);
+  const [subtags, setSubtags] = useState<SubTagType[]>([]);
   const [showAddSubtag, setShowAddSubtag] = useState(false);
   const [newSubtagName, setNewSubtagName] = useState('');
   const [newSubtagColor, setNewSubtagColor] = useState(PRESET_COLORS[0]);
@@ -34,16 +35,38 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
       color: newSubtagColor,
     };
     onAddSubtag(newSubtag);
-    setSubtag(newSubtag.id);
+    setSubtags([...subtags, newSubtag.id]);
     setNewSubtagName('');
     setNewSubtagColor(PRESET_COLORS[0]);
     setShowAddSubtag(false);
   };
 
+  const toggleSubtag = (subtagId: SubTagType) => {
+    if (subtags.includes(subtagId)) {
+      setSubtags(subtags.filter(s => s !== subtagId));
+    } else {
+      setSubtags([...subtags, subtagId]);
+    }
+  };
+
+  // デフォルトサブタグの情報を取得（上書きを適用）
+  const getDefaultSubtagInfo = (id: SubTagType) => {
+    const override = defaultSubtagSettings?.overrides?.[id];
+    return {
+      name: override?.name || SUBTAG_LABELS[id as keyof typeof SUBTAG_LABELS],
+      color: override?.color || SUBTAG_COLORS[id as keyof typeof SUBTAG_COLORS],
+    };
+  };
+
+  // 表示するデフォルトサブタグ（非表示を除外）
+  const visibleDefaultSubtags = (Object.keys(SUBTAG_LABELS) as SubTagType[]).filter(
+    (id) => !defaultSubtagSettings?.hidden?.includes(id)
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
-      onAdd(title.trim(), description.trim(), tag, subtag);
+      onAdd(title.trim(), description.trim(), tag, subtags.length > 0 ? subtags : undefined);
       onClose();
     }
   };
@@ -101,47 +124,50 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
             </div>
           </div>
           <div className="form-group">
-            <label>サブタグ（任意）</label>
+            <label>サブタグ（複数選択可）</label>
             <div className="tag-selector">
               <button
                 type="button"
-                className={`tag-option ${subtag === undefined ? 'selected' : ''}`}
+                className={`tag-option ${subtags.length === 0 ? 'selected' : ''}`}
                 style={{
-                  borderColor: subtag === undefined ? '#888' : 'transparent',
-                  backgroundColor: subtag === undefined ? '#88888820' : 'transparent',
+                  borderColor: subtags.length === 0 ? '#888' : 'transparent',
+                  backgroundColor: subtags.length === 0 ? '#88888820' : 'transparent',
                 }}
-                onClick={() => setSubtag(undefined)}
+                onClick={() => setSubtags([])}
               >
                 なし
               </button>
-              {(Object.keys(SUBTAG_LABELS) as SubTagType[]).map((subtagOption) => (
-                <button
-                  key={subtagOption}
-                  type="button"
-                  className={`tag-option ${subtag === subtagOption ? 'selected' : ''}`}
-                  style={{
-                    borderColor: subtag === subtagOption ? SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS] : 'transparent',
-                    backgroundColor: subtag === subtagOption ? `${SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS]}20` : 'transparent',
-                  }}
-                  onClick={() => setSubtag(subtagOption)}
-                >
-                  <span
-                    className="tag-dot"
-                    style={{ backgroundColor: SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS] }}
-                  />
-                  {SUBTAG_LABELS[subtagOption as keyof typeof SUBTAG_LABELS]}
-                </button>
-              ))}
+              {visibleDefaultSubtags.map((subtagOption) => {
+                const info = getDefaultSubtagInfo(subtagOption);
+                return (
+                  <button
+                    key={subtagOption}
+                    type="button"
+                    className={`tag-option ${subtags.includes(subtagOption) ? 'selected' : ''}`}
+                    style={{
+                      borderColor: subtags.includes(subtagOption) ? info.color : 'transparent',
+                      backgroundColor: subtags.includes(subtagOption) ? `${info.color}20` : 'transparent',
+                    }}
+                    onClick={() => toggleSubtag(subtagOption)}
+                  >
+                    <span
+                      className="tag-dot"
+                      style={{ backgroundColor: info.color }}
+                    />
+                    {info.name}
+                  </button>
+                );
+              })}
               {customSubtags.map((customTag) => (
                 <button
                   key={customTag.id}
                   type="button"
-                  className={`tag-option ${subtag === customTag.id ? 'selected' : ''}`}
+                  className={`tag-option ${subtags.includes(customTag.id) ? 'selected' : ''}`}
                   style={{
-                    borderColor: subtag === customTag.id ? customTag.color : 'transparent',
-                    backgroundColor: subtag === customTag.id ? `${customTag.color}20` : 'transparent',
+                    borderColor: subtags.includes(customTag.id) ? customTag.color : 'transparent',
+                    backgroundColor: subtags.includes(customTag.id) ? `${customTag.color}20` : 'transparent',
                   }}
-                  onClick={() => setSubtag(customTag.id)}
+                  onClick={() => toggleSubtag(customTag.id)}
                 >
                   <span
                     className="tag-dot"
@@ -209,7 +235,7 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
                   if (title.trim()) {
                     setOpeningTerminal(true);
                     try {
-                      await onAddWithNewTerminal(title.trim(), description.trim(), subtag);
+                      await onAddWithNewTerminal(title.trim(), description.trim(), subtags.length > 0 ? subtags : undefined);
                       onClose();
                     } finally {
                       setOpeningTerminal(false);

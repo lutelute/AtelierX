@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "minAppVersion": "1.0.0",
   "description": "サンプルのグリッドレイアウトプリセット（開発・プレゼン・フォーカス）",
-  "author": "Window Board Team",
+  "author": "AtelierX Team",
   "repository": "example/sample-grid-layouts",
   "type": "grid-layout"
 }

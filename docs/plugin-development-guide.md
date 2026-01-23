@@ -1,6 +1,6 @@
-# Window Board プラグイン開発ガイド
+# AtelierX プラグイン開発ガイド
 
-このガイドでは、Window Board のプラグインを開発・公開する方法を説明します。
+このガイドでは、AtelierX のプラグインを開発・公開する方法を説明します。
 
 ## 目次
 
@@ -21,8 +21,8 @@
 ### 1. リポジトリを作成
 
 ```bash
-mkdir my-window-board-plugin
-cd my-window-board-plugin
+mkdir my-atelierx-plugin
+cd my-atelierx-plugin
 git init
 ```
 
@@ -36,7 +36,7 @@ git init
   "minAppVersion": "1.0.0",
   "description": "プラグインの説明",
   "author": "Your Name",
-  "repository": "your-username/my-window-board-plugin",
+  "repository": "your-username/my-atelierx-plugin",
   "type": "utility"
 }
 ```
@@ -60,13 +60,13 @@ module.exports = {
 ```bash
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/your-username/my-window-board-plugin.git
+git remote add origin https://github.com/your-username/my-atelierx-plugin.git
 git push -u origin main
 ```
 
 ### 5. インストール
 
-Window Board で `Cmd + ,` → プラグインタブ → `your-username/my-window-board-plugin` を入力してインストール
+AtelierX で `Cmd + ,` → プラグインタブ → `your-username/my-atelierx-plugin` を入力してインストール
 
 ---
 
@@ -353,9 +353,9 @@ Electron の開発者ツールでログを確認できます。
 プラグインは以下のディレクトリにインストールされます:
 
 ```
-macOS:   ~/Library/Application Support/Window Board/plugins/
-Windows: %APPDATA%/Window Board/plugins/
-Linux:   ~/.config/Window Board/plugins/
+macOS:   ~/Library/Application Support/AtelierX/plugins/
+Windows: %APPDATA%/AtelierX/plugins/
+Linux:   ~/.config/AtelierX/plugins/
 ```
 
 ### よくあるエラー
@@ -373,7 +373,7 @@ Linux:   ~/.config/Window Board/plugins/
 
 ### 1. GitHubリポジトリを作成
 
-- リポジトリ名は分かりやすいものにする（例: `window-board-grid-layouts`）
+- リポジトリ名は分かりやすいものにする（例: `atelierx-grid-layouts`）
 - README.md にプラグインの説明を書く
 - LICENSE ファイルを追加（MIT推奨）
 
@@ -401,7 +401,7 @@ README.md に以下のインストール方法を記載:
 ```markdown
 ## インストール
 
-1. Window Board を開く
+1. AtelierX を開く
 2. `Cmd + ,` で設定を開く
 3. 「プラグイン」タブを選択
 4. `your-username/your-plugin-repo` を入力
@@ -415,7 +415,7 @@ README.md に以下のインストール方法を記載:
 ### 命名規則
 
 - **プラグインID**: 小文字、ハイフン区切り（例: `my-grid-layouts`）
-- **リポジトリ名**: `window-board-` プレフィックス推奨（例: `window-board-grid-layouts`）
+- **リポジトリ名**: `atelierx-` プレフィックス推奨（例: `atelierx-grid-layouts`）
 
 ### バージョニング
 
@@ -598,8 +598,8 @@ module.exports = {
 
 ## サポート・貢献
 
-- **バグ報告**: [Issues](https://github.com/your-repo/window-board/issues)
-- **機能要望**: [Discussions](https://github.com/your-repo/window-board/discussions)
+- **バグ報告**: [Issues](https://github.com/your-repo/atelierx/issues)
+- **機能要望**: [Discussions](https://github.com/your-repo/atelierx/discussions)
 - **貢献**: プルリクエスト歓迎
 
 ---

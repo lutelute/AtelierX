@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag } from '../types';
+import { Card as CardType, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings } from '../types';
 
 interface CardProps {
   card: CardType;
@@ -12,6 +12,7 @@ interface CardProps {
   onCardClick?: (id: string) => void;
   onArchive?: (id: string) => void;
   customSubtags?: CustomSubtag[];
+  defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
@@ -73,7 +74,7 @@ function MarkdownContent({
   );
 }
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [] }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings }: CardProps) {
   const {
     attributes,
     listeners,
@@ -83,13 +84,14 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     isDragging,
   } = useSortable({ id: card.id });
 
-  // サブタグの色とラベルを取得
+  // サブタグの色とラベルを取得（上書き設定を適用）
   const getSubtagInfo = (subtagId: string): { color: string; label: string } | null => {
     // デフォルトサブタグをチェック
     if (subtagId in SUBTAG_COLORS) {
+      const override = defaultSubtagSettings?.overrides?.[subtagId];
       return {
-        color: SUBTAG_COLORS[subtagId as keyof typeof SUBTAG_COLORS],
-        label: SUBTAG_LABELS[subtagId as keyof typeof SUBTAG_LABELS],
+        color: override?.color || SUBTAG_COLORS[subtagId as keyof typeof SUBTAG_COLORS],
+        label: override?.name || SUBTAG_LABELS[subtagId as keyof typeof SUBTAG_LABELS],
       };
     }
     // カスタムサブタグをチェック

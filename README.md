@@ -1,6 +1,8 @@
-# Window Board
+# AtelierX
 
-Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプリ。
+> *Atelier（アトリエ＝創作空間）+ X（拡張・可能性）*
+
+Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプリ。プラグインで機能を拡張可能。
 
 ## 機能
 
@@ -12,6 +14,11 @@ Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプ
 - **リマインダー**: 未登録のウィンドウを自動検出して通知
 - **一括追加**: 未登録のウィンドウを全て一括でボードに追加
 
+### グリッド配置
+- **ウィンドウ整列**: Terminal/Finderウィンドウをグリッド状に自動配置
+- **プリセット**: プラグインでカスタムレイアウトを追加可能
+- **マルチディスプレイ対応**: ディスプレイごとに配置先を選択
+
 ### 日報・ログ機能
 - **アクティビティログ**: カードの移動・完了を自動記録
 - **日報エクスポート**: Markdown / JSON / テキスト形式で出力
@@ -21,8 +28,13 @@ Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプ
 ### Obsidian連携
 - **デイリーノート差し込み**: Obsidianのデイリーノートに日報を追記
 - **ノート選択**: 差し込み先のノートを一覧から選択可能
-- **マーカー指定**: 特定の見出し下に差し込み（例: `## Window Board`）
+- **マーカー指定**: 特定の見出し下に差し込み（例: `## AtelierX`）
 - **自動作成**: ノートが存在しない場合は新規作成
+
+### プラグインシステム
+- **GitHub連携**: `owner/repo` 形式でプラグインをインストール
+- **拡張API**: グリッドレイアウト追加などの機能拡張
+- **ローカル開発**: `plugins-dev/` でプラグインを開発・テスト
 
 ## スクリーンショット
 
@@ -61,13 +73,28 @@ npm run electron:build:mac
 ├── electron/
 │   ├── main.cjs          # Electronメインプロセス
 │   ├── preload.cjs       # プリロードスクリプト
-│   └── windowManager.cjs # macOSウィンドウ操作
+│   ├── windowManager.cjs # macOSウィンドウ操作
+│   ├── gridManager.cjs   # グリッド配置
+│   ├── pluginManager.cjs # プラグイン管理
+│   └── pluginAPI.cjs     # プラグインAPI
 ├── src/
 │   ├── components/       # Reactコンポーネント
 │   ├── hooks/            # カスタムフック
 │   ├── styles/           # CSS
 │   └── types/            # TypeScript型定義
-└── ISSUES.md             # 既知の問題
+├── plugins-dev/          # プラグイン開発用
+├── docs/                 # ドキュメント
+└── examples/             # サンプルプラグイン
+```
+
+## プラグイン開発
+
+詳細は [docs/plugin-development-guide.md](./docs/plugin-development-guide.md) を参照。
+
+```bash
+# ローカルプラグインのインストール
+cd plugins-dev
+./install-local.sh hello-plugin
 ```
 
 ## 既知の問題

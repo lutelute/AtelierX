@@ -1,5 +1,6 @@
 /**
- * Window Board - Electron メインプロセス
+ * AtelierX - Electron メインプロセス
+ * あなたの創作空間
  */
 
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
