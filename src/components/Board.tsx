@@ -60,6 +60,7 @@ export function Board() {
   const [showGridModal, setShowGridModal] = useState(false);
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
+  const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
 
   // アクティビティログを追加
   const addLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
@@ -251,24 +252,24 @@ export function Board() {
     alert('ノートに差し込みました');
   };
 
-  // ボードに登録されていないウィンドウをチェック
-  const checkUnaddedWindows = useCallback(async () => {
+  // ボードに登録されていないウィンドウとリンク切れカードをチェック
+  const checkWindowStatus = useCallback(async () => {
     if (!window.electronAPI?.getAppWindows) return;
 
     try {
       const currentWindows = await window.electronAPI.getAppWindows();
+      const currentWindowIds = new Set(currentWindows.map((w: AppWindow) => w.id));
 
-      // ボードに登録されているウィンドウ名を取得
-      const registeredWindowNames = new Set(
+      // ボードに登録されているウィンドウIDを取得
+      const registeredWindowIds = new Set(
         Object.values(data.cards)
-          .filter((card) => card.windowName)
-          .map((card) => card.windowName?.split(' — ')[0])
+          .filter((card) => card.windowId && !card.archived)
+          .map((card) => card.windowId)
       );
 
       // 未登録のウィンドウをフィルタ（アクティブなボードに応じて）
       const unadded = currentWindows.filter((win: AppWindow) => {
-        const shortName = win.name.split(' — ')[0];
-        const isRegistered = registeredWindowNames.has(shortName);
+        const isRegistered = registeredWindowIds.has(win.id);
         const matchesActiveBoard = activeBoard === 'terminal'
           ? win.app === 'Terminal'
           : win.app === 'Finder';
@@ -276,17 +277,28 @@ export function Board() {
       });
 
       setUnaddedWindows(unadded);
+
+      // リンク切れカードをチェック（ウィンドウIDがあるのに存在しないカード）
+      const broken = Object.values(data.cards).filter((card) => {
+        if (!card.windowId || card.archived) return false;
+        const matchesActiveBoard = activeBoard === 'terminal'
+          ? card.windowApp === 'Terminal'
+          : card.windowApp === 'Finder';
+        return matchesActiveBoard && !currentWindowIds.has(card.windowId);
+      });
+
+      setBrokenLinkCards(broken);
     } catch (error) {
-      console.error('Failed to check unadded windows:', error);
+      console.error('Failed to check window status:', error);
     }
   }, [data.cards, activeBoard]);
 
   // 定期的にチェック
   useEffect(() => {
-    checkUnaddedWindows();
-    const interval = setInterval(checkUnaddedWindows, REMINDER_INTERVAL);
+    checkWindowStatus();
+    const interval = setInterval(checkWindowStatus, REMINDER_INTERVAL);
     return () => clearInterval(interval);
-  }, [checkUnaddedWindows]);
+  }, [checkWindowStatus]);
 
   // リマインダから直接ウィンドウを追加
   const handleAddFromReminder = (appWindow: AppWindow) => {
@@ -1085,7 +1097,9 @@ export function Board() {
       {!reminderDismissed && (
         <ReminderNotification
           unaddedWindows={unaddedWindows}
+          brokenLinkCards={brokenLinkCards}
           onAddWindow={handleAddFromReminder}
+          onRelinkCard={(card) => setRelinkingCard(card)}
           onDismiss={() => setReminderDismissed(true)}
         />
       )}

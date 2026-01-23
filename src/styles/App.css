@@ -1292,6 +1292,72 @@ body {
   border-color: rgba(99, 102, 241, 0.5);
 }
 
+.reminder-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reminder-tab {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #a1a1aa;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reminder-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.reminder-tab.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #a78bfa;
+}
+
+.reminder-window-id {
+  font-size: 10px;
+  color: #52525b;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.reminder-item-broken {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.reminder-broken-label {
+  font-size: 10px;
+  color: #ef4444;
+  padding: 2px 6px;
+  background: rgba(239, 68, 68, 0.2);
+  border-radius: 4px;
+}
+
+.reminder-relink-button {
+  padding: 6px 12px;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 6px;
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.reminder-relink-button:hover {
+  background: rgba(251, 191, 36, 0.25);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
 /* Export Modal Styles */
 .export-modal {
   max-width: 700px;
