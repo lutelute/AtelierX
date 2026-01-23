@@ -113,7 +113,7 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
               {!appFilter && 'Terminal または Finder のウィンドウが開いていません'}
             </div>
           )}
-          {!loading && windows.map((w) => (
+          {!loading && windows.map((w, index) => (
             <button
               key={`${w.app}-${w.id}`}
               className={`window-item window-item-${w.app.toLowerCase()}`}
@@ -126,9 +126,10 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
               }}
             >
               <span className={`window-app-badge window-app-${w.app.toLowerCase()}`}>
-                {w.app}
+                {w.app} #{w.windowIndex ?? index + 1}
               </span>
               <span className="window-name">{w.name.split(' — ')[0]}</span>
+              <span className="window-id">ID: {w.id.slice(-8)}</span>
               {w.preview && (
                 <span className="window-preview">{w.preview}</span>
               )}

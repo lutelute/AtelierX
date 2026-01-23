@@ -312,6 +312,12 @@ body {
   border-color: rgba(34, 197, 94, 0.5);
 }
 
+.jump-button-id {
+  opacity: 0.7;
+  font-size: 10px;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
 /* Column Actions */
 .column-actions {
   display: flex;
@@ -738,6 +744,12 @@ body {
   white-space: nowrap;
 }
 
+.linked-window-id {
+  font-size: 11px;
+  color: #71717a;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
 .btn-unlink {
   padding: 4px 8px;
   background: rgba(239, 68, 68, 0.2);
@@ -873,6 +885,14 @@ body {
   margin-top: 2px;
 }
 
+.window-id {
+  display: block;
+  font-size: 10px;
+  color: #52525b;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  margin-top: 2px;
+}
+
 /* Window Carousel */
 .window-carousel {
   display: flex;
@@ -937,6 +957,14 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.carousel-id {
+  display: block;
+  font-size: 10px;
+  color: #52525b;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  margin-top: 2px;
 }
 
 .btn-confirm-window {

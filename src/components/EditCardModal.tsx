@@ -22,7 +22,9 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
   const [description, setDescription] = useState(card.description || '');
   const [comment, setComment] = useState(card.comment || '');
   const [tag, setTag] = useState<TagType>(card.tag);
-  const [subtag, setSubtag] = useState<SubTagType | undefined>(card.subtag);
+  // 後方互換性: subtag を subtags に変換
+  const initialSubtags = card.subtags || (card.subtag ? [card.subtag] : []);
+  const [subtags, setSubtags] = useState<SubTagType[]>(initialSubtags);
   const [showAddSubtag, setShowAddSubtag] = useState(false);
   const [newSubtagName, setNewSubtagName] = useState('');
   const [newSubtagColor, setNewSubtagColor] = useState(PRESET_COLORS[0]);
@@ -142,10 +144,19 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
       color: newSubtagColor,
     };
     onAddSubtag(newSubtag);
-    setSubtag(newSubtag.id);
+    setSubtags([...subtags, newSubtag.id]);
     setNewSubtagName('');
     setNewSubtagColor(PRESET_COLORS[0]);
     setShowAddSubtag(false);
+  };
+
+  // サブタグの選択/解除をトグル
+  const toggleSubtag = (subtagId: SubTagType) => {
+    if (subtags.includes(subtagId)) {
+      setSubtags(subtags.filter(s => s !== subtagId));
+    } else {
+      setSubtags([...subtags, subtagId]);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -157,7 +168,8 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
         description: description.trim() || undefined,
         comment: comment.trim() || undefined,
         tag,
-        subtag,
+        subtag: undefined, // 旧形式は削除
+        subtags: subtags.length > 0 ? subtags : undefined,
         windowApp,
         windowId,
         windowName,
@@ -256,16 +268,16 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
             </div>
           </div>
           <div className="form-group">
-            <label>サブタグ（任意）</label>
+            <label>サブタグ（複数選択可）</label>
             <div className="tag-selector">
               <button
                 type="button"
-                className={`tag-option ${subtag === undefined ? 'selected' : ''}`}
+                className={`tag-option ${subtags.length === 0 ? 'selected' : ''}`}
                 style={{
-                  borderColor: subtag === undefined ? '#888' : 'transparent',
-                  backgroundColor: subtag === undefined ? '#88888820' : 'transparent',
+                  borderColor: subtags.length === 0 ? '#888' : 'transparent',
+                  backgroundColor: subtags.length === 0 ? '#88888820' : 'transparent',
                 }}
-                onClick={() => setSubtag(undefined)}
+                onClick={() => setSubtags([])}
               >
                 なし
               </button>
@@ -273,12 +285,12 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
                 <button
                   key={subtagOption}
                   type="button"
-                  className={`tag-option ${subtag === subtagOption ? 'selected' : ''}`}
+                  className={`tag-option ${subtags.includes(subtagOption) ? 'selected' : ''}`}
                   style={{
-                    borderColor: subtag === subtagOption ? SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS] : 'transparent',
-                    backgroundColor: subtag === subtagOption ? `${SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS]}20` : 'transparent',
+                    borderColor: subtags.includes(subtagOption) ? SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS] : 'transparent',
+                    backgroundColor: subtags.includes(subtagOption) ? `${SUBTAG_COLORS[subtagOption as keyof typeof SUBTAG_COLORS]}20` : 'transparent',
                   }}
-                  onClick={() => setSubtag(subtagOption)}
+                  onClick={() => toggleSubtag(subtagOption)}
                 >
                   <span
                     className="tag-dot"
@@ -291,12 +303,12 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
                 <button
                   key={customTag.id}
                   type="button"
-                  className={`tag-option ${subtag === customTag.id ? 'selected' : ''}`}
+                  className={`tag-option ${subtags.includes(customTag.id) ? 'selected' : ''}`}
                   style={{
-                    borderColor: subtag === customTag.id ? customTag.color : 'transparent',
-                    backgroundColor: subtag === customTag.id ? `${customTag.color}20` : 'transparent',
+                    borderColor: subtags.includes(customTag.id) ? customTag.color : 'transparent',
+                    backgroundColor: subtags.includes(customTag.id) ? `${customTag.color}20` : 'transparent',
                   }}
-                  onClick={() => setSubtag(customTag.id)}
+                  onClick={() => toggleSubtag(customTag.id)}
                 >
                   <span
                     className="tag-dot"
@@ -359,7 +371,10 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
                 <span className={`window-app-badge window-app-${windowApp.toLowerCase()}`}>
                   {windowApp}
                 </span>
-                <span className="linked-window-name">{windowName.split(' — ')[0]}</span>
+                <span className="linked-window-name">
+                  {windowName.split(' — ')[0]}
+                  {windowId && <span className="linked-window-id"> (ID: {windowId.slice(-8)})</span>}
+                </span>
                 <button
                   type="button"
                   className="btn-unlink"
@@ -436,9 +451,13 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
                       <div className="carousel-current">
                         <span className="carousel-counter">
                           {currentWindowIndex + 1} / {availableWindows.length}
+                          {' '}(#{availableWindows[currentWindowIndex]?.windowIndex ?? currentWindowIndex + 1})
                         </span>
                         <span className="carousel-name">
                           {availableWindows[currentWindowIndex]?.name.split(' — ')[0]}
+                        </span>
+                        <span className="carousel-id">
+                          ID: {availableWindows[currentWindowIndex]?.id.slice(-8)}
                         </span>
                         {availableWindows[currentWindowIndex]?.preview && (
                           <span className="carousel-preview">

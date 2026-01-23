@@ -218,8 +218,10 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
             e.stopPropagation();
             onJump(card.id);
           }}
+          title={card.windowId ? `ID: ${card.windowId}` : undefined}
         >
           {card.windowApp} を開く
+          {card.windowId && <span className="jump-button-id"> ({card.windowId.slice(-8)})</span>}
         </button>
       )}
     </div>
