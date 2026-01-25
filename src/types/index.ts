@@ -223,6 +223,8 @@ declare global {
         getSettings: (pluginId: string) => Promise<{ success: boolean; data: Record<string, unknown> }>;
         saveSettings: (pluginId: string, settings: Record<string, unknown>) => Promise<PluginResult>;
         getGridLayouts: () => Promise<{ success: boolean; data: PluginGridLayout[] }>;
+        getExportFormats: () => Promise<{ success: boolean; data: PluginExportFormatInfo[] }>;
+        executeExportFormat: (formatId: string, context: { logs: ActivityLog[]; boardData: BoardData }) => Promise<{ success: boolean; data?: string; error?: string }>;
       };
     };
   }

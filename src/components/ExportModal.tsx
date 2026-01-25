@@ -1,7 +1,13 @@
-import { useState, useMemo } from 'react';
-import { ActivityLog, BoardData } from '../types';
+import { useState, useMemo, useEffect } from 'react';
+import { ActivityLog, BoardData, PluginExportFormatInfo } from '../types';
 
-type ExportFormat = 'md' | 'json' | 'text';
+type BuiltInFormat = 'md' | 'json' | 'text';
+type ExportFormat = BuiltInFormat | string; // string for plugin format IDs
+
+// ビルトインフォーマットかどうかを判定
+function isBuiltInFormat(format: ExportFormat): format is BuiltInFormat {
+  return format === 'md' || format === 'json' || format === 'text';
+}
 
 interface ExportModalProps {
   logs: ActivityLog[];
@@ -14,7 +20,11 @@ interface ExportModalProps {
 export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: ExportModalProps) {
   const [format, setFormat] = useState<ExportFormat>('md');
   const [copied, setCopied] = useState(false);
+  const [pluginFormats, setPluginFormats] = useState<PluginExportFormatInfo[]>([]);
+  const [pluginContent, setPluginContent] = useState<string | null>(null);
+  const [isLoadingPlugin, setIsLoadingPlugin] = useState(false);
 
+  // 日付関連の計算を先に行う（useEffectで使用するため）
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -25,11 +35,56 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
     return logs.filter((log) => log.timestamp >= today.getTime());
   }, [logs, today]);
 
-  const formatTime = (ts: number) =>
-    new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-
   const dateStr = today.toLocaleDateString('ja-JP');
   const dateISO = today.toISOString().split('T')[0];
+
+  // プラグインエクスポートフォーマットを取得
+  useEffect(() => {
+    const fetchPluginFormats = async () => {
+      if (window.electronAPI?.plugins?.getExportFormats) {
+        const result = await window.electronAPI.plugins.getExportFormats();
+        if (result.success) {
+          setPluginFormats(result.data);
+        }
+      }
+    };
+    fetchPluginFormats();
+  }, []);
+
+  // プラグインフォーマット選択時にコンテンツを生成
+  useEffect(() => {
+    const generatePluginContent = async () => {
+      // ビルトインフォーマットの場合はプラグインコンテンツをクリア
+      if (isBuiltInFormat(format)) {
+        setPluginContent(null);
+        return;
+      }
+
+      // プラグインフォーマットの場合
+      if (window.electronAPI?.plugins?.executeExportFormat) {
+        setIsLoadingPlugin(true);
+        try {
+          const result = await window.electronAPI.plugins.executeExportFormat(format, {
+            logs: todayLogs,
+            boardData,
+          });
+          if (result.success && result.data) {
+            setPluginContent(result.data);
+          } else {
+            setPluginContent(`エラー: ${result.error || 'エクスポートに失敗しました'}`);
+          }
+        } catch (error) {
+          setPluginContent(`エラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        } finally {
+          setIsLoadingPlugin(false);
+        }
+      }
+    };
+    generatePluginContent();
+  }, [format, todayLogs, boardData]);
+
+  const formatTime = (ts: number) =>
+    new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
   // 完了・進行中タスクを抽出（重複除去）
   const completedTasksMap = new Map<string, ActivityLog>();
@@ -48,8 +103,8 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
     });
   const inProgressTasks = Array.from(inProgressTasksMap.values());
 
-  // 各形式の出力を生成
-  const content = useMemo(() => {
+  // ビルトイン形式の出力を生成
+  const builtInContent = useMemo(() => {
     if (format === 'json') {
       const report = {
         date: dateStr,
@@ -135,21 +190,40 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
     return output;
   }, [format, dateStr, completedTasks, inProgressTasks, todayLogs, boardData]);
 
+  // 表示するコンテンツ（ビルトインまたはプラグイン）
+  const displayContent = isBuiltInFormat(format) ? builtInContent : (pluginContent || '読み込み中...');
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
+    await navigator.clipboard.writeText(displayContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSave = () => {
-    const ext = format === 'json' ? 'json' : format === 'md' ? 'md' : 'txt';
+    // ビルトインフォーマットの場合は対応する拡張子を使用
+    // プラグインフォーマットの場合はプラグインの拡張子またはデフォルトでtxt
+    let ext = 'txt';
+    if (format === 'json') {
+      ext = 'json';
+    } else if (format === 'md') {
+      ext = 'md';
+    } else if (format === 'text') {
+      ext = 'txt';
+    } else {
+      // プラグインフォーマットの場合、名前から推測またはデフォルトtxt
+      const pluginFormat = pluginFormats.find((pf) => pf.id === format);
+      if (pluginFormat) {
+        // プラグイン名をファイル名に使用
+        ext = pluginFormat.name.toLowerCase().replace(/\s+/g, '-');
+      }
+    }
     const filename = `日報_${dateISO}.${ext}`;
-    onSave(content, filename);
+    onSave(displayContent, filename);
   };
 
   const handleObsidian = () => {
     if (onObsidian) {
-      onObsidian(content);
+      onObsidian(displayContent);
     }
   };
 
@@ -162,6 +236,7 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
         </div>
 
         <div className="export-format-selector">
+          {/* ビルトインフォーマット */}
           <button
             className={`format-btn ${format === 'md' ? 'active' : ''}`}
             onClick={() => setFormat('md')}
@@ -180,21 +255,36 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
           >
             Text
           </button>
+          {/* プラグインフォーマット */}
+          {pluginFormats.map((pf) => (
+            <button
+              key={pf.id}
+              className={`format-btn plugin-format ${format === pf.id ? 'active' : ''}`}
+              onClick={() => setFormat(pf.id)}
+              title={pf.description || pf.name}
+            >
+              {pf.name}
+            </button>
+          ))}
         </div>
 
         <div className="export-preview">
-          <pre>{content}</pre>
+          {isLoadingPlugin ? (
+            <div className="loading-indicator">読み込み中...</div>
+          ) : (
+            <pre>{displayContent}</pre>
+          )}
         </div>
 
         <div className="export-actions">
-          <button className="btn-copy" onClick={handleCopy}>
+          <button className="btn-copy" onClick={handleCopy} disabled={isLoadingPlugin}>
             {copied ? '✓ コピー完了' : 'クリップボードにコピー'}
           </button>
-          <button className="btn-save" onClick={handleSave}>
+          <button className="btn-save" onClick={handleSave} disabled={isLoadingPlugin}>
             ファイルに保存
           </button>
           {onObsidian && (
-            <button className="btn-obsidian" onClick={handleObsidian}>
+            <button className="btn-obsidian" onClick={handleObsidian} disabled={isLoadingPlugin}>
               Obsidianに追記
             </button>
           )}
