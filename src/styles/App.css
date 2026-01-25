@@ -2095,6 +2095,54 @@ body {
   color: #71717a;
 }
 
+/* Extended Checkbox States */
+.task-checkbox.deferred {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.task-checkbox.scheduled {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.task-checkbox.cancelled {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.task-item.cancelled .task-text {
+  text-decoration: line-through;
+  color: #71717a;
+}
+
+.task-checkbox.important {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: #eab308;
+  color: #eab308;
+}
+
+.task-checkbox.in-progress {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+}
+
+.task-checkbox.on-hold {
+  background: rgba(168, 162, 158, 0.2);
+  border-color: #a8a29e;
+  color: #a8a29e;
+}
+
+.task-checkbox.paused {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: #f97316;
+  color: #f97316;
+}
+
 /* Task Item with Plugin Actions */
 .task-item-wrapper {
   display: flex;

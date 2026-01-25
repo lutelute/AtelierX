@@ -325,6 +325,15 @@ declare global {
   }
 }
 
+// 時間記録
+export interface TimeRecord {
+  id: string;
+  taskIndex?: number;    // タスク番号（undefined = カード全体）
+  startedAt: number;
+  endedAt?: number;
+  durationMs?: number;   // 計算済みの所要時間
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -341,6 +350,9 @@ export interface Card {
   windowApp?: 'Terminal' | 'Finder';
   windowId?: string;     // ウィンドウID（一意識別用）
   windowName?: string;
+  // 時間記録
+  timeRecords?: TimeRecord[];
+  activeTimerId?: string; // 現在実行中のタイマーID
 }
 
 export interface Column {

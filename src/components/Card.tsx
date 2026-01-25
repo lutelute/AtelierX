@@ -19,6 +19,25 @@ interface CardProps {
   onCardAction?: (actionId: string, taskIndex?: number) => void;
 }
 
+// 拡張チェックボックスパターン
+// [ ] 未完了, [x] 完了, [>] 先送り, [<] スケジュール済み
+// [-] キャンセル, [*] 重要, [/] 進行中, [^] 保留, [|] 一時停止
+const CHECKBOX_PATTERN = /^- \[[ x>|<\-\*\/\^]\]/m;
+const CHECKBOX_EXTRACT = /^- \[([ x>|<\-\*\/\^])\]\s*(.*)/;
+
+// チェックボックスの状態に応じた表示
+const CHECKBOX_DISPLAY: Record<string, { icon: string; className: string }> = {
+  ' ': { icon: '', className: '' },
+  'x': { icon: '✓', className: 'completed' },
+  '>': { icon: '→', className: 'deferred' },
+  '<': { icon: '←', className: 'scheduled' },
+  '-': { icon: '—', className: 'cancelled' },
+  '*': { icon: '★', className: 'important' },
+  '/': { icon: '◐', className: 'in-progress' },
+  '^': { icon: '↑', className: 'on-hold' },
+  '|': { icon: '⏸', className: 'paused' },
+};
+
 // Markdownコンテンツをレンダリング（チェックボックス対応）
 function MarkdownContent({
   content,
@@ -31,8 +50,8 @@ function MarkdownContent({
   taskActions?: PluginCardActionInfo[];
   onTaskAction?: (actionId: string, taskIndex: number) => void;
 }) {
-  // タスクリストがあるかチェック
-  const hasTaskList = /^- \[([ x])\]/m.test(content);
+  // タスクリストがあるかチェック（拡張チェックボックス対応）
+  const hasTaskList = CHECKBOX_PATTERN.test(content);
 
   if (!hasTaskList) {
     // タスクがない場合は純粋なMarkdown表示
@@ -49,21 +68,22 @@ function MarkdownContent({
   return (
     <div className="card-markdown">
       {lines.map((line, index) => {
-        const taskMatch = line.match(/^- \[([ x])\]\s*(.*)/);
+        const taskMatch = line.match(CHECKBOX_EXTRACT);
         if (taskMatch) {
-          const isChecked = taskMatch[1] === 'x';
+          const marker = taskMatch[1];
+          const display = CHECKBOX_DISPLAY[marker] || CHECKBOX_DISPLAY[' '];
           const text = taskMatch[2];
           return (
             <div key={index} className="task-item-wrapper">
               <label
-                className={`task-item ${isChecked ? 'completed' : ''}`}
+                className={`task-item ${display.className}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleTask?.(index);
                 }}
               >
-                <span className={`task-checkbox ${isChecked ? 'checked' : ''}`}>
-                  {isChecked ? '✓' : ''}
+                <span className={`task-checkbox ${display.className}`}>
+                  {display.icon}
                 </span>
                 <span className="task-text">{text}</span>
               </label>

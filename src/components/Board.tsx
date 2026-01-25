@@ -912,6 +912,47 @@ export function Board() {
       const result = await window.electronAPI.plugins.executeCardAction(actionId, cardId, card, taskIndex);
       if (!result.success) {
         console.error('Card action failed:', result.error);
+        return;
+      }
+
+      // 時間記録の更新がある場合
+      const actionResult = result.data as { timerAction?: string; timerId?: string; taskIndex?: number; startedAt?: number; endedAt?: number; durationMs?: number } | undefined;
+      if (actionResult?.timerAction) {
+        setData((prev) => {
+          const updatedCard = { ...prev.cards[cardId] };
+          const timeRecords = [...(updatedCard.timeRecords || [])];
+
+          if (actionResult.timerAction === 'start' && actionResult.timerId) {
+            // タイマー開始
+            timeRecords.push({
+              id: actionResult.timerId,
+              taskIndex: actionResult.taskIndex,
+              startedAt: actionResult.startedAt || Date.now(),
+            });
+            updatedCard.timeRecords = timeRecords;
+            updatedCard.activeTimerId = actionResult.timerId;
+          } else if (actionResult.timerAction === 'stop' && actionResult.timerId) {
+            // タイマー停止
+            const recordIndex = timeRecords.findIndex(r => r.id === actionResult.timerId);
+            if (recordIndex >= 0) {
+              timeRecords[recordIndex] = {
+                ...timeRecords[recordIndex],
+                endedAt: actionResult.endedAt || Date.now(),
+                durationMs: actionResult.durationMs,
+              };
+              updatedCard.timeRecords = timeRecords;
+            }
+            updatedCard.activeTimerId = undefined;
+          }
+
+          return {
+            ...prev,
+            cards: {
+              ...prev.cards,
+              [cardId]: updatedCard,
+            },
+          };
+        });
       }
     } catch (error) {
       console.error('Failed to execute card action:', error);
