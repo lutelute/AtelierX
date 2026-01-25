@@ -1,0 +1,10 @@
+{
+  "id": "sample-export-formats",
+  "name": "Sample Export Formats",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "サンプルのエクスポートフォーマット（Slack・Notion・HTML）",
+  "author": "AtelierX Team",
+  "repository": "example/sample-export-formats",
+  "type": "export"
+}
