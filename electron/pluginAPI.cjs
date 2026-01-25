@@ -10,6 +10,9 @@ const registeredGridLayouts = new Map();
 // 登録されたエクスポートフォーマット
 const registeredExportFormats = new Map();
 
+// 登録されたカードアクション
+const registeredCardActions = new Map();
+
 /**
  * プラグイン用APIを作成
  * @param {string} pluginId - プラグインID
@@ -82,6 +85,39 @@ function createPluginAPI(pluginId, getSettings, saveSettings) {
       const fullId = `${pluginId}:${formatId}`;
       registeredExportFormats.delete(fullId);
       console.log(`[Plugin:${pluginId}] Unregistered export format: ${formatId}`);
+    },
+
+    /**
+     * カードアクションを登録
+     * @param {Object} action - アクション設定
+     * @param {string} action.id - アクションID
+     * @param {string} action.label - ボタンラベル（短いテキストまたは絵文字）
+     * @param {string} [action.title] - ツールチップ
+     * @param {string} action.position - 表示位置: 'task' | 'card-header' | 'card-footer'
+     * @param {function} action.handler - クリック時のハンドラ (cardId, cardData, taskIndex?) => any
+     */
+    registerCardAction(action) {
+      if (!action.id || !action.label || !action.position || typeof action.handler !== 'function') {
+        console.error(`[Plugin:${pluginId}] Invalid card action:`, action);
+        return;
+      }
+      const fullId = `${pluginId}:${action.id}`;
+      registeredCardActions.set(fullId, {
+        ...action,
+        id: fullId,
+        pluginId,
+      });
+      console.log(`[Plugin:${pluginId}] Registered card action: ${action.label} (${action.position})`);
+    },
+
+    /**
+     * カードアクションを登録解除
+     * @param {string} actionId - アクションID
+     */
+    unregisterCardAction(actionId) {
+      const fullId = `${pluginId}:${actionId}`;
+      registeredCardActions.delete(fullId);
+      console.log(`[Plugin:${pluginId}] Unregistered card action: ${actionId}`);
     },
 
     /**
@@ -167,6 +203,35 @@ function clearPluginExportFormats(pluginId) {
   }
 }
 
+/**
+ * 登録済みのカードアクションを全て取得（メタデータのみ）
+ * @returns {Array} カードアクションの配列（handler関数を除く）
+ */
+function getRegisteredCardActions() {
+  return Array.from(registeredCardActions.values()).map(({ handler, ...info }) => info);
+}
+
+/**
+ * IDでカードアクションを取得
+ * @param {string} actionId - アクションID
+ * @returns {Object|undefined} カードアクション（handler関数を含む）
+ */
+function getCardActionById(actionId) {
+  return registeredCardActions.get(actionId);
+}
+
+/**
+ * プラグインのカードアクションを全て削除
+ * @param {string} pluginId - プラグインID
+ */
+function clearPluginCardActions(pluginId) {
+  for (const [key, action] of registeredCardActions) {
+    if (action.pluginId === pluginId) {
+      registeredCardActions.delete(key);
+    }
+  }
+}
+
 module.exports = {
   createPluginAPI,
   getRegisteredGridLayouts,
@@ -174,4 +239,7 @@ module.exports = {
   getRegisteredExportFormats,
   getExportFormatById,
   clearPluginExportFormats,
+  getRegisteredCardActions,
+  getCardActionById,
+  clearPluginCardActions,
 };

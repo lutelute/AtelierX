@@ -27,7 +27,7 @@ const {
   uninstallPlugin,
   loadEnabledPlugins,
 } = require('./pluginManager.cjs');
-const { getRegisteredGridLayouts, getRegisteredExportFormats, getExportFormatById } = require('./pluginAPI.cjs');
+const { getRegisteredGridLayouts, getRegisteredExportFormats, getExportFormatById, getRegisteredCardActions, getCardActionById } = require('./pluginAPI.cjs');
 const {
   checkForUpdates,
   downloadUpdate,
@@ -461,6 +461,26 @@ ipcMain.handle('plugins:execute-export-format', async (_, { formatId, logs, boar
     return { success: true, data: content };
   } catch (error) {
     console.error('plugins:execute-export-format error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: カードアクション一覧を取得
+ipcMain.handle('plugins:get-card-actions', () => {
+  return getRegisteredCardActions();
+});
+
+// IPC: カードアクションを実行
+ipcMain.handle('plugins:execute-card-action', async (_, { actionId, cardId, cardData, taskIndex }) => {
+  try {
+    const action = getCardActionById(actionId);
+    if (!action) {
+      return { success: false, error: 'Card action not found' };
+    }
+    const result = action.handler(cardId, cardData, taskIndex);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('plugins:execute-card-action error:', error);
     return { success: false, error: error.message };
   }
 });

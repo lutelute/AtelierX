@@ -221,6 +221,17 @@ export interface PluginExportFormat extends PluginExportFormatInfo {
   generate: (logs: ActivityLog[], boardData: BoardData) => string;
 }
 
+// プラグインカードアクション（レンダラーに送信されるメタデータ）
+export type CardActionPosition = 'task' | 'card-header' | 'card-footer';
+
+export interface PluginCardActionInfo {
+  id: string;           // 例: "timer:start"
+  label: string;        // ボタンラベル（短いテキストまたは絵文字）
+  title?: string;       // ツールチップ
+  position: CardActionPosition;  // 表示位置
+  pluginId: string;     // どのプラグインから来たか
+}
+
 // アップデート関連の型
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'installed' | 'latest' | 'error';
 
@@ -296,6 +307,8 @@ declare global {
         getGridLayouts: () => Promise<{ success: boolean; data: PluginGridLayout[] }>;
         getExportFormats: () => Promise<{ success: boolean; data: PluginExportFormatInfo[] }>;
         executeExportFormat: (formatId: string, context: { logs: ActivityLog[]; boardData: BoardData }) => Promise<{ success: boolean; data?: string; error?: string }>;
+        getCardActions: () => Promise<PluginCardActionInfo[]>;
+        executeCardAction: (actionId: string, cardId: string, cardData: Card, taskIndex?: number) => Promise<{ success: boolean; data?: unknown; error?: string }>;
       };
       // アップデート関連
       update: {

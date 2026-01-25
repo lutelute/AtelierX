@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getGridLayouts: () => ipcRenderer.invoke('plugins:get-layouts'),
     getExportFormats: () => ipcRenderer.invoke('plugins:get-export-formats'),
     executeExportFormat: (formatId, context) => ipcRenderer.invoke('plugins:execute-export-format', { formatId, ...context }),
+    getCardActions: () => ipcRenderer.invoke('plugins:get-card-actions'),
+    executeCardAction: (actionId, cardId, cardData, taskIndex) => ipcRenderer.invoke('plugins:execute-card-action', { actionId, cardId, cardData, taskIndex }),
   },
   // アップデート関連
   update: {

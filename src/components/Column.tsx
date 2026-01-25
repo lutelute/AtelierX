@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Column as ColumnType, Card as CardType, CustomSubtag, DefaultSubtagSettings } from '../types';
+import { Column as ColumnType, Card as CardType, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
 import { Card } from './Card';
 
 interface ColumnProps {
@@ -17,9 +17,11 @@ interface ColumnProps {
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
   brokenLinkCardIds?: Set<string>;
+  cardActions?: PluginCardActionInfo[];
+  onCardAction?: (cardId: string, actionId: string, taskIndex?: number) => void;
 }
 
-export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set() }: ColumnProps) {
+export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -46,6 +48,8 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               defaultSubtagSettings={defaultSubtagSettings}
               isBrokenLink={brokenLinkCardIds.has(card.id)}
               columnId={column.id}
+              cardActions={cardActions}
+              onCardAction={(actionId, taskIndex) => onCardAction?.(card.id, actionId, taskIndex)}
             />
           ))}
         </SortableContext>

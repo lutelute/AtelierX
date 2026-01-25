@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings } from '../types';
+import { Card as CardType, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
 
 interface CardProps {
   card: CardType;
@@ -15,15 +15,21 @@ interface CardProps {
   defaultSubtagSettings?: DefaultSubtagSettings;
   isBrokenLink?: boolean;
   columnId?: string;
+  cardActions?: PluginCardActionInfo[];
+  onCardAction?: (actionId: string, taskIndex?: number) => void;
 }
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
 function MarkdownContent({
   content,
   onToggleTask,
+  taskActions,
+  onTaskAction,
 }: {
   content: string;
   onToggleTask?: (lineIndex: number) => void;
+  taskActions?: PluginCardActionInfo[];
+  onTaskAction?: (actionId: string, taskIndex: number) => void;
 }) {
   // タスクリストがあるかチェック
   const hasTaskList = /^- \[([ x])\]/m.test(content);
@@ -48,19 +54,37 @@ function MarkdownContent({
           const isChecked = taskMatch[1] === 'x';
           const text = taskMatch[2];
           return (
-            <label
-              key={index}
-              className={`task-item ${isChecked ? 'completed' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleTask?.(index);
-              }}
-            >
-              <span className={`task-checkbox ${isChecked ? 'checked' : ''}`}>
-                {isChecked ? '✓' : ''}
-              </span>
-              <span className="task-text">{text}</span>
-            </label>
+            <div key={index} className="task-item-wrapper">
+              <label
+                className={`task-item ${isChecked ? 'completed' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleTask?.(index);
+                }}
+              >
+                <span className={`task-checkbox ${isChecked ? 'checked' : ''}`}>
+                  {isChecked ? '✓' : ''}
+                </span>
+                <span className="task-text">{text}</span>
+              </label>
+              {taskActions && taskActions.length > 0 && (
+                <div className="task-actions">
+                  {taskActions.map((action) => (
+                    <button
+                      key={action.id}
+                      className="task-action-btn"
+                      title={action.title || action.label}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTaskAction?.(action.id, index);
+                      }}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         } else if (line.trim()) {
           // 通常の行はMarkdownとしてレンダリング
@@ -76,7 +100,7 @@ function MarkdownContent({
   );
 }
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction }: CardProps) {
   const {
     attributes,
     listeners,
@@ -137,6 +161,11 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     onCardClick?.(card.id);
   };
 
+  // プラグインカードアクションを位置別にフィルタリング
+  const headerActions = cardActions.filter(a => a.position === 'card-header');
+  const footerActions = cardActions.filter(a => a.position === 'card-footer');
+  const taskActions = cardActions.filter(a => a.position === 'task');
+
   // ウィンドウリンクの状態でクラスを追加
   const hasWindowLink = !!card.windowApp;
   const linkClass = isBrokenLink ? 'card-broken-link' : hasWindowLink ? 'card-linked' : 'card-unlinked';
@@ -169,6 +198,19 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
           ))}
         </div>
         <div className="card-actions">
+          {headerActions.map((action) => (
+            <button
+              key={action.id}
+              className="card-plugin-action"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCardAction?.(action.id);
+              }}
+              title={action.title || action.label}
+            >
+              {action.label}
+            </button>
+          ))}
           {onArchive && (
             <button
               className="card-archive"
@@ -208,6 +250,8 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
         <MarkdownContent
           content={card.description}
           onToggleTask={handleToggleTask}
+          taskActions={taskActions}
+          onTaskAction={(actionId, taskIndex) => onCardAction?.(actionId, taskIndex)}
         />
       )}
       {card.comment && (
@@ -227,6 +271,23 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
           {card.windowApp} を開く
           {card.windowId && <span className="jump-button-id"> ({card.windowId.slice(-8)})</span>}
         </button>
+      )}
+      {footerActions.length > 0 && (
+        <div className="card-footer-actions">
+          {footerActions.map((action) => (
+            <button
+              key={action.id}
+              className="card-footer-action-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCardAction?.(action.id);
+              }}
+              title={action.title || action.label}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
