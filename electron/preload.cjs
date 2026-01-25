@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     executeExportFormat: (formatId, context) => ipcRenderer.invoke('plugins:execute-export-format', { formatId, ...context }),
     getCardActions: () => ipcRenderer.invoke('plugins:get-card-actions'),
     executeCardAction: (actionId, cardId, cardData, taskIndex) => ipcRenderer.invoke('plugins:execute-card-action', { actionId, cardId, cardData, taskIndex }),
+    checkUpdate: (pluginId) => ipcRenderer.invoke('plugins:check-update', pluginId),
+    update: (pluginId) => ipcRenderer.invoke('plugins:update', pluginId),
   },
   // アップデート関連
   update: {

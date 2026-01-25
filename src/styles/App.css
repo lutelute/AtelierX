@@ -3280,6 +3280,51 @@ body {
   border-radius: 4px;
 }
 
+.plugin-update-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  animation: pulse-update 2s infinite;
+}
+
+@keyframes pulse-update {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.plugin-footer-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-update-plugin {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-update-plugin:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+}
+
+.btn-update-plugin:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .plugin-actions {
   display: flex;
   gap: 8px;

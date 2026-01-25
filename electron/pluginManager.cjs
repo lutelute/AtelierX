@@ -457,6 +457,106 @@ function loadEnabledPlugins() {
 }
 
 // =====================================================
+// プラグインアップデート
+// =====================================================
+
+/**
+ * プラグインの最新バージョンを確認
+ * @param {string} pluginId - プラグインID
+ */
+async function checkPluginUpdate(pluginId) {
+  try {
+    const registry = loadRegistry();
+    const state = registry.plugins[pluginId];
+
+    if (!state || !state.repoOwner || !state.repoName) {
+      return { hasUpdate: false, error: 'Repository info not found' };
+    }
+
+    // 現在のバージョンを取得
+    const pluginPath = getPluginPath(pluginId);
+    const manifestPath = path.join(pluginPath, 'manifest.json');
+    if (!fs.existsSync(manifestPath)) {
+      return { hasUpdate: false, error: 'Plugin manifest not found' };
+    }
+    const currentManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    const currentVersion = currentManifest.version;
+
+    // GitHubから最新のmanifest.jsonを取得
+    const { repoOwner, repoName } = state;
+    let latestManifestContent;
+    try {
+      const manifestUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/manifest.json`;
+      latestManifestContent = await downloadFile(manifestUrl);
+    } catch {
+      const masterUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/master/manifest.json`;
+      latestManifestContent = await downloadFile(masterUrl);
+    }
+
+    const latestManifest = JSON.parse(latestManifestContent);
+    const latestVersion = latestManifest.version;
+
+    return {
+      hasUpdate: currentVersion !== latestVersion,
+      currentVersion,
+      latestVersion,
+    };
+  } catch (error) {
+    console.error(`Failed to check update for ${pluginId}:`, error);
+    return { hasUpdate: false, error: error.message };
+  }
+}
+
+/**
+ * プラグインをアップデート
+ * @param {string} pluginId - プラグインID
+ */
+async function updatePlugin(pluginId) {
+  try {
+    const registry = loadRegistry();
+    const state = registry.plugins[pluginId];
+
+    if (!state || !state.repoOwner || !state.repoName) {
+      return { success: false, error: 'Repository info not found' };
+    }
+
+    const wasEnabled = state.enabled;
+    const { repoOwner, repoName } = state;
+
+    // 無効化してからアップデート
+    if (wasEnabled) {
+      disablePlugin(pluginId);
+    }
+
+    // 再インストール
+    const result = await installFromGitHub(`${repoOwner}/${repoName}`);
+
+    if (!result.success) {
+      if (wasEnabled) {
+        enablePlugin(pluginId);
+      }
+      return { success: false, error: result.error };
+    }
+
+    // 元々有効だった場合は再度有効化
+    if (wasEnabled) {
+      enablePlugin(pluginId);
+    }
+
+    // 新しいバージョンを取得
+    const pluginPath = getPluginPath(pluginId);
+    const manifestPath = path.join(pluginPath, 'manifest.json');
+    const newManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+    console.log(`Plugin updated: ${pluginId} to v${newManifest.version}`);
+    return { success: true, newVersion: newManifest.version };
+  } catch (error) {
+    console.error(`Failed to update plugin ${pluginId}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
 // エクスポート
 // =====================================================
 
@@ -470,4 +570,6 @@ module.exports = {
   disablePlugin,
   uninstallPlugin,
   loadEnabledPlugins,
+  checkPluginUpdate,
+  updatePlugin,
 };

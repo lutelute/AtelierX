@@ -415,6 +415,18 @@ ipcMain.handle('plugins:uninstall', async (_, pluginId) => {
   return uninstallPlugin(pluginId);
 });
 
+// IPC: プラグインのアップデートを確認
+ipcMain.handle('plugins:check-update', async (_, pluginId) => {
+  const { checkPluginUpdate } = require('./pluginManager.cjs');
+  return await checkPluginUpdate(pluginId);
+});
+
+// IPC: プラグインをアップデート
+ipcMain.handle('plugins:update', async (_, pluginId) => {
+  const { updatePlugin } = require('./pluginManager.cjs');
+  return await updatePlugin(pluginId);
+});
+
 // IPC: プラグイン設定を取得
 ipcMain.handle('plugins:get-settings', async (_, pluginId) => {
   try {

@@ -309,6 +309,8 @@ declare global {
         executeExportFormat: (formatId: string, context: { logs: ActivityLog[]; boardData: BoardData }) => Promise<{ success: boolean; data?: string; error?: string }>;
         getCardActions: () => Promise<PluginCardActionInfo[]>;
         executeCardAction: (actionId: string, cardId: string, cardData: Card, taskIndex?: number) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        checkUpdate: (pluginId: string) => Promise<{ hasUpdate: boolean; currentVersion?: string; latestVersion?: string; error?: string }>;
+        update: (pluginId: string) => Promise<{ success: boolean; newVersion?: string; error?: string }>;
       };
       // アップデート関連
       update: {
