@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ActivityLog, BoardData, PluginExportFormatInfo } from '../types';
+import { ActivityLog, BoardData, PluginExportFormatInfo, TagType } from '../types';
 
 type BuiltInFormat = 'md' | 'json' | 'text';
 type ExportFormat = BuiltInFormat | string; // string for plugin format IDs
@@ -8,6 +8,9 @@ type ExportFormat = BuiltInFormat | string; // string for plugin format IDs
 function isBuiltInFormat(format: ExportFormat): format is BuiltInFormat {
   return format === 'md' || format === 'json' || format === 'text';
 }
+
+// カラムID
+type ColumnFilter = 'todo' | 'in-progress' | 'done';
 
 interface ExportModalProps {
   logs: ActivityLog[];
@@ -23,6 +26,40 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
   const [pluginFormats, setPluginFormats] = useState<PluginExportFormatInfo[]>([]);
   const [pluginContent, setPluginContent] = useState<string | null>(null);
   const [isLoadingPlugin, setIsLoadingPlugin] = useState(false);
+
+  // フィルター設定
+  const [selectedColumns, setSelectedColumns] = useState<Set<ColumnFilter>>(
+    new Set(['todo', 'in-progress', 'done'])
+  );
+  const [selectedTags, setSelectedTags] = useState<Set<TagType>>(
+    new Set(['terminal', 'finder'])
+  );
+
+  // カラムフィルターの切り替え
+  const toggleColumn = (column: ColumnFilter) => {
+    setSelectedColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(column)) {
+        next.delete(column);
+      } else {
+        next.add(column);
+      }
+      return next;
+    });
+  };
+
+  // タグフィルターの切り替え
+  const toggleTag = (tag: TagType) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) {
+        next.delete(tag);
+      } else {
+        next.add(tag);
+      }
+      return next;
+    });
+  };
 
   // 日付関連の計算を先に行う（useEffectで使用するため）
   const today = useMemo(() => {
@@ -83,112 +120,119 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
     generatePluginContent();
   }, [format, todayLogs, boardData]);
 
-  const formatTime = (ts: number) =>
-    new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  // フィルタリングされたカードを取得
+  const getFilteredCards = (columnId: string) => {
+    const column = boardData.columns.find((c) => c.id === columnId);
+    if (!column) return [];
+    return column.cardIds
+      .map((id) => boardData.cards[id])
+      .filter((card) => card && selectedTags.has(card.tag));
+  };
 
-  // 完了・進行中タスクを抽出（重複除去）
-  const completedTasksMap = new Map<string, ActivityLog>();
-  todayLogs
-    .filter((log) => log.toColumn === 'done')
-    .forEach((log) => completedTasksMap.set(log.cardTitle, log));
-  const completedTasks = Array.from(completedTasksMap.values());
+  // 各カラムのカードをタグごとに分類
+  const todoCards = useMemo(() => getFilteredCards('todo'), [boardData, selectedTags]);
+  const inProgressCards = useMemo(() => getFilteredCards('in-progress'), [boardData, selectedTags]);
+  const doneCards = useMemo(() => getFilteredCards('done'), [boardData, selectedTags]);
 
-  const inProgressTasksMap = new Map<string, ActivityLog>();
-  todayLogs
-    .filter((log) => log.toColumn === 'in-progress')
-    .forEach((log) => {
-      if (!completedTasksMap.has(log.cardTitle)) {
-        inProgressTasksMap.set(log.cardTitle, log);
-      }
-    });
-  const inProgressTasks = Array.from(inProgressTasksMap.values());
+  // タグごとに分類
+  const terminalTodoCards = todoCards.filter((c) => c.tag === 'terminal');
+  const finderTodoCards = todoCards.filter((c) => c.tag === 'finder');
+  const terminalInProgressCards = inProgressCards.filter((c) => c.tag === 'terminal');
+  const finderInProgressCards = inProgressCards.filter((c) => c.tag === 'finder');
+  const terminalDoneCards = doneCards.filter((c) => c.tag === 'terminal');
+  const finderDoneCards = doneCards.filter((c) => c.tag === 'finder');
 
   // ビルトイン形式の出力を生成
   const builtInContent = useMemo(() => {
-    if (format === 'json') {
-      const report = {
+    const isMd = format === 'md';
+    const isJson = format === 'json';
+
+    // JSON形式
+    if (isJson) {
+      const report: Record<string, unknown> = {
         date: dateStr,
-        summary: {
-          completed: completedTasks.length,
-          inProgress: inProgressTasks.length,
-          created: todayLogs.filter((log) => log.type === 'create').length,
+        filters: {
+          columns: Array.from(selectedColumns),
+          tags: Array.from(selectedTags),
         },
-        completedTasks: completedTasks.map((log) => ({
-          title: log.cardTitle,
-          description: log.cardDescription,
-          completedAt: formatTime(log.timestamp),
-        })),
-        inProgressTasks: inProgressTasks.map((log) => ({
-          title: log.cardTitle,
-          description: log.cardDescription,
-        })),
-        logs: todayLogs,
       };
+
+      if (selectedTags.has('terminal')) {
+        report.terminal = {
+          todo: selectedColumns.has('todo') ? terminalTodoCards.map((c) => ({ title: c.title, description: c.description })) : [],
+          inProgress: selectedColumns.has('in-progress') ? terminalInProgressCards.map((c) => ({ title: c.title, description: c.description })) : [],
+          done: selectedColumns.has('done') ? terminalDoneCards.map((c) => ({ title: c.title, description: c.description, comment: c.comment })) : [],
+        };
+      }
+      if (selectedTags.has('finder')) {
+        report.finder = {
+          todo: selectedColumns.has('todo') ? finderTodoCards.map((c) => ({ title: c.title, description: c.description })) : [],
+          inProgress: selectedColumns.has('in-progress') ? finderInProgressCards.map((c) => ({ title: c.title, description: c.description })) : [],
+          done: selectedColumns.has('done') ? finderDoneCards.map((c) => ({ title: c.title, description: c.description, comment: c.comment })) : [],
+        };
+      }
       return JSON.stringify(report, null, 2);
     }
 
     // Markdown / Text 共通ロジック
-    const isMd = format === 'md';
     let output = isMd ? `# 日報 ${dateStr}\n\n` : `日報 ${dateStr}\n${'='.repeat(20)}\n\n`;
 
-    // 完了タスク
-    output += isMd ? `## 完了タスク (${completedTasks.length}件)\n\n` : `【完了タスク】(${completedTasks.length}件)\n`;
-    if (completedTasks.length === 0) {
-      output += isMd ? '_なし_\n\n' : 'なし\n\n';
-    } else {
-      completedTasks.forEach((log) => {
-        output += isMd
-          ? `- **${log.cardTitle}** (${formatTime(log.timestamp)})\n`
-          : `・${log.cardTitle} (${formatTime(log.timestamp)})\n`;
-        if (log.cardDescription) {
-          output += isMd ? `  - ${log.cardDescription}\n` : `  ${log.cardDescription}\n`;
+    // カードリストを出力するヘルパー
+    const renderCards = (cards: typeof todoCards, showComment = false) => {
+      if (cards.length === 0) {
+        return isMd ? '_なし_\n' : 'なし\n';
+      }
+      let result = '';
+      cards.forEach((card) => {
+        result += isMd ? `- ${card.title}\n` : `・${card.title}\n`;
+        if (card.description) {
+          result += isMd ? `  - ${card.description}\n` : `  ${card.description}\n`;
+        }
+        if (showComment && card.comment) {
+          result += isMd ? `  - コメント: ${card.comment}\n` : `  コメント: ${card.comment}\n`;
         }
       });
-      output += '\n';
+      return result;
+    };
+
+    // Terminal セクション
+    if (selectedTags.has('terminal')) {
+      output += isMd ? `## 🖥️ Terminal\n\n` : `【Terminal】\n`;
+
+      if (selectedColumns.has('todo')) {
+        output += isMd ? `### 未着手 (${terminalTodoCards.length}件)\n\n` : `[未着手] (${terminalTodoCards.length}件)\n`;
+        output += renderCards(terminalTodoCards) + '\n';
+      }
+      if (selectedColumns.has('in-progress')) {
+        output += isMd ? `### 実行中 (${terminalInProgressCards.length}件)\n\n` : `[実行中] (${terminalInProgressCards.length}件)\n`;
+        output += renderCards(terminalInProgressCards) + '\n';
+      }
+      if (selectedColumns.has('done')) {
+        output += isMd ? `### 完了 (${terminalDoneCards.length}件)\n\n` : `[完了] (${terminalDoneCards.length}件)\n`;
+        output += renderCards(terminalDoneCards, true) + '\n';
+      }
     }
 
-    // 進行中タスク
-    output += isMd ? `## 進行中タスク (${inProgressTasks.length}件)\n\n` : `【進行中タスク】(${inProgressTasks.length}件)\n`;
-    if (inProgressTasks.length === 0) {
-      output += isMd ? '_なし_\n\n' : 'なし\n\n';
-    } else {
-      inProgressTasks.forEach((log) => {
-        output += isMd ? `- ${log.cardTitle}\n` : `・${log.cardTitle}\n`;
-        if (log.cardDescription) {
-          output += isMd ? `  - ${log.cardDescription}\n` : `  ${log.cardDescription}\n`;
-        }
-      });
-      output += '\n';
+    // Finder セクション
+    if (selectedTags.has('finder')) {
+      output += isMd ? `## 📁 Finder\n\n` : `【Finder】\n`;
+
+      if (selectedColumns.has('todo')) {
+        output += isMd ? `### 未着手 (${finderTodoCards.length}件)\n\n` : `[未着手] (${finderTodoCards.length}件)\n`;
+        output += renderCards(finderTodoCards) + '\n';
+      }
+      if (selectedColumns.has('in-progress')) {
+        output += isMd ? `### 実行中 (${finderInProgressCards.length}件)\n\n` : `[実行中] (${finderInProgressCards.length}件)\n`;
+        output += renderCards(finderInProgressCards) + '\n';
+      }
+      if (selectedColumns.has('done')) {
+        output += isMd ? `### 完了 (${finderDoneCards.length}件)\n\n` : `[完了] (${finderDoneCards.length}件)\n`;
+        output += renderCards(finderDoneCards, true) + '\n';
+      }
     }
 
-    // ボード状態
-    output += isMd ? `---\n\n## 現在のボード状態\n\n` : `${'─'.repeat(20)}\n【現在のボード状態】\n\n`;
-
-    const doneColumn = boardData.columns.find((c) => c.id === 'done');
-    const inProgressColumn = boardData.columns.find((c) => c.id === 'in-progress');
-
-    output += isMd ? `### 完了 (${doneColumn?.cardIds.length || 0}件)\n\n` : `[完了] (${doneColumn?.cardIds.length || 0}件)\n`;
-    doneColumn?.cardIds.forEach((id) => {
-      const card = boardData.cards[id];
-      if (card) {
-        output += isMd ? `- ${card.title}\n` : `・${card.title}\n`;
-        if (card.description) output += isMd ? `  - 詳細: ${card.description}\n` : `  詳細: ${card.description}\n`;
-        if (card.comment) output += isMd ? `  - コメント: ${card.comment}\n` : `  コメント: ${card.comment}\n`;
-      }
-    });
-    output += '\n';
-
-    output += isMd ? `### 実行中 (${inProgressColumn?.cardIds.length || 0}件)\n\n` : `[実行中] (${inProgressColumn?.cardIds.length || 0}件)\n`;
-    inProgressColumn?.cardIds.forEach((id) => {
-      const card = boardData.cards[id];
-      if (card) {
-        output += isMd ? `- ${card.title}\n` : `・${card.title}\n`;
-        if (card.description) output += isMd ? `  - ${card.description}\n` : `  ${card.description}\n`;
-      }
-    });
-
-    return output;
-  }, [format, dateStr, completedTasks, inProgressTasks, todayLogs, boardData]);
+    return output.trim() + '\n';
+  }, [format, dateStr, selectedColumns, selectedTags, terminalTodoCards, finderTodoCards, terminalInProgressCards, finderInProgressCards, terminalDoneCards, finderDoneCards]);
 
   // 表示するコンテンツ（ビルトインまたはプラグイン）
   const displayContent = isBuiltInFormat(format) ? builtInContent : (pluginContent || '読み込み中...');
@@ -266,6 +310,56 @@ export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: Ex
               {pf.name}
             </button>
           ))}
+        </div>
+
+        {/* フィルターセクション */}
+        <div className="export-filters">
+          <div className="filter-group">
+            <span className="filter-label">タブ:</span>
+            <label className="filter-checkbox">
+              <input
+                type="checkbox"
+                checked={selectedTags.has('terminal')}
+                onChange={() => toggleTag('terminal')}
+              />
+              <span className="filter-tag terminal">🖥️ Terminal</span>
+            </label>
+            <label className="filter-checkbox">
+              <input
+                type="checkbox"
+                checked={selectedTags.has('finder')}
+                onChange={() => toggleTag('finder')}
+              />
+              <span className="filter-tag finder">📁 Finder</span>
+            </label>
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">状態:</span>
+            <label className="filter-checkbox">
+              <input
+                type="checkbox"
+                checked={selectedColumns.has('todo')}
+                onChange={() => toggleColumn('todo')}
+              />
+              <span className="filter-status todo">未着手</span>
+            </label>
+            <label className="filter-checkbox">
+              <input
+                type="checkbox"
+                checked={selectedColumns.has('in-progress')}
+                onChange={() => toggleColumn('in-progress')}
+              />
+              <span className="filter-status in-progress">実行中</span>
+            </label>
+            <label className="filter-checkbox">
+              <input
+                type="checkbox"
+                checked={selectedColumns.has('done')}
+                onChange={() => toggleColumn('done')}
+              />
+              <span className="filter-status done">完了</span>
+            </label>
+          </div>
         </div>
 
         <div className="export-preview">
