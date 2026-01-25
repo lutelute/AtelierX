@@ -23,14 +23,16 @@ const exportFormats = [
           hour: '2-digit',
           minute: '2-digit'
         });
-        lines.push(`• \`${time}\` ${log.text}`);
+        lines.push(`• \`${time}\` ${log.cardTitle}`);  // FIXED: log.text → log.cardTitle
       });
 
-      if (boardData && boardData.items && boardData.items.length > 0) {
+      // FIXED: boardData.items → boardData.cards
+      const cards = Object.values(boardData.cards || {});
+      if (cards.length > 0) {
         lines.push('');
         lines.push(':pushpin: *ボード項目:*');
-        boardData.items.forEach(item => {
-          lines.push(`• ${item.text}`);
+        cards.forEach(card => {
+          lines.push(`• ${card.title}`);
         });
       }
 
@@ -63,7 +65,7 @@ const exportFormats = [
                 content: `${new Date(log.timestamp).toLocaleTimeString('ja-JP', {
                   hour: '2-digit',
                   minute: '2-digit'
-                })} - ${log.text}`
+                })} - ${log.cardTitle}`  // FIXED: log.text → log.cardTitle
               }
             }]
           }
@@ -105,16 +107,18 @@ const exportFormats = [
           hour: '2-digit',
           minute: '2-digit'
         });
-        lines.push(`    <li><span class="time">${time}</span>${escapeHtml(log.text)}</li>`);
+        lines.push(`    <li><span class="time">${time}</span>${escapeHtml(log.cardTitle)}</li>`);  // FIXED: log.text → log.cardTitle
       });
 
       lines.push('  </ul>');
 
-      if (boardData && boardData.items && boardData.items.length > 0) {
+      // FIXED: boardData.items → boardData.cards
+      const cards = Object.values(boardData.cards || {});
+      if (cards.length > 0) {
         lines.push('  <h2>ボード項目</h2>');
         lines.push('  <ul>');
-        boardData.items.forEach(item => {
-          lines.push(`    <li>${escapeHtml(item.text)}</li>`);
+        cards.forEach(card => {
+          lines.push(`    <li>${escapeHtml(card.title)}</li>`);
         });
         lines.push('  </ul>');
       }
@@ -133,6 +137,7 @@ const exportFormats = [
  * @returns {string} エスケープされたテキスト
  */
 function escapeHtml(text) {
+  if (!text) return '';
   const escapeMap = {
     '&': '&amp;',
     '<': '&lt;',
@@ -140,7 +145,7 @@ function escapeHtml(text) {
     '"': '&quot;',
     "'": '&#39;'
   };
-  return text.replace(/[&<>"']/g, char => escapeMap[char]);
+  return String(text).replace(/[&<>"']/g, char => escapeMap[char]);
 }
 
 module.exports = {
