@@ -11,6 +11,26 @@ body {
   color: #e4e4e7;
 }
 
+/* Development Mode Indicator */
+.dev-mode-indicator {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  background: #f97316;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 9999;
+  letter-spacing: 0.5px;
+  -webkit-app-region: no-drag;
+}
+
+.app-dev-mode .drag-region {
+  background: linear-gradient(90deg, transparent 0%, rgba(249, 115, 22, 0.15) 50%, transparent 100%);
+}
+
 .board-container {
   min-height: 100vh;
   padding: 20px;
