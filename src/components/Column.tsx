@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Column as ColumnType, Card as CardType, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
+import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
 import { Card } from './Card';
 
 interface ColumnProps {
@@ -12,6 +12,7 @@ interface ColumnProps {
   onJumpCard: (cardId: string) => void;
   onDropWindow: (columnId: string) => void;
   onUpdateDescription: (cardId: string, description: string) => void;
+  onUpdateStatusMarker?: (cardId: string, marker: CardStatusMarker) => void;
   onCardClick?: (cardId: string) => void;
   onArchiveCard?: (cardId: string) => void;
   customSubtags?: CustomSubtag[];
@@ -21,7 +22,7 @@ interface ColumnProps {
   onCardAction?: (cardId: string, actionId: string, taskIndex?: number) => void;
 }
 
-export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction }: ColumnProps) {
+export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -42,6 +43,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               onEdit={onEditCard}
               onJump={onJumpCard}
               onUpdateDescription={onUpdateDescription}
+              onUpdateStatusMarker={onUpdateStatusMarker}
               onCardClick={onCardClick}
               onArchive={column.id === 'done' ? onArchiveCard : undefined}
               customSubtags={customSubtags}

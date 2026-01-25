@@ -334,6 +334,9 @@ export interface TimeRecord {
   durationMs?: number;   // 計算済みの所要時間
 }
 
+// カードステータスマーカー（Minimal theme互換）
+export type CardStatusMarker = ' ' | 'x' | '>' | '<' | '-' | '/' | '!' | '?' | 'i' | 'd';
+
 export interface Card {
   id: string;
   title: string;
@@ -342,6 +345,7 @@ export interface Card {
   tag: TagType;
   subtag?: SubTagType;   // 旧形式（後方互換性用）
   subtags?: SubTagType[]; // サブタグ（複数選択可能）
+  statusMarker?: CardStatusMarker;  // カード自体のステータスマーカー
   createdAt: number;
   completedAt?: number;  // 完了時刻
   archived?: boolean;    // アーカイブ済みフラグ

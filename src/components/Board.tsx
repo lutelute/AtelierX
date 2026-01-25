@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo } from '../types';
+import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -1185,6 +1185,20 @@ export function Board() {
     }));
   };
 
+  // カードのステータスマーカーを更新
+  const handleUpdateStatusMarker = (cardId: string, marker: CardStatusMarker) => {
+    setData((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [cardId]: {
+          ...prev.cards[cardId],
+          statusMarker: marker === ' ' ? undefined : marker,
+        },
+      },
+    }));
+  };
+
   const handleDropWindow = (columnId: string) => {
     setWindowSelectColumnId(columnId);
   };
@@ -1346,6 +1360,7 @@ export function Board() {
                   onJumpCard={handleJumpCard}
                   onDropWindow={handleDropWindow}
                   onUpdateDescription={handleUpdateDescription}
+                  onUpdateStatusMarker={handleUpdateStatusMarker}
                   onCardClick={handleCardClick}
                   onArchiveCard={handleArchiveCard}
                   customSubtags={settings.customSubtags}

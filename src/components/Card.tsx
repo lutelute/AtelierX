@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
+import { Card as CardType, CardStatusMarker, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
 
 interface CardProps {
   card: CardType;
@@ -10,6 +11,7 @@ interface CardProps {
   onEdit: (id: string) => void;
   onJump?: (id: string) => void;
   onUpdateDescription?: (id: string, description: string) => void;
+  onUpdateStatusMarker?: (id: string, marker: CardStatusMarker) => void;
   onCardClick?: (id: string) => void;
   onArchive?: (id: string) => void;
   customSubtags?: CustomSubtag[];
@@ -21,9 +23,7 @@ interface CardProps {
 }
 
 // 拡張チェックボックスパターン (Minimal theme互換)
-// 全ての有効な記号を含む
 const VALID_MARKERS = ' xX><!?/-+RiBPCQNIpLEArcTt@OWfFH&sDd~';
-const CHECKBOX_PATTERN = new RegExp(`^- \\[[${VALID_MARKERS.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}]\\]`, 'm');
 const CHECKBOX_EXTRACT = new RegExp(`^- \\[([${VALID_MARKERS.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}])\\]\\s*(.*)`);
 
 // チェックボックスの状態に応じた表示 (Minimal theme互換)
@@ -85,8 +85,169 @@ const CHECKBOX_GROUPS = [
   { name: 'その他', items: ['T', '@', 'H', 's'] },
 ];
 
+// カード用のステータスマーカー（簡略版）
+const CARD_STATUS_MARKERS: CardStatusMarker[] = [' ', 'x', '/', '>', '-', '!', '?', 'i', 'd'];
+
+// パースされたコンテンツ行の型
+interface ParsedLine {
+  type: 'task' | 'text' | 'empty';
+  marker?: string;
+  text?: string;
+  original: string;
+}
+
+// コンテキストメニューのポータルコンポーネント
+const ContextMenuPortal = memo(function ContextMenuPortal({
+  position,
+  onClose,
+  children,
+}: {
+  position: { x: number; y: number };
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    // 少し遅延させてからリスナーを追加（即座にクリックイベントが発火するのを防ぐ）
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }, 10);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose]);
+
+  // 画面端に近い場合は位置を調整
+  const adjustedPosition = useMemo(() => {
+    const menuWidth = 220;
+    const menuHeight = 300;
+    const padding = 10;
+
+    let x = position.x;
+    let y = position.y;
+
+    if (x + menuWidth > window.innerWidth - padding) {
+      x = window.innerWidth - menuWidth - padding;
+    }
+    if (y + menuHeight > window.innerHeight - padding) {
+      y = window.innerHeight - menuHeight - padding;
+    }
+
+    return { x, y };
+  }, [position]);
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="context-menu-portal"
+      style={{
+        position: 'fixed',
+        left: adjustedPosition.x,
+        top: adjustedPosition.y,
+        zIndex: 10000,
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+});
+
+// チェックボックスサブメニュー
+const CheckboxSubmenu = memo(function CheckboxSubmenu({
+  onSelect,
+  currentMarker,
+}: {
+  onSelect: (marker: string) => void;
+  currentMarker?: string;
+}) {
+  return (
+    <div className="checkbox-submenu">
+      {CHECKBOX_GROUPS.map((group) => (
+        <div key={group.name} className="checkbox-menu-group">
+          <div className="checkbox-menu-group-label">{group.name}</div>
+          <div className="checkbox-menu-items">
+            {group.items.map((m) => {
+              const d = CHECKBOX_DISPLAY[m];
+              const isActive = currentMarker === m;
+              return (
+                <button
+                  key={m}
+                  className={`checkbox-menu-item ${isActive ? 'active' : ''}`}
+                  onClick={() => onSelect(m)}
+                  title={d?.label}
+                >
+                  <span className="checkbox-menu-icon">{d?.icon || '☐'}</span>
+                  <span className="checkbox-menu-label">{d?.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="checkbox-menu-help">
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.open('https://minimal.guide/checklists', '_blank');
+          }}
+        >
+          ヘルプ: チェックボックス一覧
+        </a>
+      </div>
+    </div>
+  );
+});
+
+// カードステータスメニュー（簡略版）
+const CardStatusMenu = memo(function CardStatusMenu({
+  onSelect,
+  currentMarker,
+}: {
+  onSelect: (marker: CardStatusMarker) => void;
+  currentMarker?: CardStatusMarker;
+}) {
+  return (
+    <div className="card-status-menu">
+      {CARD_STATUS_MARKERS.map((m) => {
+        const d = CHECKBOX_DISPLAY[m];
+        const isActive = currentMarker === m;
+        return (
+          <button
+            key={m}
+            className={`card-status-item ${isActive ? 'active' : ''}`}
+            onClick={() => onSelect(m)}
+            title={d?.label}
+          >
+            <span className="card-status-icon">{d?.icon || '☐'}</span>
+            <span className="card-status-label">{d?.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
 // Markdownコンテンツをレンダリング（チェックボックス対応）
-function MarkdownContent({
+const MarkdownContent = memo(function MarkdownContent({
   content,
   onToggleTask,
   onChangeTaskMarker,
@@ -100,24 +261,45 @@ function MarkdownContent({
   onTaskAction?: (actionId: string, taskIndex: number) => void;
 }) {
   // 右クリックメニューの状態
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number; marker: string } | null>(null);
 
-  // メニュー外クリックで閉じる
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
+  // コンテンツをパース（メモ化）
+  const parsedLines = useMemo<ParsedLine[]>(() => {
+    return content.split('\n').map((line) => {
+      const taskMatch = line.match(CHECKBOX_EXTRACT);
+      if (taskMatch) {
+        return {
+          type: 'task' as const,
+          marker: taskMatch[1],
+          text: taskMatch[2],
+          original: line,
+        };
+      } else if (line.trim()) {
+        return { type: 'text' as const, original: line };
       }
-    };
-    if (contextMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [contextMenu]);
+      return { type: 'empty' as const, original: line };
+    });
+  }, [content]);
 
-  // タスクリストがあるかチェック（拡張チェックボックス対応）
-  const hasTaskList = CHECKBOX_PATTERN.test(content);
+  // タスクリストがあるかチェック
+  const hasTaskList = useMemo(() => {
+    return parsedLines.some((line) => line.type === 'task');
+  }, [parsedLines]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, lineIndex: number, marker: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, lineIndex, marker });
+  }, []);
+
+  const handleSelectMarker = useCallback((marker: string) => {
+    if (contextMenu && onChangeTaskMarker) {
+      onChangeTaskMarker(contextMenu.lineIndex, marker);
+    }
+    setContextMenu(null);
+  }, [contextMenu, onChangeTaskMarker]);
+
+  const closeMenu = useCallback(() => setContextMenu(null), []);
 
   if (!hasTaskList) {
     // タスクがない場合は純粋なMarkdown表示
@@ -128,30 +310,11 @@ function MarkdownContent({
     );
   }
 
-  // タスクリストがある場合はカスタムレンダリング
-  const lines = content.split('\n');
-
-  const handleContextMenu = (e: React.MouseEvent, lineIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, lineIndex });
-  };
-
-  const handleSelectMarker = (marker: string) => {
-    if (contextMenu && onChangeTaskMarker) {
-      onChangeTaskMarker(contextMenu.lineIndex, marker);
-    }
-    setContextMenu(null);
-  };
-
   return (
     <div className="card-markdown">
-      {lines.map((line, index) => {
-        const taskMatch = line.match(CHECKBOX_EXTRACT);
-        if (taskMatch) {
-          const marker = taskMatch[1];
-          const display = CHECKBOX_DISPLAY[marker] || CHECKBOX_DISPLAY[' '];
-          const text = taskMatch[2];
+      {parsedLines.map((line, index) => {
+        if (line.type === 'task') {
+          const display = CHECKBOX_DISPLAY[line.marker!] || CHECKBOX_DISPLAY[' '];
           return (
             <div key={index} className="task-item-wrapper">
               <label
@@ -160,12 +323,12 @@ function MarkdownContent({
                   e.stopPropagation();
                   onToggleTask?.(index);
                 }}
-                onContextMenu={(e) => handleContextMenu(e, index)}
+                onContextMenu={(e) => handleContextMenu(e, index, line.marker!)}
               >
                 <span className={`task-checkbox ${display.className}`}>
                   {display.icon}
                 </span>
-                <span className="task-text">{text}</span>
+                <span className="task-text">{line.text}</span>
               </label>
               {taskActions && taskActions.length > 0 && (
                 <div className="task-actions">
@@ -186,69 +349,36 @@ function MarkdownContent({
               )}
             </div>
           );
-        } else if (line.trim()) {
-          // 通常の行はMarkdownとしてレンダリング
+        } else if (line.type === 'text') {
           return (
             <div key={index} className="markdown-line">
-              <ReactMarkdown>{line}</ReactMarkdown>
+              <ReactMarkdown>{line.original}</ReactMarkdown>
             </div>
           );
         }
         return <br key={index} />;
       })}
 
-      {/* 右クリックメニュー */}
+      {/* 右クリックメニュー（Portal経由） */}
       {contextMenu && (
-        <div
-          ref={menuRef}
-          className="checkbox-context-menu"
-          style={{
-            position: 'fixed',
-            left: contextMenu.x,
-            top: contextMenu.y,
-            zIndex: 9999,
-          }}
-          onClick={(e) => e.stopPropagation()}
+        <ContextMenuPortal
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={closeMenu}
         >
-          {CHECKBOX_GROUPS.map((group) => (
-            <div key={group.name} className="checkbox-menu-group">
-              <div className="checkbox-menu-group-label">{group.name}</div>
-              <div className="checkbox-menu-items">
-                {group.items.map((m) => {
-                  const d = CHECKBOX_DISPLAY[m];
-                  return (
-                    <button
-                      key={m}
-                      className="checkbox-menu-item"
-                      onClick={() => handleSelectMarker(m)}
-                      title={d?.label}
-                    >
-                      <span className="checkbox-menu-icon">{d?.icon || '☐'}</span>
-                      <span className="checkbox-menu-label">{d?.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-          <div className="checkbox-menu-help">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                window.open('https://minimal.guide/checklists', '_blank');
-              }}
-            >
-              ヘルプ: チェックボックス一覧
-            </a>
+          <div className="task-context-menu">
+            <div className="context-menu-header">ステータスを変更</div>
+            <CheckboxSubmenu
+              onSelect={handleSelectMarker}
+              currentMarker={contextMenu.marker}
+            />
           </div>
-        </div>
+        </ContextMenuPortal>
       )}
     </div>
   );
-}
+});
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction }: CardProps) {
   const {
     attributes,
     listeners,
@@ -258,8 +388,11 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     isDragging,
   } = useSortable({ id: card.id });
 
+  // カード右クリックメニュー
+  const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; showStatusSubmenu: boolean } | null>(null);
+
   // サブタグの色とラベルを取得（上書き設定を適用）
-  const getSubtagInfo = (subtagId: string): { color: string; label: string } | null => {
+  const getSubtagInfo = useCallback((subtagId: string): { color: string; label: string } | null => {
     // デフォルトサブタグをチェック
     if (subtagId in SUBTAG_COLORS) {
       const override = defaultSubtagSettings?.overrides?.[subtagId];
@@ -274,11 +407,13 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
       return { color: customTag.color, label: customTag.name };
     }
     return null;
-  };
+  }, [customSubtags, defaultSubtagSettings]);
 
   // 後方互換性: subtag と subtags 両方をサポート
   const cardSubtags = card.subtags || (card.subtag ? [card.subtag] : []);
-  const subtagInfos = cardSubtags.map(st => getSubtagInfo(st)).filter((info): info is { color: string; label: string } => info !== null);
+  const subtagInfos = useMemo(() => {
+    return cardSubtags.map(st => getSubtagInfo(st)).filter((info): info is { color: string; label: string } => info !== null);
+  }, [cardSubtags, getSubtagInfo]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -287,7 +422,7 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
   };
 
   // タスクのチェック状態をトグル（クリックで完了/未完了を切り替え）
-  const handleToggleTask = (lineIndex: number) => {
+  const handleToggleTask = useCallback((lineIndex: number) => {
     if (!card.description || !onUpdateDescription) return;
 
     const lines = card.description.split('\n');
@@ -301,10 +436,10 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
       lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
       onUpdateDescription(card.id, lines.join('\n'));
     }
-  };
+  }, [card.id, card.description, onUpdateDescription]);
 
   // タスクのマーカーを変更（右クリックメニューから）
-  const handleChangeTaskMarker = (lineIndex: number, newMarker: string) => {
+  const handleChangeTaskMarker = useCallback((lineIndex: number, newMarker: string) => {
     if (!card.description || !onUpdateDescription) return;
 
     const lines = card.description.split('\n');
@@ -315,24 +450,49 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
       lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
       onUpdateDescription(card.id, lines.join('\n'));
     }
-  };
+  }, [card.id, card.description, onUpdateDescription]);
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  // カード自体のステータス変更
+  const handleChangeCardStatus = useCallback((marker: CardStatusMarker) => {
+    if (onUpdateStatusMarker) {
+      onUpdateStatusMarker(card.id, marker);
+    }
+    setCardContextMenu(null);
+  }, [card.id, onUpdateStatusMarker]);
+
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
     // ボタンやタスクチェックボックスからのクリックは無視
-    if ((e.target as HTMLElement).closest('button, .task-item')) {
+    if ((e.target as HTMLElement).closest('button, .task-item, .card-status-marker')) {
       return;
     }
     onCardClick?.(card.id);
-  };
+  }, [card.id, onCardClick]);
+
+  // カード右クリック
+  const handleCardContextMenu = useCallback((e: React.MouseEvent) => {
+    // タスク行からの右クリックは無視（タスク専用メニューを表示）
+    if ((e.target as HTMLElement).closest('.task-item')) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    setCardContextMenu({ x: e.clientX, y: e.clientY, showStatusSubmenu: false });
+  }, []);
+
+  const closeCardMenu = useCallback(() => setCardContextMenu(null), []);
 
   // プラグインカードアクションを位置別にフィルタリング
-  const headerActions = cardActions.filter(a => a.position === 'card-header');
-  const footerActions = cardActions.filter(a => a.position === 'card-footer');
-  const taskActions = cardActions.filter(a => a.position === 'task');
+  const headerActions = useMemo(() => cardActions.filter(a => a.position === 'card-header'), [cardActions]);
+  const footerActions = useMemo(() => cardActions.filter(a => a.position === 'card-footer'), [cardActions]);
+  const taskActions = useMemo(() => cardActions.filter(a => a.position === 'task'), [cardActions]);
 
   // ウィンドウリンクの状態でクラスを追加
   const hasWindowLink = !!card.windowApp;
   const linkClass = isBrokenLink ? 'card-broken-link' : hasWindowLink ? 'card-linked' : 'card-unlinked';
+
+  // カードステータスマーカーの表示
+  const statusMarker = card.statusMarker || ' ';
+  const statusDisplay = CHECKBOX_DISPLAY[statusMarker] || CHECKBOX_DISPLAY[' '];
 
   return (
     <div
@@ -340,11 +500,27 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
       style={style}
       className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnId ? `card-status-${columnId}` : ''}`}
       onClick={handleCardClick}
+      onContextMenu={handleCardContextMenu}
       {...attributes}
       {...listeners}
     >
       <div className="card-header">
         <div className="card-tags">
+          {/* カードステータスマーカー */}
+          {onUpdateStatusMarker && (
+            <span
+              className={`card-status-marker ${statusDisplay.className}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                // クリックで完了/未完了トグル
+                const newMarker = statusMarker === 'x' ? ' ' : 'x';
+                onUpdateStatusMarker(card.id, newMarker as CardStatusMarker);
+              }}
+              title={`ステータス: ${statusDisplay.label}`}
+            >
+              {statusDisplay.icon || '☐'}
+            </span>
+          )}
           <span
             className="card-tag"
             style={{ backgroundColor: TAG_COLORS[card.tag] }}
@@ -453,6 +629,76 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
             </button>
           ))}
         </div>
+      )}
+
+      {/* カード右クリックメニュー */}
+      {cardContextMenu && (
+        <ContextMenuPortal
+          position={{ x: cardContextMenu.x, y: cardContextMenu.y }}
+          onClose={closeCardMenu}
+        >
+          <div className="card-context-menu">
+            {onUpdateStatusMarker && (
+              <>
+                <div className="context-menu-section">
+                  <div className="context-menu-header">カードステータス</div>
+                  <CardStatusMenu
+                    onSelect={handleChangeCardStatus}
+                    currentMarker={card.statusMarker}
+                  />
+                </div>
+                <div className="context-menu-divider" />
+              </>
+            )}
+            <div className="context-menu-actions">
+              <button
+                className="context-menu-action"
+                onClick={() => {
+                  onEdit(card.id);
+                  closeCardMenu();
+                }}
+              >
+                <span className="context-action-icon">✏️</span>
+                <span>編集</span>
+              </button>
+              {onJump && card.windowApp && (
+                <button
+                  className="context-menu-action"
+                  onClick={() => {
+                    onJump(card.id);
+                    closeCardMenu();
+                  }}
+                >
+                  <span className="context-action-icon">↗️</span>
+                  <span>{card.windowApp} を開く</span>
+                </button>
+              )}
+              {onArchive && (
+                <button
+                  className="context-menu-action"
+                  onClick={() => {
+                    onArchive(card.id);
+                    closeCardMenu();
+                  }}
+                >
+                  <span className="context-action-icon">📥</span>
+                  <span>アーカイブ</span>
+                </button>
+              )}
+              <div className="context-menu-divider" />
+              <button
+                className="context-menu-action danger"
+                onClick={() => {
+                  onDelete(card.id);
+                  closeCardMenu();
+                }}
+              >
+                <span className="context-action-icon">🗑️</span>
+                <span>削除</span>
+              </button>
+            </div>
+          </div>
+        </ContextMenuPortal>
       )}
     </div>
   );
