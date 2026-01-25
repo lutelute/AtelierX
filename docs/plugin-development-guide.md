@@ -10,9 +10,10 @@
 4. [プラグインAPI](#プラグインapi)
 5. [ライフサイクル](#ライフサイクル)
 6. [プラグインタイプ別ガイド](#プラグインタイプ別ガイド)
-7. [デバッグ方法](#デバッグ方法)
-8. [公開方法](#公開方法)
-9. [ベストプラクティス](#ベストプラクティス)
+7. [動作確認ガイド](#動作確認ガイド)
+8. [デバッグ方法](#デバッグ方法)
+9. [公開方法](#公開方法)
+10. [ベストプラクティス](#ベストプラクティス)
 
 ---
 
@@ -166,6 +167,54 @@ api.registerGridLayout({
 api.unregisterGridLayout('my-layout');
 ```
 
+### エクスポートフォーマット関連
+
+#### `api.registerExportFormat(format)`
+
+カスタムエクスポートフォーマットを登録します。
+
+```javascript
+api.registerExportFormat({
+  id: 'my-format',            // 必須: フォーマットID
+  name: 'マイフォーマット',     // 必須: 表示名
+  description: '説明文',       // オプション: 説明
+  generate(logs, boardData) { // 必須: 生成関数
+    // logs: ActivityLog[] - 活動ログの配列
+    // boardData: BoardData - ボードデータ（cards, columns など）
+    // 戻り値: string - エクスポートされるコンテンツ
+    return '出力内容';
+  }
+});
+```
+
+**パラメータ説明:**
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `id` | string | ✅ | 一意のフォーマットID |
+| `name` | string | ✅ | UI に表示される名前 |
+| `description` | string | ❌ | フォーマットの説明 |
+| `generate` | function | ✅ | エクスポート内容を生成する関数 |
+
+**`generate(logs, boardData)` の引数:**
+
+- `logs`: `ActivityLog[]` - 活動ログの配列
+  - `log.cardTitle`: カードのタイトル
+  - `log.timestamp`: タイムスタンプ
+  - `log.columnId`: カラムID
+
+- `boardData`: `BoardData` - ボードの全データ
+  - `boardData.cards`: カードのオブジェクト（`{ [cardId]: Card }`）
+  - `boardData.columns`: カラムの配列
+
+#### `api.unregisterExportFormat(formatId)`
+
+エクスポートフォーマットを登録解除します。
+
+```javascript
+api.unregisterExportFormat('my-format');
+```
+
 ### 設定関連
 
 #### `api.getSettings()`
@@ -313,6 +362,80 @@ module.exports = {
 };
 ```
 
+### export タイプ
+
+エクスポートフォーマットを追加するプラグインです。
+
+```javascript
+// main.js
+module.exports = {
+  onload(api) {
+    // Slack形式のエクスポート
+    api.registerExportFormat({
+      id: 'slack',
+      name: 'Slack',
+      description: 'Slack投稿用フォーマット',
+      generate(logs, boardData) {
+        const today = new Date().toLocaleDateString('ja-JP');
+        let output = `:calendar: *日報 ${today}*\n\n`;
+
+        output += ':clipboard: *今日の活動:*\n';
+        logs.forEach(log => {
+          const time = new Date(log.timestamp).toLocaleTimeString('ja-JP', {
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          output += `• \`${time}\` ${log.cardTitle}\n`;
+        });
+
+        // ボードのカード情報を追加
+        const cards = Object.values(boardData.cards || {});
+        if (cards.length > 0) {
+          output += '\n:pushpin: *ボード項目:*\n';
+          cards.forEach(card => {
+            output += `• ${card.title}\n`;
+          });
+        }
+
+        return output;
+      }
+    });
+
+    // 複数フォーマットの登録も可能
+    api.registerExportFormat({
+      id: 'csv',
+      name: 'CSV',
+      description: 'カンマ区切り形式',
+      generate(logs, boardData) {
+        let csv = 'timestamp,cardTitle,columnId\n';
+        logs.forEach(log => {
+          csv += `${log.timestamp},${log.cardTitle},${log.columnId}\n`;
+        });
+        return csv;
+      }
+    });
+  },
+
+  onunload() {
+    console.log('Export plugin unloaded');
+    // 登録解除は自動で行われる
+  }
+};
+```
+
+**manifest.json**
+```json
+{
+  "id": "my-export-formats",
+  "name": "My Export Formats",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "カスタムエクスポートフォーマット",
+  "author": "Your Name",
+  "type": "export"
+}
+```
+
 ### utility タイプ
 
 汎用的なユーティリティプラグインです。
@@ -335,6 +458,106 @@ module.exports = {
   }
 };
 ```
+
+---
+
+## 動作確認ガイド
+
+プラグインを開発した後、以下の手順で動作確認を行います。
+
+### ステップ 1: ローカル開発環境のセットアップ
+
+```bash
+# AtelierX を開発モードで起動
+npm run electron:dev
+```
+
+### ステップ 2: プラグインを配置
+
+開発中のプラグインを `plugins-dev` ディレクトリにコピーします:
+
+```bash
+# プロジェクトルートで実行
+cp -r /path/to/your-plugin plugins-dev/
+```
+
+または、直接プラグインディレクトリにコピー:
+
+```bash
+# macOS
+cp -r /path/to/your-plugin ~/Library/Application\ Support/AtelierX/plugins/
+```
+
+### ステップ 3: プラグインの有効化
+
+1. アプリで `Cmd + ,` を押して設定画面を開く
+2. 「プラグイン」タブを選択
+3. プラグイン一覧から開発中のプラグインを探す
+4. 「有効化」ボタンをクリック
+
+### ステップ 4: 機能の確認
+
+#### grid-layout タイプの場合
+
+1. メイン画面で「Grid」ボタン（グリッドアイコン）をクリック
+2. グリッド整列モーダルが開く
+3. プラグインのレイアウトがプリセット一覧に表示されることを確認
+4. レイアウトを選択して適用できることを確認
+
+#### export タイプの場合
+
+1. メイン画面で「Export」ボタン（ダウンロードアイコン）をクリック
+2. エクスポートモーダルが開く
+3. プラグインのエクスポートフォーマットがボタンとして表示されることを確認
+4. フォーマットをクリックしてエクスポート内容が生成されることを確認
+5. 「Copy to Clipboard」または「Save to File」が機能することを確認
+
+### ステップ 5: 無効化の確認
+
+1. 設定画面でプラグインを「無効化」
+2. 機能が消えることを確認:
+   - grid-layout: プリセット一覧からレイアウトが消える
+   - export: フォーマットボタンが消える
+
+### ステップ 6: コンソールエラーの確認
+
+1. `Cmd + Option + I` で開発者ツールを開く
+2. Console タブでエラーがないことを確認
+3. プラグインのログ（`[Plugin:your-plugin-id]`）が正常に出力されていることを確認
+
+### 確認チェックリスト
+
+#### 全プラグイン共通
+
+- [ ] プラグインが設定画面に表示される
+- [ ] 有効化/無効化が正常に動作する
+- [ ] コンソールにエラーが出ない
+- [ ] `[Plugin:xxx] Plugin loaded` ログが出力される
+
+#### grid-layout タイプ
+
+- [ ] グリッドモーダルにレイアウトが表示される
+- [ ] レイアウトを選択・適用できる
+- [ ] 無効化後、レイアウトが一覧から消える
+
+#### export タイプ
+
+- [ ] エクスポートモーダルにフォーマットボタンが表示される
+- [ ] フォーマット選択でコンテンツが生成される
+- [ ] 生成コンテンツが期待通りの形式である
+- [ ] クリップボードコピーが動作する
+- [ ] ファイル保存が動作する
+- [ ] 無効化後、フォーマットボタンが消える
+
+### トラブルシューティング
+
+| 症状 | 確認ポイント | 解決策 |
+|------|-------------|--------|
+| プラグインが一覧に表示されない | `manifest.json` の形式 | 必須フィールド（id, name, version, description, author）を確認 |
+| 有効化してもレイアウト/フォーマットが出ない | `main.js` の `onload` | `api.registerGridLayout()` や `api.registerExportFormat()` が呼ばれているか確認 |
+| エクスポートで空の内容が出る | `generate` 関数 | 関数が文字列を返しているか確認。`boardData.cards`（`boardData.items` ではない）を使用 |
+| `log.text is undefined` エラー | データ構造 | `log.text` ではなく `log.cardTitle` を使用 |
+| 無効化しても機能が残る | `onunload` | 手動で登録解除が必要な場合は `onunload` で処理 |
 
 ---
 
