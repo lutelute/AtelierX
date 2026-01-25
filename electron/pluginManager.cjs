@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { app } = require('electron');
-const { createPluginAPI, clearPluginGridLayouts } = require('./pluginAPI.cjs');
+const { createPluginAPI, clearPluginGridLayouts, clearPluginExportFormats } = require('./pluginAPI.cjs');
 
 // ロード済みプラグインのインスタンス
 const loadedPlugins = new Map();
@@ -315,6 +315,9 @@ function unloadPlugin(pluginId) {
 
     // グリッドレイアウトをクリア
     clearPluginGridLayouts(pluginId);
+
+    // エクスポートフォーマットをクリア
+    clearPluginExportFormats(pluginId);
 
     // ロード済みリストから削除
     loadedPlugins.delete(pluginId);
