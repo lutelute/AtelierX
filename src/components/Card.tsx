@@ -518,7 +518,7 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUp
               }}
               title={`ステータス: ${statusDisplay.label}`}
             >
-              {statusDisplay.icon || '☐'}
+              {statusDisplay.icon}
             </span>
           )}
           <span
