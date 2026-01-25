@@ -168,18 +168,49 @@ function downloadFile(url) {
 }
 
 /**
+ * GitHubリポジトリパスを正規化
+ * @param {string} input - リポジトリパスまたはURL
+ * @returns {{ owner: string, repo: string } | null}
+ */
+function parseGitHubRepo(input) {
+  if (!input || typeof input !== 'string') return null;
+
+  const trimmed = input.trim();
+
+  // フルURL形式: https://github.com/owner/repo または https://github.com/owner/repo.git
+  const urlMatch = trimmed.match(/^https?:\/\/github\.com\/([^/]+)\/([^/.]+)(?:\.git)?(?:\/.*)?$/);
+  if (urlMatch) {
+    return { owner: urlMatch[1], repo: urlMatch[2] };
+  }
+
+  // github.com/owner/repo 形式（httpsなし）
+  const noProtocolMatch = trimmed.match(/^github\.com\/([^/]+)\/([^/.]+)(?:\.git)?(?:\/.*)?$/);
+  if (noProtocolMatch) {
+    return { owner: noProtocolMatch[1], repo: noProtocolMatch[2] };
+  }
+
+  // owner/repo 形式
+  const simpleMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
+  if (simpleMatch) {
+    return { owner: simpleMatch[1], repo: simpleMatch[2] };
+  }
+
+  return null;
+}
+
+/**
  * GitHubからプラグインをインストール
- * @param {string} repoPath - リポジトリパス（owner/repo 形式）
+ * @param {string} repoPath - リポジトリパス（owner/repo 形式またはGitHub URL）
  */
 async function installFromGitHub(repoPath) {
   try {
-    // repoPath の検証（owner/repo 形式）
-    const match = repoPath.match(/^([^/]+)\/([^/]+)$/);
-    if (!match) {
-      return { success: false, error: 'Invalid repository path. Use "owner/repo" format.' };
+    // repoPath の検証（owner/repo 形式またはURL）
+    const parsed = parseGitHubRepo(repoPath);
+    if (!parsed) {
+      return { success: false, error: 'Invalid repository path. Use "owner/repo" or GitHub URL format.' };
     }
 
-    const [, owner, repo] = match;
+    const { owner, repo } = parsed;
 
     // manifest.json を取得
     const manifestUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/manifest.json`;
