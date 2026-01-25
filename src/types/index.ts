@@ -191,6 +191,43 @@ export interface PluginExportFormat extends PluginExportFormatInfo {
   generate: (logs: ActivityLog[], boardData: BoardData) => string;
 }
 
+// アップデート関連の型
+export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'latest' | 'error';
+
+export interface UpdateCheckResult {
+  success: boolean;
+  available: boolean;
+  version?: string;
+  downloadUrl?: string;
+  releaseUrl?: string;
+  releaseName?: string;
+  releaseBody?: string;
+  error?: string;
+}
+
+export interface UpdateDownloadResult {
+  success: boolean;
+  filePath?: string;
+  error?: string;
+}
+
+export interface UpdateProgress {
+  percent: number;
+  downloadedMB: string;
+  totalMB: string;
+}
+
+export interface UpdateInstallResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface UpdateCleanupResult {
+  success: boolean;
+  deleted: number;
+  error?: string;
+}
+
 // Electron API の型定義
 declare global {
   interface Window {
@@ -228,6 +265,14 @@ declare global {
         getGridLayouts: () => Promise<{ success: boolean; data: PluginGridLayout[] }>;
         getExportFormats: () => Promise<{ success: boolean; data: PluginExportFormatInfo[] }>;
         executeExportFormat: (formatId: string, context: { logs: ActivityLog[]; boardData: BoardData }) => Promise<{ success: boolean; data?: string; error?: string }>;
+      };
+      // アップデート関連
+      update: {
+        check: () => Promise<UpdateCheckResult>;
+        download: (downloadUrl: string) => Promise<UpdateDownloadResult>;
+        install: () => Promise<UpdateInstallResult>;
+        cleanup: () => Promise<UpdateCleanupResult>;
+        onProgress: (callback: (data: UpdateProgress) => void) => () => void;
       };
     };
   }

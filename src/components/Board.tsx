@@ -978,46 +978,69 @@ export function Board() {
 
   return (
     <div className="board-container">
-      <aside className="toolbar">
-        {unaddedWindows.length > 0 && (
-          <button className="icon-btn add-all-btn" onClick={handleAddAllWindows} title="全て追加">
-            +{unaddedWindows.length}
+      {/* 左サイドメニュー（将来の拡張用） */}
+      <aside className="sidebar">
+        <div className="sidebar-top">
+          <button className="sidebar-btn active" title="ボード">
+            <span className="sidebar-icon">▦</span>
           </button>
-        )}
-        <button className="icon-btn grid-btn" onClick={handleOpenGridModal} title="Grid配置">
-          ⊞
-        </button>
-        <button className="icon-btn export-btn" onClick={handleOpenExport} title="Obsidian">
-          📝
-        </button>
-        <button className="icon-btn settings-btn" onClick={() => setShowSettingsModal(true)} title="設定">
-          ⚙
-        </button>
+        </div>
+        <div className="sidebar-bottom">
+          <button className="sidebar-btn" onClick={() => setShowSettingsModal(true)} title="設定">
+            <span className="sidebar-icon">⚯</span>
+          </button>
+        </div>
       </aside>
-      <header className="taskbar">
-        <div className="taskbar-center">
-          <span className="app-logo">AX</span>
-          <div className="board-tabs">
-            <button
-              className={`board-tab ${activeBoard === 'terminal' ? 'active' : ''}`}
-              onClick={() => setActiveBoard('terminal')}
-            >
-              Terminal
-            </button>
-            <button
-              className={`board-tab ${activeBoard === 'finder' ? 'active' : ''}`}
-              onClick={() => setActiveBoard('finder')}
-            >
-              Finder
-            </button>
-          </div>
-          <div className="theme-toggle-switch" onClick={toggleTheme} title="テーマ切替">
-            <span className="toggle-icon sun">☀️</span>
-            <span className="toggle-slider" />
-            <span className="toggle-icon moon">🌙</span>
+
+      {/* フローティングナビゲーションバー */}
+      <nav className="floating-nav">
+        <div className="nav-section nav-left">
+          <div className="nav-brand">
+            <span className="brand-name">AtelierX</span>
           </div>
         </div>
-      </header>
+
+        <div className="nav-section nav-center">
+          <div className="nav-tabs">
+            <button
+              className={`nav-tab ${activeBoard === 'terminal' ? 'active' : ''}`}
+              onClick={() => setActiveBoard('terminal')}
+            >
+              <span className="tab-icon">⌘</span>
+              <span className="tab-label">Terminal</span>
+            </button>
+            <button
+              className={`nav-tab ${activeBoard === 'finder' ? 'active' : ''}`}
+              onClick={() => setActiveBoard('finder')}
+            >
+              <span className="tab-icon">◫</span>
+              <span className="tab-label">Finder</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="nav-section nav-right">
+          {unaddedWindows.length > 0 && (
+            <button className="nav-action pulse" onClick={handleAddAllWindows} title="未追加のウィンドウを追加">
+              <span className="action-badge">+{unaddedWindows.length}</span>
+            </button>
+          )}
+          <button className="nav-action" onClick={handleOpenGridModal} title="Grid配置">
+            <span className="action-icon">▦</span>
+          </button>
+          <button className="nav-action" onClick={handleOpenExport} title="エクスポート">
+            <span className="action-icon">⏏</span>
+          </button>
+          <div className="nav-divider" />
+          <div className="theme-slider" onClick={toggleTheme} title="テーマ切替">
+            <span className="theme-label light">☀</span>
+            <div className="theme-track">
+              <div className="theme-thumb" />
+            </div>
+            <span className="theme-label dark">☽</span>
+          </div>
+        </div>
+      </nav>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}

@@ -28,6 +28,14 @@ const {
   loadEnabledPlugins,
 } = require('./pluginManager.cjs');
 const { getRegisteredGridLayouts, getRegisteredExportFormats, getExportFormatById } = require('./pluginAPI.cjs');
+const {
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  cleanupDownload,
+  cleanupOldFiles,
+  startupCleanup,
+} = require('./updateManager.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -56,6 +64,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // 起動時に古いアップデートファイルをクリーンアップ
+  startupCleanup();
 
   // IPC: ウィンドウ一覧を取得
   ipcMain.handle('get-app-windows', async () => {
@@ -456,6 +467,55 @@ ipcMain.handle('plugins:execute-export-format', async (_, { formatId, logs, boar
 
 // 有効なプラグインをロード
 loadEnabledPlugins();
+
+// =====================================================
+// 自動アップデート機能 (updateManager.cjs モジュールを使用)
+// =====================================================
+
+// IPC: アップデートを確認
+ipcMain.handle('update:check', async () => {
+  try {
+    const result = await checkForUpdates();
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('update:check error:', error);
+    return { success: false, available: false, error: error.message };
+  }
+});
+
+// IPC: アップデートをダウンロード（進捗をイベントで送信）
+ipcMain.handle('update:download', async (event, downloadUrl) => {
+  try {
+    const result = await downloadUpdate(downloadUrl, (percent, downloadedMB, totalMB) => {
+      // 進捗をレンダラーに送信
+      event.sender.send('update:progress', { percent, downloadedMB, totalMB });
+    });
+    return result;
+  } catch (error) {
+    console.error('update:download error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: ダウンロード済みファイルをインストール（.dmgを開く）
+ipcMain.handle('update:install', async () => {
+  try {
+    return await installUpdate();
+  } catch (error) {
+    console.error('update:install error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: ダウンロードファイルをクリーンアップ
+ipcMain.handle('update:cleanup', async () => {
+  try {
+    return cleanupDownload();
+  } catch (error) {
+    console.error('update:cleanup error:', error);
+    return { success: false, deleted: 0, error: error.message };
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

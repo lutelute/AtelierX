@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin } from '../types';
+import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress } from '../types';
 
 export { type CardClickBehavior };
 export { type Settings };
@@ -61,32 +61,112 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
   const [pluginSuccess, setPluginSuccess] = useState<string | null>(null);
 
   // バージョン更新確認
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'latest' | 'error'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<UpdateProgress | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const currentVersion = __APP_VERSION__;
+
+  // 進捗イベントリスナーの登録
+  useEffect(() => {
+    if (window.electronAPI?.update?.onProgress) {
+      const cleanup = window.electronAPI.update.onProgress((data) => {
+        setDownloadProgress(data);
+      });
+      return cleanup;
+    }
+  }, []);
 
   const checkForUpdates = async () => {
     setUpdateStatus('checking');
+    setUpdateError(null);
     try {
-      const response = await fetch('https://api.github.com/repos/lutelute/AtelierX/releases/latest');
-      if (!response.ok) {
-        if (response.status === 404) {
-          // リリースがまだない場合
-          setUpdateStatus('latest');
-          return;
+      if (window.electronAPI?.update) {
+        const result = await window.electronAPI.update.check();
+        if (result.success) {
+          if (result.available) {
+            setLatestVersion(result.version || null);
+            setDownloadUrl(result.downloadUrl || null);
+            setUpdateStatus('available');
+          } else {
+            setUpdateStatus('latest');
+          }
+        } else {
+          setUpdateError(result.error || '確認に失敗しました');
+          setUpdateStatus('error');
         }
-        throw new Error('Failed to fetch');
-      }
-      const data = await response.json();
-      const latest = data.tag_name.replace(/^v/, '');
-      setLatestVersion(latest);
-      if (latest !== currentVersion) {
-        setUpdateStatus('available');
       } else {
-        setUpdateStatus('latest');
+        // フォールバック: 直接GitHub APIを呼ぶ
+        const response = await fetch('https://api.github.com/repos/lutelute/AtelierX/releases/latest');
+        if (!response.ok) {
+          if (response.status === 404) {
+            setUpdateStatus('latest');
+            return;
+          }
+          throw new Error('Failed to fetch');
+        }
+        const data = await response.json();
+        const latest = data.tag_name.replace(/^v/, '');
+        setLatestVersion(latest);
+        const dmgAsset = data.assets?.find((asset: { name: string }) => asset.name.endsWith('.dmg'));
+        setDownloadUrl(dmgAsset?.browser_download_url || null);
+        if (latest !== currentVersion) {
+          setUpdateStatus('available');
+        } else {
+          setUpdateStatus('latest');
+        }
       }
     } catch {
       setUpdateStatus('error');
+      setUpdateError('確認に失敗しました');
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!downloadUrl) return;
+    setUpdateStatus('downloading');
+    setDownloadProgress(null);
+    setUpdateError(null);
+    try {
+      const result = await window.electronAPI?.update.download(downloadUrl);
+      if (result?.success) {
+        setUpdateStatus('downloaded');
+      } else {
+        setUpdateError(result?.error || 'ダウンロードに失敗しました');
+        setUpdateStatus('error');
+      }
+    } catch {
+      setUpdateError('ダウンロード中にエラーが発生しました');
+      setUpdateStatus('error');
+    }
+  };
+
+  const handleInstall = async () => {
+    setUpdateStatus('installing');
+    setUpdateError(null);
+    try {
+      const result = await window.electronAPI?.update.install();
+      if (result?.success) {
+        // インストール成功（.dmgが開かれた）
+        // ユーザーは手動でインストーラーを進める必要がある
+      } else {
+        setUpdateError(result?.error || 'インストールに失敗しました');
+        setUpdateStatus('error');
+      }
+    } catch {
+      setUpdateError('インストール中にエラーが発生しました');
+      setUpdateStatus('error');
+    }
+  };
+
+  const handleCleanup = async () => {
+    try {
+      await window.electronAPI?.update.cleanup();
+      setUpdateStatus('idle');
+      setDownloadProgress(null);
+    } catch {
+      // エラーは無視
     }
   };
 
@@ -771,15 +851,40 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
               <span className="version-number">v{currentVersion}</span>
             </div>
             <div className="version-actions">
-              <button
-                type="button"
-                className="btn-check-update"
-                onClick={checkForUpdates}
-                disabled={updateStatus === 'checking'}
-              >
-                {updateStatus === 'checking' ? '確認中...' : '更新を確認'}
-              </button>
-              {updateStatus === 'available' && latestVersion && (
+              {/* 確認ボタン */}
+              {(updateStatus === 'idle' || updateStatus === 'latest' || updateStatus === 'error') && (
+                <button
+                  type="button"
+                  className="btn-check-update"
+                  onClick={checkForUpdates}
+                >
+                  更新を確認
+                </button>
+              )}
+
+              {/* 確認中 */}
+              {updateStatus === 'checking' && (
+                <span className="update-status-checking">確認中...</span>
+              )}
+
+              {/* 最新です */}
+              {updateStatus === 'latest' && (
+                <span className="update-status-latest">最新です</span>
+              )}
+
+              {/* 新バージョンあり - ダウンロードボタン */}
+              {updateStatus === 'available' && latestVersion && downloadUrl && (
+                <button
+                  type="button"
+                  className="btn-download-update"
+                  onClick={handleDownload}
+                >
+                  v{latestVersion} をダウンロード
+                </button>
+              )}
+
+              {/* 新バージョンあり - dmgがない場合はリンク */}
+              {updateStatus === 'available' && latestVersion && !downloadUrl && (
                 <a
                   href="https://github.com/lutelute/AtelierX/releases/latest"
                   target="_blank"
@@ -789,14 +894,70 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
                   v{latestVersion} をダウンロード
                 </a>
               )}
-              {updateStatus === 'latest' && (
-                <span className="update-status-latest">最新です</span>
-              )}
+
+              {/* エラー */}
               {updateStatus === 'error' && (
-                <span className="update-status-error">確認に失敗</span>
+                <span className="update-status-error">
+                  {updateError || '確認に失敗'}
+                </span>
               )}
             </div>
           </div>
+
+          {/* ダウンロード進捗バー */}
+          {updateStatus === 'downloading' && (
+            <div className="update-progress">
+              <div className="update-progress-bar">
+                <div
+                  className="update-progress-fill"
+                  style={{ width: `${downloadProgress?.percent || 0}%` }}
+                />
+              </div>
+              <span className="update-progress-text">
+                {downloadProgress
+                  ? `${downloadProgress.percent}% (${downloadProgress.downloadedMB}MB / ${downloadProgress.totalMB}MB)`
+                  : 'ダウンロード準備中...'}
+              </span>
+            </div>
+          )}
+
+          {/* ダウンロード完了 - インストールボタン */}
+          {updateStatus === 'downloaded' && (
+            <div className="update-downloaded">
+              <p className="update-downloaded-text">ダウンロード完了！</p>
+              <div className="update-downloaded-actions">
+                <button
+                  type="button"
+                  className="btn-install-update"
+                  onClick={handleInstall}
+                >
+                  インストール
+                </button>
+                <button
+                  type="button"
+                  className="btn-cleanup"
+                  onClick={handleCleanup}
+                >
+                  キャンセル
+                </button>
+              </div>
+              <p className="update-hint">
+                「インストール」をクリックするとdmgファイルが開きます。
+                その後、AtelierXを新しいバージョンに置き換えてください。
+              </p>
+            </div>
+          )}
+
+          {/* インストール中 */}
+          {updateStatus === 'installing' && (
+            <div className="update-installing">
+              <p className="update-installing-text">dmgファイルを開いています...</p>
+              <p className="update-hint">
+                dmgが開いたら、AtelierXアイコンをApplicationsフォルダにドラッグしてください。
+                その後、アプリを再起動してください。
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="form-actions">

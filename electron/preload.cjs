@@ -35,4 +35,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getExportFormats: () => ipcRenderer.invoke('plugins:get-export-formats'),
     executeExportFormat: (formatId, context) => ipcRenderer.invoke('plugins:execute-export-format', { formatId, ...context }),
   },
+  // アップデート関連
+  update: {
+    check: () => ipcRenderer.invoke('update:check'),
+    download: (downloadUrl) => ipcRenderer.invoke('update:download', downloadUrl),
+    install: () => ipcRenderer.invoke('update:install'),
+    cleanup: () => ipcRenderer.invoke('update:cleanup'),
+    onProgress: (callback) => {
+      const listener = (_, data) => callback(data);
+      ipcRenderer.on('update:progress', listener);
+      // クリーンアップ関数を返す
+      return () => ipcRenderer.removeListener('update:progress', listener);
+    },
+  },
 });
