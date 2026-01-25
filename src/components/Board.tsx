@@ -903,6 +903,73 @@ export function Board() {
     }
   };
 
+  // 時刻をフォーマット (HH:MM)
+  const formatTime = (timestamp: number): string => {
+    const d = new Date(timestamp);
+    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // 時間をフォーマット (◯分 or ◯時間◯分)
+  const formatDuration = (ms: number): string => {
+    const minutes = Math.floor(ms / 60000);
+    const hours = Math.floor(minutes / 60);
+    if (hours > 0) {
+      const remainingMinutes = minutes % 60;
+      return `${hours}時間${remainingMinutes}分`;
+    }
+    return `${minutes}分`;
+  };
+
+  // カード説明文にタイマー情報を追記/更新
+  const updateDescriptionWithTimer = (
+    description: string | undefined,
+    targetTaskIndex: number | undefined,
+    timerAction: string,
+    startedAt?: number,
+    endedAt?: number,
+    durationMs?: number
+  ): string => {
+    if (!description) return description || '';
+
+    const lines = description.split('\n');
+    const taskLineIndices: number[] = [];
+
+    // タスク行のインデックスを収集
+    lines.forEach((line, idx) => {
+      if (/^- \[[ x>|<\-\*\/\^]\]/.test(line)) {
+        taskLineIndices.push(idx);
+      }
+    });
+
+    if (targetTaskIndex === undefined || targetTaskIndex >= taskLineIndices.length) {
+      return description;
+    }
+
+    const targetLineIndex = taskLineIndices[targetTaskIndex];
+
+    // 次の行がタイマー情報行かチェック
+    const nextLineIndex = targetLineIndex + 1;
+    const hasTimerLine = nextLineIndex < lines.length && lines[nextLineIndex].trim().startsWith('⏱');
+
+    if (timerAction === 'start' && startedAt) {
+      const timeStr = `  ⏱ ${formatTime(startedAt)}開始`;
+      if (hasTimerLine) {
+        lines[nextLineIndex] = timeStr;
+      } else {
+        lines.splice(nextLineIndex, 0, timeStr);
+      }
+    } else if (timerAction === 'stop' && startedAt && endedAt && durationMs !== undefined) {
+      const timeStr = `  ⏱ ${formatTime(startedAt)}-${formatTime(endedAt)} (${formatDuration(durationMs)})`;
+      if (hasTimerLine) {
+        lines[nextLineIndex] = timeStr;
+      } else {
+        lines.splice(nextLineIndex, 0, timeStr);
+      }
+    }
+
+    return lines.join('\n');
+  };
+
   // プラグインカードアクションを実行
   const handleCardAction = async (cardId: string, actionId: string, taskIndex?: number) => {
     const card = data.cards[cardId];
@@ -916,14 +983,22 @@ export function Board() {
       }
 
       // 時間記録の更新がある場合
-      const actionResult = result.data as { timerAction?: string; timerId?: string; taskIndex?: number; startedAt?: number; endedAt?: number; durationMs?: number } | undefined;
+      const actionResult = result.data as {
+        timerAction?: string;
+        timerId?: string;
+        taskIndex?: number;
+        startedAt?: number;
+        endedAt?: number;
+        durationMs?: number;
+      } | undefined;
+
       if (actionResult?.timerAction) {
         setData((prev) => {
           const updatedCard = { ...prev.cards[cardId] };
           const timeRecords = [...(updatedCard.timeRecords || [])];
 
           if (actionResult.timerAction === 'start' && actionResult.timerId) {
-            // タイマー開始
+            // タイマー開始 - メタデータ更新
             timeRecords.push({
               id: actionResult.timerId,
               taskIndex: actionResult.taskIndex,
@@ -931,9 +1006,20 @@ export function Board() {
             });
             updatedCard.timeRecords = timeRecords;
             updatedCard.activeTimerId = actionResult.timerId;
+
+            // 本文にも追記
+            updatedCard.description = updateDescriptionWithTimer(
+              updatedCard.description,
+              actionResult.taskIndex,
+              'start',
+              actionResult.startedAt
+            );
+
           } else if (actionResult.timerAction === 'stop' && actionResult.timerId) {
-            // タイマー停止
+            // タイマー停止 - メタデータ更新
             const recordIndex = timeRecords.findIndex(r => r.id === actionResult.timerId);
+            const startedAt = recordIndex >= 0 ? timeRecords[recordIndex].startedAt : actionResult.startedAt;
+
             if (recordIndex >= 0) {
               timeRecords[recordIndex] = {
                 ...timeRecords[recordIndex],
@@ -943,6 +1029,16 @@ export function Board() {
               updatedCard.timeRecords = timeRecords;
             }
             updatedCard.activeTimerId = undefined;
+
+            // 本文にも追記
+            updatedCard.description = updateDescriptionWithTimer(
+              updatedCard.description,
+              actionResult.taskIndex,
+              'stop',
+              startedAt,
+              actionResult.endedAt,
+              actionResult.durationMs
+            );
           }
 
           return {
