@@ -258,9 +258,11 @@ app.whenReady().then(() => {
 });
 
 // バックアップファイルのデフォルトパスを取得
+// 開発モードでは別ファイルを使用して本番データを保護
 function getDefaultBackupPath() {
   const userDataPath = app.getPath('userData');
-  return path.join(userDataPath, 'kanban-backup.json');
+  const filename = isDev ? 'kanban-backup-dev.json' : 'kanban-backup.json';
+  return path.join(userDataPath, filename);
 }
 
 // IPC: バックアップ保存（自動保存用）
