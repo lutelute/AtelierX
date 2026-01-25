@@ -95,6 +95,39 @@ npm run electron:build:all
 
 詳細なビルド方法は [CROSS_PLATFORM_BUILD_GUIDE.md](./CROSS_PLATFORM_BUILD_GUIDE.md) を参照。
 
+## リリース手順
+
+### 1. バージョン更新 & ビルド
+
+```bash
+# バグ修正（0.1.0 → 0.1.1）
+npm run release:patch
+
+# 機能追加（0.1.0 → 0.2.0）
+npm run release:minor
+
+# 大きな変更（0.1.0 → 1.0.0）
+npm run release:major
+```
+
+### 2. GitHubにリリース作成
+
+```bash
+# タグをプッシュ
+git push --tags
+```
+
+1. [GitHub Releases](../../releases) ページを開く
+2. 「Draft a new release」をクリック
+3. 作成されたタグ（例: `v0.2.0`）を選択
+4. リリースノートを記入
+5. `release/AtelierX-x.x.x-arm64.dmg` をアップロード
+6. 「Publish release」をクリック
+
+### 3. 本番アプリの更新
+
+ユーザーは設定画面で「更新を確認」ボタンを押すと、新しいバージョンがある場合はダウンロードリンクが表示されます。
+
 ## プロジェクト構成
 
 ```
