@@ -978,40 +978,44 @@ export function Board() {
 
   return (
     <div className="board-container">
-      <button className="theme-toggle" onClick={toggleTheme} title="テーマ切替">
-        {(settings.theme || 'dark') === 'dark' ? '☀️' : '🌙'}
-      </button>
-      <header className="board-header">
-        <h1>AtelierX</h1>
-        <div className="board-tabs">
-          <button
-            className={`board-tab ${activeBoard === 'terminal' ? 'active' : ''}`}
-            onClick={() => setActiveBoard('terminal')}
-          >
-            Terminal
+      <aside className="toolbar">
+        {unaddedWindows.length > 0 && (
+          <button className="icon-btn add-all-btn" onClick={handleAddAllWindows} title="全て追加">
+            +{unaddedWindows.length}
           </button>
-          <button
-            className={`board-tab ${activeBoard === 'finder' ? 'active' : ''}`}
-            onClick={() => setActiveBoard('finder')}
-          >
-            Finder
-          </button>
-        </div>
-        <div className="header-actions">
-          {unaddedWindows.length > 0 && (
-            <button className="add-all-btn" onClick={handleAddAllWindows}>
-              全て追加 ({unaddedWindows.length})
+        )}
+        <button className="icon-btn grid-btn" onClick={handleOpenGridModal} title="Grid配置">
+          ⊞
+        </button>
+        <button className="icon-btn export-btn" onClick={handleOpenExport} title="Obsidian">
+          📝
+        </button>
+        <button className="icon-btn settings-btn" onClick={() => setShowSettingsModal(true)} title="設定">
+          ⚙
+        </button>
+      </aside>
+      <header className="taskbar">
+        <div className="taskbar-center">
+          <span className="app-logo">AX</span>
+          <div className="board-tabs">
+            <button
+              className={`board-tab ${activeBoard === 'terminal' ? 'active' : ''}`}
+              onClick={() => setActiveBoard('terminal')}
+            >
+              Terminal
             </button>
-          )}
-          <button className="grid-btn" onClick={handleOpenGridModal} title="ウィンドウをグリッド配置">
-            Grid
-          </button>
-          <button className="export-btn" onClick={handleOpenExport}>
-            日報エクスポート
-          </button>
-          <button className="settings-btn" onClick={() => setShowSettingsModal(true)}>
-            設定
-          </button>
+            <button
+              className={`board-tab ${activeBoard === 'finder' ? 'active' : ''}`}
+              onClick={() => setActiveBoard('finder')}
+            >
+              Finder
+            </button>
+          </div>
+          <div className="theme-toggle-switch" onClick={toggleTheme} title="テーマ切替">
+            <span className="toggle-icon sun">☀️</span>
+            <span className="toggle-slider" />
+            <span className="toggle-icon moon">🌙</span>
+          </div>
         </div>
       </header>
       <DndContext
