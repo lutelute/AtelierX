@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
@@ -19,37 +20,102 @@ interface CardProps {
   onCardAction?: (actionId: string, taskIndex?: number) => void;
 }
 
-// 拡張チェックボックスパターン
-// [ ] 未完了, [x] 完了, [>] 先送り, [<] スケジュール済み
-// [-] キャンセル, [*] 重要, [/] 進行中, [^] 保留, [|] 一時停止
-const CHECKBOX_PATTERN = /^- \[[ x>|<\-\*\/\^]\]/m;
-const CHECKBOX_EXTRACT = /^- \[([ x>|<\-\*\/\^])\]\s*(.*)/;
+// 拡張チェックボックスパターン (Minimal theme互換)
+// 全ての有効な記号を含む
+const VALID_MARKERS = ' xX><!?/-+RiBPCQNIpLEArcTt@OWfFH&sDd~';
+const CHECKBOX_PATTERN = new RegExp(`^- \\[[${VALID_MARKERS.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}]\\]`, 'm');
+const CHECKBOX_EXTRACT = new RegExp(`^- \\[([${VALID_MARKERS.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}])\\]\\s*(.*)`);
 
-// チェックボックスの状態に応じた表示
-const CHECKBOX_DISPLAY: Record<string, { icon: string; className: string }> = {
-  ' ': { icon: '', className: '' },
-  'x': { icon: '✓', className: 'completed' },
-  '>': { icon: '→', className: 'deferred' },
-  '<': { icon: '←', className: 'scheduled' },
-  '-': { icon: '—', className: 'cancelled' },
-  '*': { icon: '★', className: 'important' },
-  '/': { icon: '◐', className: 'in-progress' },
-  '^': { icon: '↑', className: 'on-hold' },
-  '|': { icon: '⏸', className: 'paused' },
+// チェックボックスの状態に応じた表示 (Minimal theme互換)
+const CHECKBOX_DISPLAY: Record<string, { icon: string; className: string; label: string }> = {
+  // 基本
+  ' ': { icon: '', className: '', label: '未完了' },
+  'x': { icon: '✓', className: 'completed', label: '完了' },
+  'X': { icon: '✓', className: 'completed', label: '完了' },
+  // タスク管理
+  '>': { icon: '→', className: 'deferred', label: '先送り' },
+  '<': { icon: '←', className: 'scheduled', label: 'スケジュール済み' },
+  '-': { icon: '—', className: 'cancelled', label: 'キャンセル' },
+  '/': { icon: '◐', className: 'in-progress', label: '進行中' },
+  'd': { icon: '◉', className: 'doing', label: '作業中' },
+  // 重要度・優先度
+  '!': { icon: '❗', className: 'important', label: '重要' },
+  '?': { icon: '❓', className: 'question', label: '質問' },
+  '+': { icon: '➕', className: 'add', label: '追加' },
+  // アイデア・ブレスト
+  'i': { icon: '💡', className: 'idea', label: 'アイデア' },
+  'B': { icon: '🧠', className: 'brainstorm', label: 'ブレスト' },
+  'R': { icon: '🔍', className: 'research', label: 'リサーチ' },
+  // 議論・検討
+  'P': { icon: '👍', className: 'pro', label: '賛成' },
+  'C': { icon: '👎', className: 'con', label: '反対' },
+  'Q': { icon: '💬', className: 'quote', label: '引用' },
+  'N': { icon: '📝', className: 'note', label: 'メモ' },
+  // 情報
+  'I': { icon: 'ℹ️', className: 'info', label: '情報' },
+  'b': { icon: '🔖', className: 'bookmark', label: 'ブックマーク' },
+  'p': { icon: '📄', className: 'paraphrase', label: '要約' },
+  'L': { icon: '📍', className: 'location', label: '場所' },
+  'E': { icon: '📋', className: 'example', label: '例' },
+  'A': { icon: '💡', className: 'answer', label: '回答' },
+  // その他
+  'r': { icon: '🎁', className: 'reward', label: '報酬' },
+  'c': { icon: '🔀', className: 'choice', label: '選択' },
+  'T': { icon: '⏰', className: 'time', label: '時間' },
+  '@': { icon: '👤', className: 'person', label: '人物' },
+  't': { icon: '💭', className: 'talk', label: '会話' },
+  'O': { icon: '📊', className: 'outline', label: 'アウトライン' },
+  '~': { icon: '⚡', className: 'conflict', label: '課題' },
+  'W': { icon: '🌍', className: 'world', label: 'ワールド' },
+  'f': { icon: '🔎', className: 'find', label: '発見' },
+  'F': { icon: '🎯', className: 'foreshadow', label: '伏線' },
+  'H': { icon: '❤️', className: 'favorite', label: 'お気に入り' },
+  '&': { icon: '🔣', className: 'symbol', label: 'シンボル' },
+  's': { icon: '🤫', className: 'secret', label: '秘密' },
+  'D': { icon: '📅', className: 'date', label: '日付' },
 };
+
+// よく使うチェックボックスのグループ（右クリックメニュー用）
+const CHECKBOX_GROUPS = [
+  { name: '基本', items: [' ', 'x', '/', '-', '>'] },
+  { name: '優先度', items: ['!', '?', '+'] },
+  { name: 'アイデア', items: ['i', 'B', 'R', 'N'] },
+  { name: '議論', items: ['P', 'C', 'Q'] },
+  { name: '情報', items: ['I', 'b', 'L', 'E'] },
+  { name: 'その他', items: ['T', '@', 'H', 's'] },
+];
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
 function MarkdownContent({
   content,
   onToggleTask,
+  onChangeTaskMarker,
   taskActions,
   onTaskAction,
 }: {
   content: string;
   onToggleTask?: (lineIndex: number) => void;
+  onChangeTaskMarker?: (lineIndex: number, newMarker: string) => void;
   taskActions?: PluginCardActionInfo[];
   onTaskAction?: (actionId: string, taskIndex: number) => void;
 }) {
+  // 右クリックメニューの状態
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [contextMenu]);
+
   // タスクリストがあるかチェック（拡張チェックボックス対応）
   const hasTaskList = CHECKBOX_PATTERN.test(content);
 
@@ -64,6 +130,19 @@ function MarkdownContent({
 
   // タスクリストがある場合はカスタムレンダリング
   const lines = content.split('\n');
+
+  const handleContextMenu = (e: React.MouseEvent, lineIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, lineIndex });
+  };
+
+  const handleSelectMarker = (marker: string) => {
+    if (contextMenu && onChangeTaskMarker) {
+      onChangeTaskMarker(contextMenu.lineIndex, marker);
+    }
+    setContextMenu(null);
+  };
 
   return (
     <div className="card-markdown">
@@ -81,6 +160,7 @@ function MarkdownContent({
                   e.stopPropagation();
                   onToggleTask?.(index);
                 }}
+                onContextMenu={(e) => handleContextMenu(e, index)}
               >
                 <span className={`task-checkbox ${display.className}`}>
                   {display.icon}
@@ -116,6 +196,54 @@ function MarkdownContent({
         }
         return <br key={index} />;
       })}
+
+      {/* 右クリックメニュー */}
+      {contextMenu && (
+        <div
+          ref={menuRef}
+          className="checkbox-context-menu"
+          style={{
+            position: 'fixed',
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 9999,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {CHECKBOX_GROUPS.map((group) => (
+            <div key={group.name} className="checkbox-menu-group">
+              <div className="checkbox-menu-group-label">{group.name}</div>
+              <div className="checkbox-menu-items">
+                {group.items.map((m) => {
+                  const d = CHECKBOX_DISPLAY[m];
+                  return (
+                    <button
+                      key={m}
+                      className="checkbox-menu-item"
+                      onClick={() => handleSelectMarker(m)}
+                      title={d?.label}
+                    >
+                      <span className="checkbox-menu-icon">{d?.icon || '☐'}</span>
+                      <span className="checkbox-menu-label">{d?.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="checkbox-menu-help">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.open('https://minimal.guide/checklists', '_blank');
+              }}
+            >
+              ヘルプ: チェックボックス一覧
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -158,17 +286,33 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     opacity: isDragging ? 0.5 : 1,
   };
 
-  // タスクのチェック状態をトグル
+  // タスクのチェック状態をトグル（クリックで完了/未完了を切り替え）
   const handleToggleTask = (lineIndex: number) => {
     if (!card.description || !onUpdateDescription) return;
 
     const lines = card.description.split('\n');
     const line = lines[lineIndex];
-    const taskMatch = line.match(/^- \[([ x])\]\s*(.*)/);
+    const taskMatch = line.match(CHECKBOX_EXTRACT);
 
     if (taskMatch) {
-      const isChecked = taskMatch[1] === 'x';
-      lines[lineIndex] = `- [${isChecked ? ' ' : 'x'}] ${taskMatch[2]}`;
+      const currentMarker = taskMatch[1];
+      // 完了/未完了のトグル
+      const newMarker = currentMarker === 'x' || currentMarker === 'X' ? ' ' : 'x';
+      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      onUpdateDescription(card.id, lines.join('\n'));
+    }
+  };
+
+  // タスクのマーカーを変更（右クリックメニューから）
+  const handleChangeTaskMarker = (lineIndex: number, newMarker: string) => {
+    if (!card.description || !onUpdateDescription) return;
+
+    const lines = card.description.split('\n');
+    const line = lines[lineIndex];
+    const taskMatch = line.match(CHECKBOX_EXTRACT);
+
+    if (taskMatch) {
+      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
       onUpdateDescription(card.id, lines.join('\n'));
     }
   };
@@ -270,6 +414,7 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
         <MarkdownContent
           content={card.description}
           onToggleTask={handleToggleTask}
+          onChangeTaskMarker={handleChangeTaskMarker}
           taskActions={taskActions}
           onTaskAction={(actionId, taskIndex) => onCardAction?.(actionId, taskIndex)}
         />
