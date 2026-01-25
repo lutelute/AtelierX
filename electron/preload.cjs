@@ -32,5 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSettings: (pluginId) => ipcRenderer.invoke('plugins:get-settings', pluginId),
     saveSettings: (pluginId, settings) => ipcRenderer.invoke('plugins:save-settings', pluginId, settings),
     getGridLayouts: () => ipcRenderer.invoke('plugins:get-layouts'),
+    getExportFormats: () => ipcRenderer.invoke('plugins:get-export-formats'),
+    executeExportFormat: (formatId, context) => ipcRenderer.invoke('plugins:execute-export-format', formatId, context),
   },
 });
