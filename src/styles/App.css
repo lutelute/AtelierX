@@ -961,6 +961,34 @@ body {
   cursor: not-allowed;
 }
 
+.btn-send-to-ideas {
+  padding: 10px 16px;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  border-radius: 8px;
+  color: #f97316;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-send-to-ideas:hover {
+  background: rgba(249, 115, 22, 0.25);
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
+.theme-light .btn-send-to-ideas {
+  background: rgba(234, 88, 12, 0.1);
+  border-color: rgba(234, 88, 12, 0.25);
+  color: #ea580c;
+}
+
+.theme-light .btn-send-to-ideas:hover {
+  background: rgba(234, 88, 12, 0.2);
+  border-color: rgba(234, 88, 12, 0.4);
+}
+
 .btn-jump {
   width: 100%;
   padding: 12px;

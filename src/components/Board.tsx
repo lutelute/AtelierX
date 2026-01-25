@@ -750,6 +750,36 @@ export function Board() {
     }));
   };
 
+  // カードをIdeasに送る（今じゃない）
+  const handleSendToIdeas = (cardId: string) => {
+    const card = data.cards[cardId];
+    if (!card) return;
+
+    // カードからアイデアを作成
+    const newIdea: Idea = {
+      id: `idea-${Date.now()}`,
+      title: card.title,
+      description: card.description,
+      category: 'other',  // デフォルトカテゴリ
+      targetBoard: card.tag,  // 元のボードを復元先として設定
+      createdAt: Date.now(),
+    };
+
+    // カードを削除してアイデアを追加
+    setData((prev) => {
+      const { [cardId]: _, ...remainingCards } = prev.cards;
+      return {
+        ...prev,
+        cards: remainingCards,
+        columns: prev.columns.map((col) => ({
+          ...col,
+          cardIds: col.cardIds.filter((id) => id !== cardId),
+        })),
+        ideas: [...(prev.ideas || []), newIdea],
+      };
+    });
+  };
+
   // アーカイブされたカードを取得
   const getArchivedCards = () => {
     return Object.values(data.cards).filter((card) => {
@@ -1105,7 +1135,7 @@ export function Board() {
         </div>
 
         <div className="nav-section nav-right">
-          {unaddedWindows.length > 0 && (
+          {activeBoard !== 'ideas' && unaddedWindows.length > 0 && (
             <button className="nav-action pulse" onClick={handleAddAllWindows} title="未追加のウィンドウを追加">
               <span className="action-badge">+{unaddedWindows.length}</span>
             </button>
@@ -1204,6 +1234,7 @@ export function Board() {
           onClose={() => setEditingCard(null)}
           onSave={handleSaveCard}
           onJump={() => handleJumpToWindow(editingCard)}
+          onSendToIdeas={handleSendToIdeas}
           customSubtags={settings.customSubtags}
           onAddSubtag={(newSubtag) => {
             setSettings((prev) => ({

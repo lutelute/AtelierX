@@ -13,6 +13,7 @@ interface EditCardModalProps {
   onClose: () => void;
   onSave: (card: Card) => void;
   onJump: () => void;
+  onSendToIdeas?: (cardId: string) => void;
   customSubtags?: CustomSubtag[];
   onAddSubtag?: (subtag: CustomSubtag) => void;
   onUpdateSubtag?: (id: string, updates: Partial<CustomSubtag>) => void;
@@ -21,7 +22,7 @@ interface EditCardModalProps {
   defaultSubtagSettings?: DefaultSubtagSettings;
 }
 
-export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings }: EditCardModalProps) {
+export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings }: EditCardModalProps) {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [comment, setComment] = useState(card.comment || '');
@@ -636,6 +637,19 @@ export function EditCardModal({ card, onClose, onSave, onJump, customSubtags = [
             <button type="button" className="btn-secondary" onClick={onClose}>
               キャンセル
             </button>
+            {onSendToIdeas && (
+              <button
+                type="button"
+                className="btn-send-to-ideas"
+                onClick={() => {
+                  onSendToIdeas(card.id);
+                  onClose();
+                }}
+                title="今じゃない - Ideasに送る"
+              >
+                💡 今じゃない
+              </button>
+            )}
             <button type="submit" className="btn-primary" disabled={!title.trim()}>
               保存
             </button>
