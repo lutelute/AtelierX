@@ -54,6 +54,23 @@ Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプ
 - **DnD**: @dnd-kit
 - **macOS API**: AppleScript (Terminal/Finder操作)
 
+## インストール
+
+### macOS
+1. [Releases](../../releases)ページから最新の`.dmg`ファイルをダウンロード
+2. dmgファイルを開き、AtelierXをApplicationsフォルダにドラッグ
+3. Applicationsから起動
+
+### Windows
+1. [Releases](../../releases)ページから最新の`.exe`インストーラーをダウンロード
+2. インストーラーを実行し、指示に従ってインストール
+3. スタートメニューまたはデスクトップから起動
+
+### Linux
+1. [Releases](../../releases)ページから最新の`.AppImage`または`.deb`をダウンロード
+2. AppImage: 実行権限を付与して起動 (`chmod +x AtelierX*.AppImage && ./AtelierX*.AppImage`)
+3. deb: `sudo dpkg -i atelierx_*.deb` でインストール
+
 ## 開発
 
 ```bash
@@ -63,9 +80,20 @@ npm install
 # 開発モードで起動
 npm run electron:dev
 
-# ビルド
+# ビルド（macOS）
 npm run electron:build:mac
+
+# ビルド（Windows）
+npm run electron:build:win
+
+# ビルド（Linux）
+npm run electron:build:linux
+
+# ビルド（全プラットフォーム）
+npm run electron:build:all
 ```
+
+詳細なビルド方法は [CROSS_PLATFORM_BUILD_GUIDE.md](./CROSS_PLATFORM_BUILD_GUIDE.md) を参照。
 
 ## プロジェクト構成
 
