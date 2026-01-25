@@ -7,6 +7,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { app, shell } = require('electron');
+const { execSync } = require('child_process');
 
 // ダウンロード済みファイルパス
 let downloadedFilePath = null;
@@ -188,8 +189,8 @@ async function downloadUpdate(downloadUrl, onProgress) {
 }
 
 /**
- * ダウンロード済みの.dmgを開いてインストール
- * @returns {Promise<{success: boolean, error?: string}>}
+ * ダウンロード済みの.dmgを自動でApplicationsにインストール
+ * @returns {Promise<{success: boolean, error?: string, needsRestart?: boolean}>}
  */
 async function installUpdate() {
   return new Promise(async (resolve) => {
@@ -198,16 +199,62 @@ async function installUpdate() {
       return;
     }
 
+    let mountPoint = null;
+
     try {
-      // shell.openPathで.dmgを開く
-      const result = await shell.openPath(downloadedFilePath);
-      if (result) {
-        // エラーがあった場合
-        resolve({ success: false, error: result });
-      } else {
-        resolve({ success: true });
+      // 1. DMGをマウント
+      console.log('Mounting DMG:', downloadedFilePath);
+      const mountOutput = execSync(`hdiutil attach "${downloadedFilePath}" -nobrowse -readonly`, {
+        encoding: 'utf8',
+      });
+
+      // マウントポイントを抽出 (/Volumes/xxx)
+      const mountMatch = mountOutput.match(/\/Volumes\/[^\n\r]+/);
+      if (!mountMatch) {
+        resolve({ success: false, error: 'DMGのマウントに失敗しました' });
+        return;
       }
+      mountPoint = mountMatch[0].trim();
+      console.log('Mounted at:', mountPoint);
+
+      // 2. .appファイルを探す
+      const files = fs.readdirSync(mountPoint);
+      const appFile = files.find((f) => f.endsWith('.app'));
+      if (!appFile) {
+        execSync(`hdiutil detach "${mountPoint}" -quiet`);
+        resolve({ success: false, error: 'アプリケーションが見つかりません' });
+        return;
+      }
+
+      const sourceApp = path.join(mountPoint, appFile);
+      const destApp = `/Applications/${appFile}`;
+      console.log('Copying:', sourceApp, '->', destApp);
+
+      // 3. 既存のアプリを削除して新しいアプリをコピー
+      if (fs.existsSync(destApp)) {
+        execSync(`rm -rf "${destApp}"`);
+      }
+      execSync(`cp -R "${sourceApp}" "${destApp}"`);
+
+      // 4. DMGをアンマウント
+      console.log('Unmounting DMG...');
+      execSync(`hdiutil detach "${mountPoint}" -quiet`);
+
+      // 5. ダウンロードファイルを削除
+      cleanupDownload();
+
+      console.log('Installation completed successfully');
+      resolve({ success: true, needsRestart: true });
     } catch (error) {
+      console.error('Installation error:', error);
+      // エラー時もアンマウントを試みる
+      if (mountPoint) {
+        try {
+          execSync(`hdiutil detach "${mountPoint}" -quiet -force`);
+        } catch (e) {
+          // 無視
+        }
+      }
       resolve({ success: false, error: error.message });
     }
   });
@@ -297,6 +344,15 @@ function startupCleanup() {
   console.log(`Startup cleanup completed: ${result.deleted} files deleted`);
 }
 
+/**
+ * アプリを再起動
+ */
+function restartApp() {
+  console.log('Restarting app...');
+  app.relaunch();
+  app.exit(0);
+}
+
 module.exports = {
   checkForUpdates,
   downloadUpdate,
@@ -306,4 +362,5 @@ module.exports = {
   getDownloadedFilePath,
   startupCleanup,
   getUpdatesPath,
+  restartApp,
 };

@@ -3635,6 +3635,43 @@ body {
   margin: 0;
 }
 
+/* Update Installed */
+.update-installed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 16px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+}
+
+.update-installed-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #22c55e;
+  margin: 0;
+}
+
+.btn-restart-update {
+  padding: 10px 24px;
+  background: #22c55e;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-restart-update:hover {
+  background: #16a34a;
+  transform: translateY(-1px);
+}
+
 /* Light theme overrides for update */
 .theme-light .update-progress-bar {
   background: #e2e8f0;
@@ -4171,4 +4208,346 @@ body.theme-light {
 
 .theme-light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* =====================================================
+   Ideas Panel (アイデアバックログ)
+   ===================================================== */
+
+.ideas-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  padding-top: 70px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.ideas-header {
+  margin-bottom: 20px;
+}
+
+.ideas-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.08));
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 10px;
+  color: #22c55e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ideas-add-btn:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.15));
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
+}
+
+.ideas-add-btn .add-icon {
+  font-size: 18px;
+  font-weight: 300;
+}
+
+.ideas-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ideas-group {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ideas-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ideas-group-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ideas-toggle {
+  color: #71717a;
+  font-size: 10px;
+}
+
+.ideas-group-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  color: #fff;
+}
+
+.ideas-group-count {
+  color: #71717a;
+  font-size: 13px;
+}
+
+.ideas-group-cards {
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ideas-empty-group {
+  padding: 16px;
+  text-align: center;
+  color: #52525b;
+  font-size: 13px;
+}
+
+.ideas-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #71717a;
+}
+
+.ideas-empty p {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.ideas-empty-hint {
+  font-size: 13px !important;
+  color: #52525b !important;
+}
+
+/* Idea Card */
+.idea-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+
+.idea-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.idea-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.idea-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin-bottom: 4px;
+}
+
+.idea-card-description {
+  font-size: 13px;
+  color: #a1a1aa;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.idea-card-date {
+  font-size: 11px;
+  color: #52525b;
+}
+
+.idea-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.idea-restore-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid;
+}
+
+.idea-restore-btn.terminal {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.idea-restore-btn.terminal:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.idea-restore-btn.finder {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.idea-restore-btn.finder:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.idea-restore-btn .restore-icon {
+  font-size: 12px;
+}
+
+.idea-delete-btn {
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  align-self: flex-start;
+}
+
+.idea-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Tab Badge for Ideas count */
+.tab-badge {
+  margin-left: 6px;
+  padding: 2px 6px;
+  background: rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+/* Light Theme - Ideas Panel */
+.theme-light .ideas-panel {
+  background: transparent;
+}
+
+.theme-light .ideas-add-btn {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.12), rgba(22, 163, 74, 0.06));
+  border-color: rgba(22, 163, 74, 0.25);
+  color: #16a34a;
+}
+
+.theme-light .ideas-add-btn:hover {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.2), rgba(22, 163, 74, 0.1));
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.theme-light .ideas-group {
+  background: #fff;
+  border-color: #e2e8f0;
+}
+
+.theme-light .ideas-group-header:hover {
+  background: #f8fafc;
+}
+
+.theme-light .ideas-toggle {
+  color: #94a3b8;
+}
+
+.theme-light .ideas-group-count {
+  color: #64748b;
+}
+
+.theme-light .ideas-empty-group {
+  color: #94a3b8;
+}
+
+.theme-light .ideas-empty {
+  color: #64748b;
+}
+
+.theme-light .ideas-empty-hint {
+  color: #94a3b8 !important;
+}
+
+.theme-light .idea-card {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.theme-light .idea-card:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.theme-light .idea-card-title {
+  color: #0f172a;
+}
+
+.theme-light .idea-card-description {
+  color: #334155;
+}
+
+.theme-light .idea-card-date {
+  color: #94a3b8;
+}
+
+.theme-light .idea-restore-btn.terminal {
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.2);
+  color: #16a34a;
+}
+
+.theme-light .idea-restore-btn.terminal:hover {
+  background: rgba(22, 163, 74, 0.15);
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+.theme-light .idea-restore-btn.finder {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.2);
+  color: #2563eb;
+}
+
+.theme-light .idea-restore-btn.finder:hover {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.theme-light .idea-delete-btn {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+}
+
+.theme-light .idea-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.theme-light .tab-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
 }

@@ -4,6 +4,36 @@ export type SubTagType = 'research' | 'routine' | 'misc' | string;
 
 export type BoardType = 'terminal' | 'finder';
 
+// アイデアカテゴリ
+export type IdeaCategory = 'feature' | 'improvement' | 'bug' | 'other' | string;
+
+// アイデア
+export interface Idea {
+  id: string;
+  title: string;
+  description?: string;
+  category: IdeaCategory;
+  targetBoard?: BoardType;  // 復元先ボード（Terminal/Finder）
+  createdAt: number;
+  updatedAt?: number;
+}
+
+// アイデアカテゴリの色
+export const IDEA_CATEGORY_COLORS: Record<string, string> = {
+  feature: '#22c55e',     // 緑
+  improvement: '#3b82f6', // 青
+  bug: '#ef4444',         // 赤
+  other: '#6b7280',       // グレー
+};
+
+// アイデアカテゴリのラベル
+export const IDEA_CATEGORY_LABELS: Record<string, string> = {
+  feature: '機能追加',
+  improvement: '改善',
+  bug: 'バグ修正',
+  other: 'その他',
+};
+
 // カスタムサブタグ
 export interface CustomSubtag {
   id: string;
@@ -192,7 +222,7 @@ export interface PluginExportFormat extends PluginExportFormatInfo {
 }
 
 // アップデート関連の型
-export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'latest' | 'error';
+export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'installed' | 'latest' | 'error';
 
 export interface UpdateCheckResult {
   success: boolean;
@@ -220,6 +250,7 @@ export interface UpdateProgress {
 export interface UpdateInstallResult {
   success: boolean;
   error?: string;
+  needsRestart?: boolean;
 }
 
 export interface UpdateCleanupResult {
@@ -272,6 +303,7 @@ declare global {
         download: (downloadUrl: string) => Promise<UpdateDownloadResult>;
         install: () => Promise<UpdateInstallResult>;
         cleanup: () => Promise<UpdateCleanupResult>;
+        restart: () => Promise<void>;
         onProgress: (callback: (data: UpdateProgress) => void) => () => void;
       };
     };
@@ -306,6 +338,7 @@ export interface BoardData {
   columns: Column[];
   cards: Record<string, Card>;
   columnOrder: string[];
+  ideas?: Idea[];  // アイデアバックログ
 }
 
 export const TAG_COLORS: Record<TagType, string> = {

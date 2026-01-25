@@ -148,8 +148,8 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
     try {
       const result = await window.electronAPI?.update.install();
       if (result?.success) {
-        // インストール成功（.dmgが開かれた）
-        // ユーザーは手動でインストーラーを進める必要がある
+        // インストール成功 - 再起動ボタンを表示
+        setUpdateStatus('installed' as UpdateStatus);
       } else {
         setUpdateError(result?.error || 'インストールに失敗しました');
         setUpdateStatus('error');
@@ -157,6 +157,14 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
     } catch {
       setUpdateError('インストール中にエラーが発生しました');
       setUpdateStatus('error');
+    }
+  };
+
+  const handleRestart = async () => {
+    try {
+      await window.electronAPI?.update.restart();
+    } catch {
+      setUpdateError('再起動に失敗しました');
     }
   };
 
@@ -941,21 +949,27 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
                   キャンセル
                 </button>
               </div>
-              <p className="update-hint">
-                「インストール」をクリックするとdmgファイルが開きます。
-                その後、AtelierXを新しいバージョンに置き換えてください。
-              </p>
             </div>
           )}
 
           {/* インストール中 */}
           {updateStatus === 'installing' && (
             <div className="update-installing">
-              <p className="update-installing-text">dmgファイルを開いています...</p>
-              <p className="update-hint">
-                dmgが開いたら、AtelierXアイコンをApplicationsフォルダにドラッグしてください。
-                その後、アプリを再起動してください。
-              </p>
+              <p className="update-installing-text">インストール中...</p>
+            </div>
+          )}
+
+          {/* インストール完了 - 再起動ボタン */}
+          {updateStatus === ('installed' as UpdateStatus) && (
+            <div className="update-installed">
+              <p className="update-installed-text">✓ インストール完了！</p>
+              <button
+                type="button"
+                className="btn-restart-update"
+                onClick={handleRestart}
+              >
+                再起動して更新を適用
+              </button>
             </div>
           )}
         </div>

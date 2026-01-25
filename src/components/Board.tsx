@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory } from '../types';
+import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -24,6 +24,8 @@ import { NoteSelectModal } from './NoteSelectModal';
 import { ArchiveSection } from './ArchiveSection';
 import { GridArrangeModal } from './GridArrangeModal';
 import { RelinkWindowModal } from './RelinkWindowModal';
+import { IdeasPanel } from './IdeasPanel';
+import { AddIdeaModal } from './AddIdeaModal';
 
 const initialData: BoardData = {
   columns: [
@@ -47,8 +49,9 @@ export function Board() {
   const [editingCard, setEditingCard] = useState<CardType | null>(null);
   const [unaddedWindows, setUnaddedWindows] = useState<AppWindow[]>([]);
   const [reminderDismissed, setReminderDismissed] = useState(false);
-  const [activeBoard, setActiveBoard] = useState<BoardType>('terminal');
+  const [activeBoard, setActiveBoard] = useState<BoardType | 'ideas'>('terminal');
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showAddIdeaModal, setShowAddIdeaModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNoteSelectModal, setShowNoteSelectModal] = useState(false);
   const [exportContent, setExportContent] = useState('');
@@ -675,6 +678,78 @@ export function Board() {
     }));
   };
 
+  // アイデアを追加
+  const handleAddIdea = (title: string, description: string, category: IdeaCategory, targetBoard?: BoardType) => {
+    const newIdea: Idea = {
+      id: `idea-${Date.now()}`,
+      title,
+      description: description || undefined,
+      category,
+      targetBoard,
+      createdAt: Date.now(),
+    };
+
+    setData((prev) => ({
+      ...prev,
+      ideas: [...(prev.ideas || []), newIdea],
+    }));
+  };
+
+  // アイデアをボードに復元
+  const handleRestoreIdeaToBoard = (ideaId: string, targetBoard: BoardType) => {
+    const idea = data.ideas?.find((i) => i.id === ideaId);
+    if (!idea) return;
+
+    // カードを作成
+    const cardId = `card-${Date.now()}`;
+    const tag: TagType = targetBoard;
+    const newCard: CardType = {
+      id: cardId,
+      title: idea.title,
+      description: idea.description,
+      tag,
+      createdAt: Date.now(),
+    };
+
+    // カード作成をログに記録
+    addLog({
+      type: 'create',
+      cardTitle: idea.title,
+      cardDescription: idea.description,
+      cardTag: tag,
+      toColumn: 'todo',
+    });
+
+    setData((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [cardId]: newCard,
+      },
+      columns: prev.columns.map((col) => {
+        if (col.id === 'todo') {
+          return {
+            ...col,
+            cardIds: [...col.cardIds, cardId],
+          };
+        }
+        return col;
+      }),
+      ideas: (prev.ideas || []).filter((i) => i.id !== ideaId),
+    }));
+
+    // ボードを切り替え
+    setActiveBoard(targetBoard);
+  };
+
+  // アイデアを削除
+  const handleDeleteIdea = (ideaId: string) => {
+    setData((prev) => ({
+      ...prev,
+      ideas: (prev.ideas || []).filter((i) => i.id !== ideaId),
+    }));
+  };
+
   // アーカイブされたカードを取得
   const getArchivedCards = () => {
     return Object.values(data.cards).filter((card) => {
@@ -1016,6 +1091,16 @@ export function Board() {
               <span className="tab-icon">◫</span>
               <span className="tab-label">Finder</span>
             </button>
+            <button
+              className={`nav-tab ${activeBoard === 'ideas' ? 'active' : ''}`}
+              onClick={() => setActiveBoard('ideas')}
+            >
+              <span className="tab-icon">💡</span>
+              <span className="tab-label">Ideas</span>
+              {(data.ideas?.length || 0) > 0 && (
+                <span className="tab-badge">{data.ideas?.length}</span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1041,45 +1126,56 @@ export function Board() {
           </div>
         </div>
       </nav>
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="board">
-          {data.columns.map((column) => (
-            <Column
-              key={column.id}
-              column={column}
-              cards={getFilteredCards(column.cardIds)}
-              onAddCard={handleAddCard}
-              onDeleteCard={handleDeleteCard}
-              onEditCard={handleEditCard}
-              onJumpCard={handleJumpCard}
-              onDropWindow={handleDropWindow}
-              onUpdateDescription={handleUpdateDescription}
-              onCardClick={handleCardClick}
-              onArchiveCard={handleArchiveCard}
-              customSubtags={settings.customSubtags}
-              defaultSubtagSettings={settings.defaultSubtagSettings}
-              brokenLinkCardIds={brokenLinkCardIds}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeCard ? (
-            <Card card={activeCard} onDelete={() => {}} onEdit={() => {}} />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-      <ArchiveSection
-        cards={getArchivedCards()}
-        onRestore={handleRestoreCard}
-        onDelete={handleDeleteCard}
-        customSubtags={settings.customSubtags}
-        defaultSubtagSettings={settings.defaultSubtagSettings}
-      />
+      {activeBoard !== 'ideas' ? (
+        <>
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="board">
+              {data.columns.map((column) => (
+                <Column
+                  key={column.id}
+                  column={column}
+                  cards={getFilteredCards(column.cardIds)}
+                  onAddCard={handleAddCard}
+                  onDeleteCard={handleDeleteCard}
+                  onEditCard={handleEditCard}
+                  onJumpCard={handleJumpCard}
+                  onDropWindow={handleDropWindow}
+                  onUpdateDescription={handleUpdateDescription}
+                  onCardClick={handleCardClick}
+                  onArchiveCard={handleArchiveCard}
+                  customSubtags={settings.customSubtags}
+                  defaultSubtagSettings={settings.defaultSubtagSettings}
+                  brokenLinkCardIds={brokenLinkCardIds}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeCard ? (
+                <Card card={activeCard} onDelete={() => {}} onEdit={() => {}} />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+          <ArchiveSection
+            cards={getArchivedCards()}
+            onRestore={handleRestoreCard}
+            onDelete={handleDeleteCard}
+            customSubtags={settings.customSubtags}
+            defaultSubtagSettings={settings.defaultSubtagSettings}
+          />
+        </>
+      ) : (
+        <IdeasPanel
+          ideas={data.ideas || []}
+          onAddIdea={() => setShowAddIdeaModal(true)}
+          onRestoreToBoard={handleRestoreIdeaToBoard}
+          onDeleteIdea={handleDeleteIdea}
+        />
+      )}
       {modalColumnId && (
         <AddCardModal
           onClose={() => setModalColumnId(null)}
@@ -1224,6 +1320,12 @@ export function Board() {
           onSelectHistory={handleRelinkSelectHistory}
           onOpenNew={handleRelinkOpenNew}
           onUnlink={handleRelinkUnlink}
+        />
+      )}
+      {showAddIdeaModal && (
+        <AddIdeaModal
+          onClose={() => setShowAddIdeaModal(false)}
+          onAdd={handleAddIdea}
         />
       )}
     </div>

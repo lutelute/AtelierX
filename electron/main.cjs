@@ -517,6 +517,12 @@ ipcMain.handle('update:cleanup', async () => {
   }
 });
 
+// IPC: アプリを再起動
+ipcMain.handle('update:restart', async () => {
+  const { restartApp } = require('./updateManager.cjs');
+  restartApp();
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
