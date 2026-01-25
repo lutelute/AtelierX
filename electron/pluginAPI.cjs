@@ -7,6 +7,9 @@
 // 登録されたグリッドレイアウト
 const registeredGridLayouts = new Map();
 
+// 登録されたエクスポートフォーマット
+const registeredExportFormats = new Map();
+
 /**
  * プラグイン用APIを作成
  * @param {string} pluginId - プラグインID
@@ -47,6 +50,38 @@ function createPluginAPI(pluginId, getSettings, saveSettings) {
       const fullId = `${pluginId}:${layoutId}`;
       registeredGridLayouts.delete(fullId);
       console.log(`[Plugin:${pluginId}] Unregistered grid layout: ${layoutId}`);
+    },
+
+    /**
+     * エクスポートフォーマットを登録
+     * @param {Object} format - フォーマット設定
+     * @param {string} format.id - フォーマットID
+     * @param {string} format.name - 表示名
+     * @param {string} [format.description] - 説明
+     * @param {function} format.generate - 生成関数 (logs, boardData) => string
+     */
+    registerExportFormat(format) {
+      if (!format.id || !format.name || typeof format.generate !== 'function') {
+        console.error(`[Plugin:${pluginId}] Invalid export format:`, format);
+        return;
+      }
+      const fullId = `${pluginId}:${format.id}`;
+      registeredExportFormats.set(fullId, {
+        ...format,
+        id: fullId,
+        pluginId,
+      });
+      console.log(`[Plugin:${pluginId}] Registered export format: ${format.name}`);
+    },
+
+    /**
+     * エクスポートフォーマットを登録解除
+     * @param {string} formatId - フォーマットID
+     */
+    unregisterExportFormat(formatId) {
+      const fullId = `${pluginId}:${formatId}`;
+      registeredExportFormats.delete(fullId);
+      console.log(`[Plugin:${pluginId}] Unregistered export format: ${formatId}`);
     },
 
     /**
@@ -103,8 +138,40 @@ function clearPluginGridLayouts(pluginId) {
   }
 }
 
+/**
+ * 登録済みのエクスポートフォーマットを全て取得（メタデータのみ）
+ * @returns {Array} エクスポートフォーマットの配列（generate関数を除く）
+ */
+function getRegisteredExportFormats() {
+  return Array.from(registeredExportFormats.values()).map(({ generate, ...info }) => info);
+}
+
+/**
+ * IDでエクスポートフォーマットを取得
+ * @param {string} formatId - フォーマットID
+ * @returns {Object|undefined} エクスポートフォーマット（generate関数を含む）
+ */
+function getExportFormatById(formatId) {
+  return registeredExportFormats.get(formatId);
+}
+
+/**
+ * プラグインのエクスポートフォーマットを全て削除
+ * @param {string} pluginId - プラグインID
+ */
+function clearPluginExportFormats(pluginId) {
+  for (const [key, format] of registeredExportFormats) {
+    if (format.pluginId === pluginId) {
+      registeredExportFormats.delete(key);
+    }
+  }
+}
+
 module.exports = {
   createPluginAPI,
   getRegisteredGridLayouts,
   clearPluginGridLayouts,
+  getRegisteredExportFormats,
+  getExportFormatById,
+  clearPluginExportFormats,
 };

@@ -176,6 +176,21 @@ export interface PluginGridLayout {
   pluginId: string;  // どのプラグインから来たか
 }
 
+// プラグインエクスポートフォーマット（レンダラーに送信されるメタデータ）
+// 注意: 関数はIPC経由でシリアライズできないため、レンダラーにはメタデータのみを送信
+export interface PluginExportFormatInfo {
+  id: string;           // 例: "notion-daily-report:notion"
+  name: string;         // 例: "Notion"
+  description?: string; // 例: "Export to Notion database"
+  pluginId: string;     // どのプラグインから来たか
+}
+
+// メインプロセスに保存される完全なフォーマット（generate関数を含む）
+// 注意: generate関数はメインプロセスに保持され、レンダラーはIPC経由で呼び出す
+export interface PluginExportFormat extends PluginExportFormatInfo {
+  generate: (logs: ActivityLog[], boardData: BoardData) => string;
+}
+
 // Electron API の型定義
 declare global {
   interface Window {
@@ -211,6 +226,8 @@ declare global {
         getSettings: (pluginId: string) => Promise<{ success: boolean; data: Record<string, unknown> }>;
         saveSettings: (pluginId: string, settings: Record<string, unknown>) => Promise<PluginResult>;
         getGridLayouts: () => Promise<{ success: boolean; data: PluginGridLayout[] }>;
+        getExportFormats: () => Promise<{ success: boolean; data: PluginExportFormatInfo[] }>;
+        executeExportFormat: (formatId: string, context: { logs: ActivityLog[]; boardData: BoardData }) => Promise<{ success: boolean; data?: string; error?: string }>;
       };
     };
   }
