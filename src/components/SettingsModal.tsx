@@ -59,6 +59,36 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
   const [pluginError, setPluginError] = useState<string | null>(null);
   const [pluginSuccess, setPluginSuccess] = useState<string | null>(null);
 
+  // バージョン更新確認
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'latest' | 'error'>('idle');
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const currentVersion = __APP_VERSION__;
+
+  const checkForUpdates = async () => {
+    setUpdateStatus('checking');
+    try {
+      const response = await fetch('https://api.github.com/repos/lutelute/AtelierX/releases/latest');
+      if (!response.ok) {
+        if (response.status === 404) {
+          // リリースがまだない場合
+          setUpdateStatus('latest');
+          return;
+        }
+        throw new Error('Failed to fetch');
+      }
+      const data = await response.json();
+      const latest = data.tag_name.replace(/^v/, '');
+      setLatestVersion(latest);
+      if (latest !== currentVersion) {
+        setUpdateStatus('available');
+      } else {
+        setUpdateStatus('latest');
+      }
+    } catch {
+      setUpdateStatus('error');
+    }
+  };
+
   // プラグイン一覧を取得
   useEffect(() => {
     loadPlugins();
@@ -707,6 +737,40 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
               </div>
             </>
           )}
+        </div>
+
+        {/* バージョン情報 */}
+        <div className="version-info">
+          <div className="version-current">
+            <span className="version-label">バージョン</span>
+            <span className="version-number">v{currentVersion}</span>
+          </div>
+          <div className="version-actions">
+            <button
+              type="button"
+              className="btn-check-update"
+              onClick={checkForUpdates}
+              disabled={updateStatus === 'checking'}
+            >
+              {updateStatus === 'checking' ? '確認中...' : '更新を確認'}
+            </button>
+            {updateStatus === 'available' && latestVersion && (
+              <a
+                href="https://github.com/lutelute/AtelierX/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-download-update"
+              >
+                v{latestVersion} をダウンロード
+              </a>
+            )}
+            {updateStatus === 'latest' && (
+              <span className="update-status-latest">最新です</span>
+            )}
+            {updateStatus === 'error' && (
+              <span className="update-status-error">確認に失敗</span>
+            )}
+          </div>
         </div>
 
         <div className="form-actions">
