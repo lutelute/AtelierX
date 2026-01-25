@@ -21,6 +21,7 @@ export const defaultSettings: Settings = {
   insertMarker: '## AtelierX',
   cardClickBehavior: 'edit',  // デフォルトはカード編集
   customSubtags: [],
+  theme: 'dark',
 };
 
 // プリセットカラー
@@ -335,6 +336,29 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
         <div className="settings-content">
           {activeTab === 'general' && (
             <>
+          <div className="settings-section">
+            <h3>外観</h3>
+            <div className="form-group">
+              <label>テーマ</label>
+              <div className="theme-selector">
+                <button
+                  type="button"
+                  className={`theme-option ${(settings.theme || 'dark') === 'dark' ? 'active' : ''}`}
+                  onClick={() => setSettings((prev) => ({ ...prev, theme: 'dark' }))}
+                >
+                  🌙 ダーク
+                </button>
+                <button
+                  type="button"
+                  className={`theme-option ${settings.theme === 'light' ? 'active' : ''}`}
+                  onClick={() => setSettings((prev) => ({ ...prev, theme: 'light' }))}
+                >
+                  ☀️ ライト
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="settings-section">
             <h3>Obsidian連携</h3>
 
@@ -741,35 +765,37 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
 
         {/* バージョン情報 */}
         <div className="version-info">
-          <div className="version-current">
-            <span className="version-label">バージョン</span>
-            <span className="version-number">v{currentVersion}</span>
-          </div>
-          <div className="version-actions">
-            <button
-              type="button"
-              className="btn-check-update"
-              onClick={checkForUpdates}
-              disabled={updateStatus === 'checking'}
-            >
-              {updateStatus === 'checking' ? '確認中...' : '更新を確認'}
-            </button>
-            {updateStatus === 'available' && latestVersion && (
-              <a
-                href="https://github.com/lutelute/AtelierX/releases/latest"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-download-update"
+          <div className="version-info-header">
+            <div className="version-current">
+              <span className="version-label">AtelierX</span>
+              <span className="version-number">v{currentVersion}</span>
+            </div>
+            <div className="version-actions">
+              <button
+                type="button"
+                className="btn-check-update"
+                onClick={checkForUpdates}
+                disabled={updateStatus === 'checking'}
               >
-                v{latestVersion} をダウンロード
-              </a>
-            )}
-            {updateStatus === 'latest' && (
-              <span className="update-status-latest">最新です</span>
-            )}
-            {updateStatus === 'error' && (
-              <span className="update-status-error">確認に失敗</span>
-            )}
+                {updateStatus === 'checking' ? '確認中...' : '更新を確認'}
+              </button>
+              {updateStatus === 'available' && latestVersion && (
+                <a
+                  href="https://github.com/lutelute/AtelierX/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-download-update"
+                >
+                  v{latestVersion} をダウンロード
+                </a>
+              )}
+              {updateStatus === 'latest' && (
+                <span className="update-status-latest">最新です</span>
+              )}
+              {updateStatus === 'error' && (
+                <span className="update-status-error">確認に失敗</span>
+              )}
+            </div>
           </div>
         </div>
 

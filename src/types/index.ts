@@ -62,6 +62,8 @@ export interface DefaultSubtagSettings {
 // アプリ設定
 export type CardClickBehavior = 'edit' | 'jump';
 
+export type ThemeType = 'dark' | 'light';
+
 export interface Settings {
   obsidianVaultPath: string;
   dailyNotePath: string;
@@ -69,6 +71,7 @@ export interface Settings {
   cardClickBehavior: CardClickBehavior;
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
+  theme?: ThemeType;
 }
 
 // ノート情報

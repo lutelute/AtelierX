@@ -62,6 +62,13 @@ export function Board() {
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
   const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
 
+  // テーマを適用
+  useEffect(() => {
+    const theme = settings.theme || 'dark';
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add(`theme-${theme}`);
+  }, [settings.theme]);
+
   // アクティビティログを追加
   const addLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
     const newLog: ActivityLog = {
@@ -964,8 +971,16 @@ export function Board() {
     return new Set(brokenLinkCards.map((card) => card.id));
   }, [brokenLinkCards]);
 
+  const toggleTheme = () => {
+    const newTheme = (settings.theme || 'dark') === 'dark' ? 'light' : 'dark';
+    setSettings((prev) => ({ ...prev, theme: newTheme }));
+  };
+
   return (
     <div className="board-container">
+      <button className="theme-toggle" onClick={toggleTheme} title="テーマ切替">
+        {(settings.theme || 'dark') === 'dark' ? '☀️' : '🌙'}
+      </button>
       <header className="board-header">
         <h1>AtelierX</h1>
         <div className="board-tabs">
