@@ -331,15 +331,15 @@ body {
   transform: translateX(12px);
 }
 
-/* ドラッグ領域 */
+/* ドラッグ領域 - ナビバーの左右と上部 */
 .drag-region {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 12px;
+  height: 60px;
   -webkit-app-region: drag;
-  z-index: 999;
+  z-index: 998;
 }
 
 /* Export Button */
