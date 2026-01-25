@@ -27,7 +27,7 @@ const {
   uninstallPlugin,
   loadEnabledPlugins,
 } = require('./pluginManager.cjs');
-const { getRegisteredGridLayouts, getRegisteredExportFormats } = require('./pluginAPI.cjs');
+const { getRegisteredGridLayouts, getRegisteredExportFormats, getExportFormatById } = require('./pluginAPI.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -434,6 +434,21 @@ ipcMain.handle('plugins:get-export-formats', async () => {
     return { success: true, data: formats };
   } catch (error) {
     return { success: false, data: [], error: error.message };
+  }
+});
+
+// IPC: プラグインのエクスポートフォーマットを実行
+ipcMain.handle('plugins:execute-export-format', async (_, { formatId, logs, boardData }) => {
+  try {
+    const format = getExportFormatById(formatId);
+    if (!format) {
+      return { success: false, error: 'Export format not found' };
+    }
+    const content = format.generate(logs, boardData);
+    return { success: true, data: content };
+  } catch (error) {
+    console.error('plugins:execute-export-format error:', error);
+    return { success: false, error: error.message };
   }
 });
 
