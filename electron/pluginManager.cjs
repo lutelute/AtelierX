@@ -261,13 +261,15 @@ async function installFromGitHub(repoPath) {
       console.log(`No ${mainFile} found for plugin ${manifest.id}`);
     }
 
-    // レジストリに登録
+    // レジストリに登録（リポジトリ情報を保存）
     const registry = loadRegistry();
     registry.plugins[manifest.id] = {
       enabled: false,
       installedAt: Date.now(),
       updatedAt: Date.now(),
       settings: {},
+      repoOwner: owner,
+      repoName: repo,
     };
     saveRegistry(registry);
 
