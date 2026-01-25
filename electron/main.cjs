@@ -27,7 +27,7 @@ const {
   uninstallPlugin,
   loadEnabledPlugins,
 } = require('./pluginManager.cjs');
-const { getRegisteredGridLayouts } = require('./pluginAPI.cjs');
+const { getRegisteredGridLayouts, getRegisteredExportFormats } = require('./pluginAPI.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -422,6 +422,16 @@ ipcMain.handle('plugins:get-layouts', async () => {
   try {
     const layouts = getRegisteredGridLayouts();
     return { success: true, data: layouts };
+  } catch (error) {
+    return { success: false, data: [], error: error.message };
+  }
+});
+
+// IPC: プラグインから登録されたエクスポートフォーマットを取得
+ipcMain.handle('plugins:get-export-formats', async () => {
+  try {
+    const formats = getRegisteredExportFormats();
+    return { success: true, data: formats };
   } catch (error) {
     return { success: false, data: [], error: error.message };
   }
