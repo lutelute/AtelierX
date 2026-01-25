@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory } from '../types';
+import { BoardData, Card as CardType, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -64,6 +64,24 @@ export function Board() {
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
   const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
+  const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
+
+  // プラグインカードアクションを取得
+  useEffect(() => {
+    const loadCardActions = async () => {
+      if (!window.electronAPI?.plugins?.getCardActions) return;
+      try {
+        const actions = await window.electronAPI.plugins.getCardActions();
+        setCardActions(actions);
+      } catch (error) {
+        console.error('Failed to load card actions:', error);
+      }
+    };
+    loadCardActions();
+    // プラグインの有効/無効時に再取得するため、定期的にチェック
+    const interval = setInterval(loadCardActions, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // テーマを適用
   useEffect(() => {
@@ -885,6 +903,21 @@ export function Board() {
     }
   };
 
+  // プラグインカードアクションを実行
+  const handleCardAction = async (cardId: string, actionId: string, taskIndex?: number) => {
+    const card = data.cards[cardId];
+    if (!card || !window.electronAPI?.plugins?.executeCardAction) return;
+
+    try {
+      const result = await window.electronAPI.plugins.executeCardAction(actionId, cardId, card, taskIndex);
+      if (!result.success) {
+        console.error('Card action failed:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to execute card action:', error);
+    }
+  };
+
   // 再リンク: 現在のウィンドウを選択
   const handleRelinkSelectCurrent = (appWindow: AppWindow) => {
     if (!relinkingCard) return;
@@ -1181,6 +1214,8 @@ export function Board() {
                   customSubtags={settings.customSubtags}
                   defaultSubtagSettings={settings.defaultSubtagSettings}
                   brokenLinkCardIds={brokenLinkCardIds}
+                  cardActions={cardActions}
+                  onCardAction={handleCardAction}
                 />
               ))}
             </div>

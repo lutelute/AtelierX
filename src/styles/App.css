@@ -2095,6 +2095,88 @@ body {
   color: #71717a;
 }
 
+/* Task Item with Plugin Actions */
+.task-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-item-wrapper .task-item {
+  flex: 1;
+}
+
+.task-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.task-item-wrapper:hover .task-actions {
+  opacity: 1;
+}
+
+.task-action-btn {
+  padding: 2px 6px;
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.task-action-btn:hover {
+  background: rgba(139, 92, 246, 0.3);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+/* Card Plugin Actions */
+.card-plugin-action {
+  padding: 4px 6px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.card-plugin-action:hover {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+/* Card Footer Actions */
+.card-footer-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-footer-action-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 4px;
+  color: #a78bfa;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.card-footer-action-btn:hover {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
 .card-description-line {
   font-size: 12px;
   color: #a1a1aa;
