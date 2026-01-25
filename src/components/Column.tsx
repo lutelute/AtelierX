@@ -25,7 +25,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
   });
 
   return (
-    <div className={`column ${isOver ? 'column-over' : ''}`}>
+    <div className={`column column-${column.id} ${isOver ? 'column-over' : ''}`}>
       <div className="column-header">
         <h3 className="column-title">{column.title}</h3>
         <span className="column-count">{cards.length}</span>
@@ -45,6 +45,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               customSubtags={customSubtags}
               defaultSubtagSettings={defaultSubtagSettings}
               isBrokenLink={brokenLinkCardIds.has(card.id)}
+              columnId={column.id}
             />
           ))}
         </SortableContext>

@@ -143,6 +143,40 @@ body {
   border-color: rgba(99, 102, 241, 0.5);
 }
 
+/* Column Status Colors */
+.column-todo .column-header {
+  border-bottom-color: rgba(156, 163, 175, 0.5);
+}
+.column-todo .column-title {
+  color: #9ca3af;
+}
+.column-todo .column-count {
+  background: rgba(156, 163, 175, 0.2);
+  color: #9ca3af;
+}
+
+.column-in-progress .column-header {
+  border-bottom-color: rgba(59, 130, 246, 0.5);
+}
+.column-in-progress .column-title {
+  color: #3b82f6;
+}
+.column-in-progress .column-count {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.column-done .column-header {
+  border-bottom-color: rgba(34, 197, 94, 0.5);
+}
+.column-done .column-title {
+  color: #22c55e;
+}
+.column-done .column-count {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
 .column-header {
   padding: 16px;
   display: flex;
@@ -186,6 +220,24 @@ body {
   cursor: grab;
   transition: all 0.2s ease;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Card Status Bar Colors - Only for linked cards */
+.card.card-linked {
+  border-radius: 0 10px 10px 0;
+  border-left: 4px solid #9ca3af;
+}
+
+.card.card-linked.card-status-todo {
+  border-left-color: #9ca3af;
+}
+
+.card.card-linked.card-status-in-progress {
+  border-left-color: #3b82f6;
+}
+
+.card.card-linked.card-status-done {
+  border-left-color: #22c55e;
 }
 
 .card:hover {
@@ -1833,33 +1885,26 @@ body {
 
 /* Window Link Status Indicator */
 .card.card-linked {
-  border-left: 3px solid rgba(34, 197, 94, 0.6);
   background: rgba(34, 197, 94, 0.03);
 }
 
 .card.card-linked:hover {
   background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.4);
-  border-left-color: rgba(34, 197, 94, 0.8);
 }
 
 .card.card-unlinked {
-  border-left: 3px solid rgba(113, 113, 122, 0.3);
 }
 
 .card.card-unlinked:hover {
-  border-left-color: rgba(113, 113, 122, 0.5);
 }
 
 .card.card-broken-link {
-  border-left: 3px solid rgba(239, 68, 68, 0.5);
   background: rgba(239, 68, 68, 0.03);
   opacity: 0.7;
 }
 
 .card.card-broken-link:hover {
   background: rgba(239, 68, 68, 0.08);
-  border-left-color: rgba(239, 68, 68, 0.8);
   opacity: 1;
 }
 

@@ -14,6 +14,7 @@ interface CardProps {
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
   isBrokenLink?: boolean;
+  columnId?: string;
 }
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
@@ -75,7 +76,7 @@ function MarkdownContent({
   );
 }
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId }: CardProps) {
   const {
     attributes,
     listeners,
@@ -144,7 +145,7 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onCa
     <div
       ref={setNodeRef}
       style={style}
-      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass}`}
+      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnId ? `card-status-${columnId}` : ''}`}
       onClick={handleCardClick}
       {...attributes}
       {...listeners}
