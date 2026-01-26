@@ -335,7 +335,9 @@ export interface TimeRecord {
 }
 
 // タイマーアクション（テキストベース・シンプル版）
-export type TimerAction = 'start' | 'stop' | 'cancel';
+// pause: 一時停止（時間を記録、次に開始で追記可能）
+// stop: 終了（最終的な完了）
+export type TimerAction = 'start' | 'pause' | 'stop' | 'cancel';
 
 // カードステータスマーカー（Minimal theme互換）
 export type CardStatusMarker = ' ' | 'x' | '>' | '<' | '-' | '/' | '!' | '?' | 'i' | 'd';

@@ -269,6 +269,9 @@ const TimerMenu = memo(function TimerMenu({
           </button>
         ) : (
           <>
+            <button className="timer-action-btn pause" onClick={() => onAction('pause')}>
+              ⏸ 一時停止
+            </button>
             <button className="timer-action-btn stop" onClick={() => onAction('stop')}>
               ⏹ 終了
             </button>
@@ -307,9 +310,20 @@ const MarkdownContent = memo(function MarkdownContent({
     return lines.map((line, idx): ParsedLine & { taskIndex?: number; isTimerRunning?: boolean } => {
       const taskMatch = line.match(CHECKBOX_EXTRACT);
       if (taskMatch) {
-        // 次の行がタイマー行で「開始」で終わっているかチェック
-        const nextLine = idx + 1 < lines.length ? lines[idx + 1] : '';
-        const isTimerRunning = nextLine.trim().startsWith('⏱') && nextLine.includes('開始') && !nextLine.includes('-');
+        // タスク以下のタイマー行をすべてチェック（実行中のものがあるか）
+        let isTimerRunning = false;
+        for (let i = idx + 1; i < lines.length; i++) {
+          const checkLine = lines[i].trim();
+          // 次のタスク行に到達したら終了
+          if (CHECKBOX_EXTRACT.test(lines[i])) break;
+          // 空行やタイマー行以外もスキップ
+          if (!checkLine.startsWith('⏱')) continue;
+          // 実行中のタイマー行かチェック（「開始」を含み「-」を含まない）
+          if (checkLine.includes('開始') && !checkLine.includes('-')) {
+            isTimerRunning = true;
+            break;
+          }
+        }
         const result = {
           type: 'task' as const,
           marker: taskMatch[1],

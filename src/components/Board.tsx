@@ -977,38 +977,56 @@ export function Board() {
       if (taskIndex >= taskLineIndices.length) return prev;
 
       const targetLineIndex = taskLineIndices[taskIndex];
-      const nextLineIndex = targetLineIndex + 1;
-      const hasTimerLine = nextLineIndex < lines.length && lines[nextLineIndex].trim().startsWith('⏱');
+      // 次のタスク行のインデックス（なければ配列の最後）
+      const nextTaskLineIndex = taskIndex + 1 < taskLineIndices.length
+        ? taskLineIndices[taskIndex + 1]
+        : lines.length;
+
+      // タスク直後からタイマー行を探す（実行中のタイマー行を見つける）
+      let runningTimerLineIndex = -1;
+      for (let i = targetLineIndex + 1; i < nextTaskLineIndex; i++) {
+        const trimmedLine = lines[i].trim();
+        if (trimmedLine.startsWith('⏱')) {
+          // 実行中のタイマー行を見つける（「開始」を含み「-」を含まない）
+          if (trimmedLine.includes('開始') && !trimmedLine.includes('-')) {
+            runningTimerLineIndex = i;
+            break;
+          }
+        }
+      }
 
       let updatedLines = [...lines];
 
       switch (action) {
         case 'start': {
-          // 開始時刻を記録
+          // 開始時刻を記録（タスク直下に挿入）
           const timeStr = `  ⏱ ${formatDateTime(now)}開始`;
-          if (hasTimerLine) {
-            updatedLines[nextLineIndex] = timeStr;
+          if (runningTimerLineIndex >= 0) {
+            // 既に実行中のタイマーがある場合は上書き
+            updatedLines[runningTimerLineIndex] = timeStr;
           } else {
-            updatedLines.splice(nextLineIndex, 0, timeStr);
+            // タスク直下に新しいタイマー行を挿入
+            updatedLines.splice(targetLineIndex + 1, 0, timeStr);
           }
           break;
         }
+        case 'pause':
         case 'stop': {
-          // タイマー行から開始時刻を解析して終了時刻と経過時間を記録
-          if (hasTimerLine) {
-            const startedAt = parseTimerStartTime(lines[nextLineIndex]);
+          // 実行中のタイマー行を見つけて時間を記録
+          if (runningTimerLineIndex >= 0) {
+            const startedAt = parseTimerStartTime(lines[runningTimerLineIndex]);
             if (startedAt) {
               const elapsed = now - startedAt;
               const timeStr = `  ⏱ ${formatDateTime(startedAt)}-${formatDateTime(now)} (${formatDuration(elapsed)})`;
-              updatedLines[nextLineIndex] = timeStr;
+              updatedLines[runningTimerLineIndex] = timeStr;
             }
           }
           break;
         }
         case 'cancel': {
-          // タイマー行を削除
-          if (hasTimerLine && lines[nextLineIndex].includes('開始')) {
-            updatedLines.splice(nextLineIndex, 1);
+          // 実行中のタイマー行を削除
+          if (runningTimerLineIndex >= 0) {
+            updatedLines.splice(runningTimerLineIndex, 1);
           }
           break;
         }
