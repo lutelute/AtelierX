@@ -2248,6 +2248,127 @@ body {
   border-color: rgba(139, 92, 246, 0.5);
 }
 
+/* タイマーアクティブなタスク */
+.task-item-wrapper.timer-active {
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 4px;
+}
+
+.task-timer-indicator {
+  margin-left: 6px;
+  font-size: 12px;
+}
+
+.task-timer-indicator.running {
+  animation: timerPulse 1s ease-in-out infinite;
+}
+
+.task-timer-indicator.paused {
+  opacity: 0.6;
+}
+
+@keyframes timerPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* タイマーメニュー */
+.timer-menu {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+}
+
+.timer-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.timer-icon {
+  font-size: 14px;
+}
+
+.timer-elapsed {
+  margin-left: auto;
+  font-family: monospace;
+  font-size: 12px;
+  color: #22c55e;
+}
+
+.timer-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timer-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.timer-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.timer-action-btn.start {
+  color: #22c55e;
+}
+
+.timer-action-btn.start:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.timer-action-btn.pause {
+  color: #f59e0b;
+}
+
+.timer-action-btn.pause:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.timer-action-btn.resume {
+  color: #22c55e;
+}
+
+.timer-action-btn.resume:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.timer-action-btn.stop {
+  color: #3b82f6;
+}
+
+.timer-action-btn.stop:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.timer-action-btn.cancel {
+  color: #71717a;
+}
+
+.timer-action-btn.cancel:hover {
+  background: rgba(113, 113, 122, 0.2);
+}
+
 /* ============================================
    コンテキストメニュー共通スタイル（Portal版）
    ============================================ */

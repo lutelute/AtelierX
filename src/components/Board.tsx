@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo } from '../types';
+import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TaskTimerState, TimerAction } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -65,6 +65,7 @@ export function Board() {
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
   const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
+  const [activeTaskTimer, setActiveTaskTimer] = useLocalStorage<TaskTimerState | null>('active-task-timer', null);
 
   // プラグインカードアクションを取得
   useEffect(() => {
@@ -920,6 +921,10 @@ export function Board() {
     return `${minutes}分`;
   };
 
+  // 拡張チェックボックスパターン (Card.tsx と同じ)
+  const VALID_MARKERS = ' xX><!?/-+RiBPCQNIpLEArcTt@OWfFH&sDd~';
+  const CHECKBOX_PATTERN = new RegExp(`^- \\[([${VALID_MARKERS.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}])\\]`);
+
   // カード説明文にタイマー情報を追記/更新
   const updateDescriptionWithTimer = (
     description: string | undefined,
@@ -934,9 +939,9 @@ export function Board() {
     const lines = description.split('\n');
     const taskLineIndices: number[] = [];
 
-    // タスク行のインデックスを収集
+    // タスク行のインデックスを収集 (拡張チェックボックス対応)
     lines.forEach((line, idx) => {
-      if (/^- \[[ x>|<\-\*\/\^]\]/.test(line)) {
+      if (CHECKBOX_PATTERN.test(line)) {
         taskLineIndices.push(idx);
       }
     });
@@ -990,11 +995,39 @@ export function Board() {
         startedAt?: number;
         endedAt?: number;
         durationMs?: number;
+        previousStop?: {
+          cardId: string;
+          taskIndex: number;
+          startedAt: number;
+          endedAt: number;
+          durationMs: number;
+          taskKey: string;
+        };
       } | undefined;
 
       if (actionResult?.timerAction) {
         setData((prev) => {
-          const updatedCard = { ...prev.cards[cardId] };
+          const updatedCards = { ...prev.cards };
+
+          // 前のタイマーの停止処理（別のタスクに切り替えた場合）
+          if (actionResult.previousStop) {
+            const prevCardId = actionResult.previousStop.cardId;
+            if (updatedCards[prevCardId]) {
+              const prevCard = { ...updatedCards[prevCardId] };
+              prevCard.activeTimerId = undefined;
+              prevCard.description = updateDescriptionWithTimer(
+                prevCard.description,
+                actionResult.previousStop.taskIndex,
+                'stop',
+                actionResult.previousStop.startedAt,
+                actionResult.previousStop.endedAt,
+                actionResult.previousStop.durationMs
+              );
+              updatedCards[prevCardId] = prevCard;
+            }
+          }
+
+          const updatedCard = { ...updatedCards[cardId] };
           const timeRecords = [...(updatedCard.timeRecords || [])];
 
           if (actionResult.timerAction === 'start' && actionResult.timerId) {
@@ -1041,12 +1074,11 @@ export function Board() {
             );
           }
 
+          updatedCards[cardId] = updatedCard;
+
           return {
             ...prev,
-            cards: {
-              ...prev.cards,
-              [cardId]: updatedCard,
-            },
+            cards: updatedCards,
           };
         });
       }
@@ -1054,6 +1086,139 @@ export function Board() {
       console.error('Failed to execute card action:', error);
     }
   };
+
+  // タイマーアクションを処理
+  const handleTimerAction = useCallback((cardId: string, taskIndex: number, action: TimerAction) => {
+    const now = Date.now();
+
+    switch (action) {
+      case 'start': {
+        // 他のタイマーが動いていたら終了
+        if (activeTaskTimer && (activeTaskTimer.cardId !== cardId || activeTaskTimer.taskIndex !== taskIndex)) {
+          // 前のタイマーを終了して時間を記録
+          const elapsed = activeTaskTimer.status === 'paused' && activeTaskTimer.pausedAt
+            ? activeTaskTimer.pausedAt - activeTaskTimer.startedAt - activeTaskTimer.totalPausedMs
+            : now - activeTaskTimer.startedAt - activeTaskTimer.totalPausedMs;
+
+          // 前のカードに時間を記録
+          setData((prev) => {
+            const prevCard = prev.cards[activeTaskTimer.cardId];
+            if (!prevCard) return prev;
+            const updatedDescription = updateDescriptionWithTimer(
+              prevCard.description,
+              activeTaskTimer.taskIndex,
+              'stop',
+              activeTaskTimer.startedAt,
+              now,
+              elapsed
+            );
+            return {
+              ...prev,
+              cards: {
+                ...prev.cards,
+                [activeTaskTimer.cardId]: {
+                  ...prevCard,
+                  description: updatedDescription,
+                },
+              },
+            };
+          });
+        }
+        // 新しいタイマーを開始
+        setActiveTaskTimer({
+          cardId,
+          taskIndex,
+          status: 'running',
+          startedAt: now,
+          totalPausedMs: 0,
+        });
+        // 開始時刻を本文に記録
+        setData((prev) => {
+          const card = prev.cards[cardId];
+          if (!card) return prev;
+          const updatedDescription = updateDescriptionWithTimer(
+            card.description,
+            taskIndex,
+            'start',
+            now
+          );
+          return {
+            ...prev,
+            cards: {
+              ...prev.cards,
+              [cardId]: {
+                ...card,
+                description: updatedDescription,
+              },
+            },
+          };
+        });
+        break;
+      }
+      case 'pause': {
+        if (activeTaskTimer && activeTaskTimer.cardId === cardId && activeTaskTimer.taskIndex === taskIndex) {
+          setActiveTaskTimer({
+            ...activeTaskTimer,
+            status: 'paused',
+            pausedAt: now,
+          });
+        }
+        break;
+      }
+      case 'resume': {
+        if (activeTaskTimer && activeTaskTimer.cardId === cardId && activeTaskTimer.taskIndex === taskIndex && activeTaskTimer.pausedAt) {
+          const pausedDuration = now - activeTaskTimer.pausedAt;
+          setActiveTaskTimer({
+            ...activeTaskTimer,
+            status: 'running',
+            pausedAt: undefined,
+            totalPausedMs: activeTaskTimer.totalPausedMs + pausedDuration,
+          });
+        }
+        break;
+      }
+      case 'stop': {
+        if (activeTaskTimer && activeTaskTimer.cardId === cardId && activeTaskTimer.taskIndex === taskIndex) {
+          const elapsed = activeTaskTimer.status === 'paused' && activeTaskTimer.pausedAt
+            ? activeTaskTimer.pausedAt - activeTaskTimer.startedAt - activeTaskTimer.totalPausedMs
+            : now - activeTaskTimer.startedAt - activeTaskTimer.totalPausedMs;
+
+          // 終了時刻を本文に記録
+          setData((prev) => {
+            const card = prev.cards[cardId];
+            if (!card) return prev;
+            const updatedDescription = updateDescriptionWithTimer(
+              card.description,
+              taskIndex,
+              'stop',
+              activeTaskTimer.startedAt,
+              now,
+              elapsed
+            );
+            return {
+              ...prev,
+              cards: {
+                ...prev.cards,
+                [cardId]: {
+                  ...card,
+                  description: updatedDescription,
+                },
+              },
+            };
+          });
+          setActiveTaskTimer(null);
+        }
+        break;
+      }
+      case 'cancel': {
+        if (activeTaskTimer && activeTaskTimer.cardId === cardId && activeTaskTimer.taskIndex === taskIndex) {
+          // 時間を記録せずにキャンセル（開始行は残る）
+          setActiveTaskTimer(null);
+        }
+        break;
+      }
+    }
+  }, [activeTaskTimer, setActiveTaskTimer, setData, updateDescriptionWithTimer]);
 
   // 再リンク: 現在のウィンドウを選択
   const handleRelinkSelectCurrent = (appWindow: AppWindow) => {
@@ -1368,6 +1533,8 @@ export function Board() {
                   brokenLinkCardIds={brokenLinkCardIds}
                   cardActions={cardActions}
                   onCardAction={handleCardAction}
+                  activeTaskTimer={activeTaskTimer}
+                  onTimerAction={handleTimerAction}
                 />
               ))}
             </div>

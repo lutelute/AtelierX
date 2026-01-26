@@ -334,6 +334,21 @@ export interface TimeRecord {
   durationMs?: number;   // 計算済みの所要時間
 }
 
+// タスクタイマー状態
+export type TaskTimerStatus = 'stopped' | 'running' | 'paused';
+
+export interface TaskTimerState {
+  cardId: string;
+  taskIndex: number;
+  status: TaskTimerStatus;
+  startedAt: number;
+  pausedAt?: number;
+  totalPausedMs: number;  // 累積一時停止時間
+}
+
+// タイマーアクション
+export type TimerAction = 'start' | 'pause' | 'resume' | 'stop' | 'cancel';
+
 // カードステータスマーカー（Minimal theme互換）
 export type CardStatusMarker = ' ' | 'x' | '>' | '<' | '-' | '/' | '!' | '?' | 'i' | 'd';
 

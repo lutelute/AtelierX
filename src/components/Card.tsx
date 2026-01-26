@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, CardStatusMarker, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo } from '../types';
+import { Card as CardType, CardStatusMarker, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TaskTimerState, TimerAction } from '../types';
 
 interface CardProps {
   card: CardType;
@@ -20,6 +20,8 @@ interface CardProps {
   columnId?: string;
   cardActions?: PluginCardActionInfo[];
   onCardAction?: (actionId: string, taskIndex?: number) => void;
+  activeTaskTimer?: TaskTimerState | null;
+  onTimerAction?: (taskIndex: number, action: TimerAction) => void;
 }
 
 // 拡張チェックボックスパターン (Minimal theme互換)
@@ -247,33 +249,119 @@ const CardStatusMenu = memo(function CardStatusMenu({
 });
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
+// タイマーメニューコンポーネント
+const TimerMenu = memo(function TimerMenu({
+  taskIndex,
+  timerState,
+  onAction,
+}: {
+  taskIndex: number;
+  timerState?: TaskTimerState | null;
+  onAction: (action: TimerAction) => void;
+}) {
+  const isThisTask = timerState && timerState.taskIndex === taskIndex;
+  const status = isThisTask ? timerState.status : 'stopped';
+
+  // 経過時間を計算
+  const getElapsedTime = () => {
+    if (!isThisTask || !timerState) return 0;
+    const now = Date.now();
+    if (status === 'paused' && timerState.pausedAt) {
+      return timerState.pausedAt - timerState.startedAt - timerState.totalPausedMs;
+    }
+    return now - timerState.startedAt - timerState.totalPausedMs;
+  };
+
+  const formatTime = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    if (hours > 0) return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="timer-menu">
+      <div className="timer-menu-header">
+        <span className="timer-icon">⏱</span>
+        <span className="timer-label">タイマー</span>
+        {isThisTask && status !== 'stopped' && (
+          <span className="timer-elapsed">{formatTime(getElapsedTime())}</span>
+        )}
+      </div>
+      <div className="timer-menu-actions">
+        {status === 'stopped' && (
+          <button className="timer-action-btn start" onClick={() => onAction('start')}>
+            ▶ 開始
+          </button>
+        )}
+        {status === 'running' && (
+          <>
+            <button className="timer-action-btn pause" onClick={() => onAction('pause')}>
+              ⏸ 一時停止
+            </button>
+            <button className="timer-action-btn stop" onClick={() => onAction('stop')}>
+              ⏹ 終了
+            </button>
+            <button className="timer-action-btn cancel" onClick={() => onAction('cancel')}>
+              ✕ キャンセル
+            </button>
+          </>
+        )}
+        {status === 'paused' && (
+          <>
+            <button className="timer-action-btn resume" onClick={() => onAction('resume')}>
+              ▶ 再開
+            </button>
+            <button className="timer-action-btn stop" onClick={() => onAction('stop')}>
+              ⏹ 終了
+            </button>
+            <button className="timer-action-btn cancel" onClick={() => onAction('cancel')}>
+              ✕ キャンセル
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+});
+
 const MarkdownContent = memo(function MarkdownContent({
   content,
   onToggleTask,
   onChangeTaskMarker,
   taskActions,
   onTaskAction,
+  activeTaskTimer,
+  onTimerAction,
 }: {
   content: string;
   onToggleTask?: (lineIndex: number) => void;
   onChangeTaskMarker?: (lineIndex: number, newMarker: string) => void;
   taskActions?: PluginCardActionInfo[];
   onTaskAction?: (actionId: string, taskIndex: number) => void;
+  activeTaskTimer?: TaskTimerState | null;
+  onTimerAction?: (taskIndex: number, action: TimerAction) => void;
 }) {
   // 右クリックメニューの状態
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number; marker: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number; taskIndex: number; marker: string } | null>(null);
 
-  // コンテンツをパース（メモ化）
-  const parsedLines = useMemo<ParsedLine[]>(() => {
-    return content.split('\n').map((line) => {
+  // コンテンツをパース（メモ化）- taskIndex を含める
+  const parsedLines = useMemo(() => {
+    let taskCounter = 0;
+    return content.split('\n').map((line): ParsedLine & { taskIndex?: number } => {
       const taskMatch = line.match(CHECKBOX_EXTRACT);
       if (taskMatch) {
-        return {
+        const result = {
           type: 'task' as const,
           marker: taskMatch[1],
           text: taskMatch[2],
           original: line,
+          taskIndex: taskCounter,
         };
+        taskCounter++;
+        return result;
       } else if (line.trim()) {
         return { type: 'text' as const, original: line };
       }
@@ -286,10 +374,10 @@ const MarkdownContent = memo(function MarkdownContent({
     return parsedLines.some((line) => line.type === 'task');
   }, [parsedLines]);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, lineIndex: number, marker: string) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, lineIndex: number, taskIndex: number, marker: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, lineIndex, marker });
+    setContextMenu({ x: e.clientX, y: e.clientY, lineIndex, taskIndex, marker });
   }, []);
 
   const handleSelectMarker = useCallback((marker: string) => {
@@ -310,25 +398,49 @@ const MarkdownContent = memo(function MarkdownContent({
     );
   }
 
+  // タイマーアクションのハンドラ
+  const handleTimerAction = useCallback((action: TimerAction) => {
+    if (contextMenu && onTimerAction) {
+      onTimerAction(contextMenu.taskIndex, action);
+    }
+    setContextMenu(null);
+  }, [contextMenu, onTimerAction]);
+
+  // このタスクのタイマー状態を確認
+  const getTaskTimerStatus = useCallback((taskIndex: number) => {
+    if (!activeTaskTimer || activeTaskTimer.taskIndex !== taskIndex) {
+      return 'stopped';
+    }
+    return activeTaskTimer.status;
+  }, [activeTaskTimer]);
+
   return (
     <div className="card-markdown">
       {parsedLines.map((line, index) => {
         if (line.type === 'task') {
           const display = CHECKBOX_DISPLAY[line.marker!] || CHECKBOX_DISPLAY[' '];
+          const taskIndex = line.taskIndex!;
+          const timerStatus = getTaskTimerStatus(taskIndex);
+          const isTimerActive = timerStatus === 'running' || timerStatus === 'paused';
           return (
-            <div key={index} className="task-item-wrapper">
+            <div key={index} className={`task-item-wrapper ${isTimerActive ? 'timer-active' : ''}`}>
               <label
                 className={`task-item ${display.className}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleTask?.(index);
                 }}
-                onContextMenu={(e) => handleContextMenu(e, index, line.marker!)}
+                onContextMenu={(e) => handleContextMenu(e, index, taskIndex, line.marker!)}
               >
                 <span className={`task-checkbox ${display.className}`}>
                   {display.icon}
                 </span>
                 <span className="task-text">{line.text}</span>
+                {isTimerActive && (
+                  <span className={`task-timer-indicator ${timerStatus}`}>
+                    {timerStatus === 'running' ? '⏱' : '⏸'}
+                  </span>
+                )}
               </label>
               {taskActions && taskActions.length > 0 && (
                 <div className="task-actions">
@@ -339,8 +451,10 @@ const MarkdownContent = memo(function MarkdownContent({
                       title={action.title || action.label}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onTaskAction?.(action.id, index);
+                        onTaskAction?.(action.id, taskIndex);
                       }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
                     >
                       {action.label}
                     </button>
@@ -366,6 +480,18 @@ const MarkdownContent = memo(function MarkdownContent({
           onClose={closeMenu}
         >
           <div className="task-context-menu">
+            {/* タイマーメニュー */}
+            {onTimerAction && (
+              <>
+                <TimerMenu
+                  taskIndex={contextMenu.taskIndex}
+                  timerState={activeTaskTimer}
+                  onAction={handleTimerAction}
+                />
+                <div className="context-menu-divider" />
+              </>
+            )}
+            {/* ステータス変更メニュー */}
             <div className="context-menu-header">ステータスを変更</div>
             <CheckboxSubmenu
               onSelect={handleSelectMarker}
@@ -378,7 +504,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, activeTaskTimer, onTimerAction }: CardProps) {
   const {
     attributes,
     listeners,
@@ -593,6 +719,8 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUp
           onChangeTaskMarker={handleChangeTaskMarker}
           taskActions={taskActions}
           onTaskAction={(actionId, taskIndex) => onCardAction?.(actionId, taskIndex)}
+          activeTaskTimer={activeTaskTimer?.cardId === card.id ? activeTaskTimer : null}
+          onTimerAction={onTimerAction ? (taskIndex, action) => onTimerAction(taskIndex, action) : undefined}
         />
       )}
       {card.comment && (
