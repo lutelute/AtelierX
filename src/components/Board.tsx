@@ -987,8 +987,10 @@ export function Board() {
       for (let i = targetLineIndex + 1; i < nextTaskLineIndex; i++) {
         const trimmedLine = lines[i].trim();
         if (trimmedLine.startsWith('⏱')) {
-          // 実行中のタイマー行を見つける（「開始」を含み「-」を含まない）
-          if (trimmedLine.includes('開始') && !trimmedLine.includes('-')) {
+          // 実行中のタイマー行を見つける（「開始」で終わる）
+          // 完了: ⏱ 2026-01-26 12:34-2026-01-26 13:00 (26分)
+          // 実行中: ⏱ 2026-01-26 12:34開始
+          if (trimmedLine.endsWith('開始')) {
             runningTimerLineIndex = i;
             break;
           }

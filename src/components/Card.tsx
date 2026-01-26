@@ -289,8 +289,8 @@ const MarkdownContent = memo(function MarkdownContent({
   content,
   onToggleTask,
   onChangeTaskMarker,
-  taskActions,
-  onTaskAction,
+  taskActions: _taskActions,  // v0.6.1で無効化（将来のプラグイン用に保持）
+  onTaskAction: _onTaskAction,  // v0.6.1で無効化（将来のプラグイン用に保持）
   onTimerAction,
 }: {
   content: string;
@@ -300,6 +300,9 @@ const MarkdownContent = memo(function MarkdownContent({
   onTaskAction?: (actionId: string, taskIndex: number) => void;
   onTimerAction?: (taskIndex: number, action: TimerAction) => void;
 }) {
+  // 未使用変数の警告抑制（将来のプラグイン用に保持）
+  void _taskActions;
+  void _onTaskAction;
   // 右クリックメニューの状態
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number; taskIndex: number; marker: string; isTimerRunning: boolean } | null>(null);
 
@@ -318,8 +321,10 @@ const MarkdownContent = memo(function MarkdownContent({
           if (CHECKBOX_EXTRACT.test(lines[i])) break;
           // 空行やタイマー行以外もスキップ
           if (!checkLine.startsWith('⏱')) continue;
-          // 実行中のタイマー行かチェック（「開始」を含み「-」を含まない）
-          if (checkLine.includes('開始') && !checkLine.includes('-')) {
+          // 実行中のタイマー行かチェック（「開始」で終わり、経過時間がない）
+          // 完了: ⏱ 2026-01-26 12:34-2026-01-26 13:00 (26分)
+          // 実行中: ⏱ 2026-01-26 12:34開始
+          if (checkLine.endsWith('開始')) {
             isTimerRunning = true;
             break;
           }
@@ -403,6 +408,7 @@ const MarkdownContent = memo(function MarkdownContent({
                   <span className="task-timer-indicator running">⏱</span>
                 )}
               </label>
+              {/* プラグインタスクアクションボタン（v0.6.1で無効化 - タイマーは右クリックメニューに移行）
               {taskActions && taskActions.length > 0 && (
                 <div className="task-actions">
                   {taskActions.map((action) => (
@@ -422,6 +428,7 @@ const MarkdownContent = memo(function MarkdownContent({
                   ))}
                 </div>
               )}
+              */}
             </div>
           );
         } else if (line.type === 'text') {
