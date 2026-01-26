@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TaskTimerState, TimerAction } from '../types';
+import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction } from '../types';
 import { Card } from './Card';
 
 interface ColumnProps {
@@ -20,11 +20,10 @@ interface ColumnProps {
   brokenLinkCardIds?: Set<string>;
   cardActions?: PluginCardActionInfo[];
   onCardAction?: (cardId: string, actionId: string, taskIndex?: number) => void;
-  activeTaskTimer?: TaskTimerState | null;
   onTimerAction?: (cardId: string, taskIndex: number, action: TimerAction) => void;
 }
 
-export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, activeTaskTimer, onTimerAction }: ColumnProps) {
+export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -54,7 +53,6 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               columnId={column.id}
               cardActions={cardActions}
               onCardAction={(actionId, taskIndex) => onCardAction?.(card.id, actionId, taskIndex)}
-              activeTaskTimer={activeTaskTimer}
               onTimerAction={onTimerAction ? (taskIndex, action) => onTimerAction(card.id, taskIndex, action) : undefined}
             />
           ))}
