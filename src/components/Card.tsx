@@ -248,7 +248,7 @@ const CardStatusMenu = memo(function CardStatusMenu({
 });
 
 // Markdownコンテンツをレンダリング（チェックボックス対応）
-// タイマーメニューコンポーネント（テキストベース・シンプル版）
+// タイマーメニューコンポーネント（全ボタン常時表示版）
 const TimerMenu = memo(function TimerMenu({
   isRunning,
   onAction,
@@ -261,25 +261,37 @@ const TimerMenu = memo(function TimerMenu({
       <div className="timer-menu-header">
         <span className="timer-icon">⏱</span>
         <span className="timer-label">タイマー</span>
+        {isRunning && <span className="timer-status running">実行中</span>}
       </div>
-      <div className="timer-menu-actions">
-        {!isRunning ? (
-          <button className="timer-action-btn start" onClick={() => onAction('start')}>
-            ▶ 開始
-          </button>
-        ) : (
-          <>
-            <button className="timer-action-btn pause" onClick={() => onAction('pause')}>
-              ⏸ 一時停止
-            </button>
-            <button className="timer-action-btn stop" onClick={() => onAction('stop')}>
-              ⏹ 終了
-            </button>
-            <button className="timer-action-btn cancel" onClick={() => onAction('cancel')}>
-              ✕ キャンセル
-            </button>
-          </>
-        )}
+      <div className="timer-menu-actions horizontal">
+        <button
+          className={`timer-action-btn start ${isRunning ? 'disabled' : ''}`}
+          onClick={() => !isRunning && onAction('start')}
+          title="開始"
+        >
+          ▶
+        </button>
+        <button
+          className={`timer-action-btn pause ${!isRunning ? 'disabled' : ''}`}
+          onClick={() => isRunning && onAction('pause')}
+          title="一時停止"
+        >
+          ⏸
+        </button>
+        <button
+          className={`timer-action-btn stop ${!isRunning ? 'disabled' : ''}`}
+          onClick={() => isRunning && onAction('stop')}
+          title="終了"
+        >
+          ⏹
+        </button>
+        <button
+          className={`timer-action-btn cancel ${!isRunning ? 'disabled' : ''}`}
+          onClick={() => isRunning && onAction('cancel')}
+          title="キャンセル"
+        >
+          ✕
+        </button>
       </div>
     </div>
   );

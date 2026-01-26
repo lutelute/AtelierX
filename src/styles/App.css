@@ -2305,6 +2305,33 @@ body {
   gap: 4px;
 }
 
+/* 横並びレイアウト */
+.timer-menu-actions.horizontal {
+  flex-direction: row;
+  gap: 6px;
+}
+
+.timer-menu-actions.horizontal .timer-action-btn {
+  width: auto;
+  padding: 8px 12px;
+  font-size: 16px;
+  justify-content: center;
+  flex: 1;
+}
+
+.timer-status {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.timer-status.running {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  animation: timerPulse 1.5s ease-in-out infinite;
+}
+
 .timer-action-btn {
   display: flex;
   align-items: center;
@@ -2367,6 +2394,18 @@ body {
 
 .timer-action-btn.cancel:hover {
   background: rgba(113, 113, 122, 0.2);
+}
+
+/* 無効状態のボタン */
+.timer-action-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.timer-action-btn.disabled:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================
