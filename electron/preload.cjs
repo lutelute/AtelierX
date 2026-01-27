@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   activateWindow: (app, windowId, windowName) => ipcRenderer.invoke('activate-window', app, windowId, windowName),
   openNewTerminal: (initialPath) => ipcRenderer.invoke('open-new-terminal', initialPath),
   openNewFinder: (targetPath) => ipcRenderer.invoke('open-new-finder', targetPath),
+  closeWindow: (appName, windowId, windowName) => ipcRenderer.invoke('close-window', appName, windowId, windowName),
   exportLog: (content, filename) => ipcRenderer.invoke('export-log', content, filename),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectFile: () => ipcRenderer.invoke('select-file'),

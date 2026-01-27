@@ -279,6 +279,7 @@ declare global {
       activateWindow: (app: string, windowId: string, windowName?: string) => Promise<boolean>;
       openNewTerminal: (initialPath?: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
       openNewFinder: (targetPath?: string) => Promise<{ success: boolean; windowName?: string; path?: string; error?: string }>;
+      closeWindow: (appName: string, windowId: string, windowName?: string) => Promise<{ success: boolean; error?: string }>;
       exportLog: (content: string, filename: string) => Promise<boolean>;
       selectFolder: () => Promise<string | null>;
       selectFile: () => Promise<string | null>;

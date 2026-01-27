@@ -11,6 +11,7 @@ const {
   activateWindow,
   openNewTerminalWindow,
   openNewFinderWindow,
+  closeWindow,
 } = require('./windowManager.cjs');
 const {
   getDisplayInfo,
@@ -86,6 +87,11 @@ app.whenReady().then(() => {
   // IPC: 新しいFinderウィンドウを開く
   ipcMain.handle('open-new-finder', async (_, targetPath) => {
     return await openNewFinderWindow(targetPath);
+  });
+
+  // IPC: リンクされたウィンドウを閉じる
+  ipcMain.handle('close-window', async (_, appName, windowId, windowName) => {
+    return await closeWindow(appName, windowId, windowName);
   });
 
   // IPC: ログをファイルにエクスポート

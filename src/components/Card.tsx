@@ -10,6 +10,7 @@ interface CardProps {
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onJump?: (id: string) => void;
+  onCloseWindow?: (id: string) => void;
   onUpdateDescription?: (id: string, description: string) => void;
   onUpdateStatusMarker?: (id: string, marker: CardStatusMarker) => void;
   onCardClick?: (id: string) => void;
@@ -483,7 +484,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
+export function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
   const {
     attributes,
     listeners,
@@ -707,17 +708,31 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUp
         </div>
       )}
       {card.windowApp && onJump && (
-        <button
-          className="card-jump-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onJump(card.id);
-          }}
-          title={card.windowId ? `ID: ${card.windowId}` : undefined}
-        >
-          {card.windowApp} を開く
-          {card.windowId && <span className="jump-button-id"> ({card.windowId.slice(-8)})</span>}
-        </button>
+        <div className="card-window-actions">
+          <button
+            className="card-jump-button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onJump(card.id);
+            }}
+            title={card.windowId ? `ID: ${card.windowId}` : undefined}
+          >
+            {card.windowApp} を開く
+            {card.windowId && <span className="jump-button-id"> ({card.windowId.slice(-8)})</span>}
+          </button>
+          {onCloseWindow && (
+            <button
+              className="card-close-window-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCloseWindow(card.id);
+              }}
+              title={`${card.windowApp} を閉じる`}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       )}
       {footerActions.length > 0 && (
         <div className="card-footer-actions">
@@ -777,6 +792,18 @@ export function Card({ card, onDelete, onEdit, onJump, onUpdateDescription, onUp
                 >
                   <span className="context-action-icon">↗️</span>
                   <span>{card.windowApp} を開く</span>
+                </button>
+              )}
+              {onCloseWindow && card.windowApp && (
+                <button
+                  className="context-menu-action"
+                  onClick={() => {
+                    onCloseWindow(card.id);
+                    closeCardMenu();
+                  }}
+                >
+                  <span className="context-action-icon">✕</span>
+                  <span>{card.windowApp} を閉じる</span>
                 </button>
               )}
               {onArchive && (

@@ -37,7 +37,7 @@ const initialData: BoardData = {
   columnOrder: ['todo', 'in-progress', 'done'],
 };
 
-const REMINDER_INTERVAL = 30000; // 30秒ごとにチェック
+const WINDOW_CHECK_INTERVAL = 5000; // 5秒ごとにウィンドウ状態をチェック
 const BACKUP_INTERVAL = 60000; // 1分ごとに自動バックアップ
 
 export function Board() {
@@ -65,6 +65,9 @@ export function Board() {
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
   const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
+  // 差分チェック用: 前回のウィンドウID一覧を保持
+  const prevWindowIdsRef = useRef<string>('');
+  const prevBrokenIdsRef = useRef<string>('');
 
   // プラグインカードアクションを取得
   useEffect(() => {
@@ -281,6 +284,7 @@ export function Board() {
   };
 
   // ウィンドウの状態をチェック（未追加ウィンドウ＆リンク切れカード）
+  // 差分チェック付き: 変更がない場合はsetStateをスキップして再レンダリングを防止
   const checkWindowStatus = useCallback(async () => {
     if (!window.electronAPI?.getAppWindows) return;
 
@@ -305,7 +309,6 @@ export function Board() {
       });
 
       // リンク切れカードをチェック
-      // windowAppがあるがウィンドウが存在しない（windowIdがないか、windowIdのウィンドウが存在しない）
       const broken = Object.values(data.cards).filter((card) => {
         if (!card.windowApp || card.archived) return false;
         const matchesActiveBoard = activeBoard === 'terminal'
@@ -313,25 +316,49 @@ export function Board() {
           : card.windowApp === 'Finder' || card.tag === 'finder';
         if (!matchesActiveBoard) return false;
 
-        // windowIdがない場合はリンク切れ
         if (!card.windowId) return true;
-
-        // windowIdがあるがウィンドウが存在しない場合もリンク切れ
         return !currentWindowIds.has(card.windowId);
       });
 
-      setUnaddedWindows(unadded);
-      setBrokenLinkCards(broken);
+      // 差分チェック: 前回と同じならsetStateをスキップ
+      const unaddedKey = unadded.map((w: AppWindow) => w.id).sort().join(',');
+      const brokenKey = broken.map((c) => c.id).sort().join(',');
+
+      if (unaddedKey !== prevWindowIdsRef.current) {
+        prevWindowIdsRef.current = unaddedKey;
+        setUnaddedWindows(unadded);
+      }
+      if (brokenKey !== prevBrokenIdsRef.current) {
+        prevBrokenIdsRef.current = brokenKey;
+        setBrokenLinkCards(broken);
+      }
     } catch (error) {
       console.error('Failed to check window status:', error);
     }
   }, [data.cards, activeBoard]);
 
-  // 定期的にチェック
+  // 定期的にチェック + アプリフォーカス時に即座にチェック
   useEffect(() => {
     checkWindowStatus();
-    const interval = setInterval(checkWindowStatus, REMINDER_INTERVAL);
-    return () => clearInterval(interval);
+    const interval = setInterval(checkWindowStatus, WINDOW_CHECK_INTERVAL);
+
+    // アプリにフォーカスが戻った時に即座にチェック
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkWindowStatus();
+      }
+    };
+    const handleFocus = () => {
+      checkWindowStatus();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [checkWindowStatus]);
 
   // リマインダから直接ウィンドウを追加
@@ -891,6 +918,24 @@ export function Board() {
     }
   };
 
+  const handleCloseWindowCard = async (cardId: string) => {
+    const card = data.cards[cardId];
+    if (!card?.windowApp || !card?.windowId) return;
+    if (!window.electronAPI?.closeWindow) return;
+
+    const matchedWindow = await findMatchingWindow(card);
+    if (matchedWindow) {
+      const result = await window.electronAPI.closeWindow(
+        matchedWindow.app,
+        matchedWindow.id,
+        matchedWindow.name
+      );
+      if (result.success) {
+        checkWindowStatus();
+      }
+    }
+  };
+
   // カードクリック時のハンドラ（設定に応じて動作を変更）
   const handleCardClick = async (cardId: string) => {
     const card = data.cards[cardId];
@@ -1350,6 +1395,7 @@ export function Board() {
                   onDeleteCard={handleDeleteCard}
                   onEditCard={handleEditCard}
                   onJumpCard={handleJumpCard}
+                  onCloseWindowCard={handleCloseWindowCard}
                   onDropWindow={handleDropWindow}
                   onUpdateDescription={handleUpdateDescription}
                   onUpdateStatusMarker={handleUpdateStatusMarker}
