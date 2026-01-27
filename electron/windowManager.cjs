@@ -272,9 +272,8 @@ function activateGenericWindow(appName, windowName, windowIndex) {
   const escapedName = (windowName || '').replace(/"/g, '\\"');
   const idx = parseInt(windowIndex) || 1;
 
+  // 対象ウィンドウだけを前面に表示（frontmostは使わずAXRaiseのみ）
   const script = `
-tell application "${escapedApp}" to activate
-delay 0.3
 tell application "System Events"
   tell process "${escapedApp}"
     try
@@ -282,6 +281,24 @@ tell application "System Events"
       repeat with w in windows
         if name of w is "${escapedName}" then
           perform action "AXRaise" of w
+          -- バウンスエフェクト: 縮小→戻す→少し縮小→戻す
+          try
+            set origPos to position of w
+            set origSize to size of w
+            set {x0, y0} to origPos
+            set {w0, h0} to origSize
+            set position of w to {x0 + 35, y0 + 35}
+            set size of w to {w0 - 70, h0 - 70}
+            delay 0.07
+            set position of w to origPos
+            set size of w to origSize
+            delay 0.06
+            set position of w to {x0 + 15, y0 + 15}
+            set size of w to {w0 - 30, h0 - 30}
+            delay 0.05
+            set position of w to origPos
+            set size of w to origSize
+          end try
           set found to true
           exit repeat
         end if
@@ -412,115 +429,85 @@ function activateTerminalWindow(windowId, windowName) {
   const isTtyPath = windowId.startsWith('/dev/');
   const isNumericId = /^\d+$/.test(windowId);
 
-  let script;
+  // 対象ウィンドウだけを前面に表示（他のウィンドウは移動しない）
+  // 1. Terminal.appで対象ウィンドウの名前を取得
+  // 2. System Eventsで名前マッチしたウィンドウだけAXRaise（frontmostは使わない）
+  let findCondition;
   if (isTtyPath) {
-    // ttyパスで検索（最も確実）
     const escapedTty = windowId.replace(/"/g, '\\"');
-    script = `
-      set targetTty to "${escapedTty}"
-      set found to false
-      tell application "Terminal"
-        repeat with w in windows
-          try
-            if tty of selected tab of w is equal to targetTty then
-              set miniaturized of w to true
-              set found to true
-              exit repeat
-            end if
-          end try
-        end repeat
-        delay 0.2
-        repeat with w in windows
-          try
-            if tty of selected tab of w is equal to targetTty then
-              set miniaturized of w to false
-              set index of w to 1
-              exit repeat
-            end if
-          end try
-        end repeat
-        activate
-      end tell
-      return found
-    `;
+    findCondition = `tty of selected tab of w is equal to "${escapedTty}"`;
   } else if (isNumericId) {
-    // IDで検索
-    script = `
-      set targetId to ${windowId}
-      set found to false
-      tell application "Terminal"
-        repeat with w in windows
-          if id of w is targetId then
-            set miniaturized of w to true
-            set found to true
-            exit repeat
-          end if
-        end repeat
-        delay 0.2
-        repeat with w in windows
-          if id of w is targetId then
-            set miniaturized of w to false
-            set index of w to 1
-            exit repeat
-          end if
-        end repeat
-        activate
-      end tell
-      return found
-    `;
+    findCondition = `id of w is ${windowId}`;
   } else {
-    // 名前で検索（完全一致を優先、見つからなければ前方一致）
-    const escapedName = windowName.replace(/"/g, '\\"');
-    script = `
-      set targetName to "${escapedName}"
-      set found to false
-      tell application "Terminal"
-        -- 完全一致を試す
-        repeat with w in windows
-          if name of w is equal to targetName then
-            set miniaturized of w to true
-            set found to true
-            exit repeat
-          end if
-        end repeat
-        delay 0.2
-        if found then
-          repeat with w in windows
-            if name of w is equal to targetName then
-              set miniaturized of w to false
-              set index of w to 1
-              exit repeat
-            end if
-          end repeat
-        else
-          -- 完全一致が見つからない場合のみ前方一致を試す
-          repeat with w in windows
-            if name of w starts with targetName then
-              set miniaturized of w to true
-              set found to true
-              exit repeat
-            end if
-          end repeat
-          delay 0.2
-          repeat with w in windows
-            if name of w starts with targetName then
-              set miniaturized of w to false
-              set index of w to 1
-              exit repeat
-            end if
-          end repeat
-        end if
-        activate
-      end tell
-      return found
-    `;
+    const escapedName = (windowName || windowId).replace(/"/g, '\\"');
+    findCondition = `name of w is equal to "${escapedName}"`;
   }
 
-  const child = spawn('osascript', ['-e', script], {
-    detached: true,
-    stdio: 'ignore'
-  });
-  child.unref();
+  const escapedName = (windowName || '').replace(/"/g, '\\"');
+  const script = `
+set targetWindowName to ""
+tell application "Terminal"
+  repeat with w in windows
+    try
+      if ${findCondition} then
+        set targetWindowName to name of w
+        exit repeat
+      end if
+    end try
+  end repeat
+  ${!isTtyPath && !isNumericId ? `
+  if targetWindowName is "" then
+    repeat with w in windows
+      if name of w starts with "${escapedName}" then
+        set targetWindowName to name of w
+        exit repeat
+      end if
+    end repeat
+  end if` : ''}
+end tell
+if targetWindowName is not "" then
+  tell application "System Events"
+    tell process "Terminal"
+      repeat with w in windows
+        if name of w is targetWindowName then
+          perform action "AXRaise" of w
+          -- バウンスエフェクト: 縮小→戻す→少し縮小→戻す
+          try
+            set origPos to position of w
+            set origSize to size of w
+            set {x0, y0} to origPos
+            set {w0, h0} to origSize
+            set position of w to {x0 + 35, y0 + 35}
+            set size of w to {w0 - 70, h0 - 70}
+            delay 0.07
+            set position of w to origPos
+            set size of w to origSize
+            delay 0.06
+            set position of w to {x0 + 15, y0 + 15}
+            set size of w to {w0 - 30, h0 - 30}
+            delay 0.05
+            set position of w to origPos
+            set size of w to origSize
+          end try
+          exit repeat
+        end if
+      end repeat
+    end tell
+  end tell
+end if
+return targetWindowName is not ""
+`;
+
+  const tmpFile = path.join(os.tmpdir(), `atelierx-activate-term-${Date.now()}.scpt`);
+  try {
+    fs.writeFileSync(tmpFile, script, 'utf-8');
+    const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
+    child.unref();
+    setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} }, 5000);
+  } catch (error) {
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+    console.error('activateTerminalWindow error:', error.message);
+  }
 }
 
 /**
@@ -530,86 +517,88 @@ function activateTerminalWindow(windowId, windowName) {
  */
 function activateFinderWindow(windowId, windowName) {
   const isNumericId = /^\d+$/.test(windowId);
+  const escapedName = (windowName || '').replace(/"/g, '\\"');
 
-  let script;
+  // 対象ウィンドウだけを前面に表示（他のウィンドウは移動しない）
+  // Finder.appで対象ウィンドウ名を取得→System Eventsで名前マッチしてAXRaiseのみ
+  let findBlock;
   if (isNumericId) {
-    // IDで検索（最も確実）
-    script = `
-      set targetId to ${windowId}
-      set found to false
-      tell application "Finder"
-        repeat with w in (get every Finder window)
-          if id of w is targetId then
-            set collapsed of w to true
-            set found to true
-            exit repeat
-          end if
-        end repeat
-        delay 0.15
-        repeat with w in (get every Finder window)
-          if id of w is targetId then
-            set collapsed of w to false
-            set index of w to 1
-            exit repeat
-          end if
-        end repeat
-        activate
-      end tell
-      return found
-    `;
+    findBlock = `
+set targetId to ${windowId}
+tell application "Finder"
+  repeat with w in (get every Finder window)
+    if id of w is targetId then
+      set targetWindowName to name of w
+      exit repeat
+    end if
+  end repeat
+end tell`;
   } else {
-    // 名前で検索（完全一致を優先）
-    const escapedName = windowName.replace(/"/g, '\\"');
-    script = `
-      set targetName to "${escapedName}"
-      set found to false
-      tell application "Finder"
-        -- 完全一致を試す
-        repeat with w in (get every Finder window)
-          if name of w is equal to targetName then
-            set collapsed of w to true
-            set found to true
-            exit repeat
-          end if
-        end repeat
-        delay 0.15
-        if found then
-          repeat with w in (get every Finder window)
-            if name of w is equal to targetName then
-              set collapsed of w to false
-              set index of w to 1
-              exit repeat
-            end if
-          end repeat
-        else
-          -- 完全一致が見つからない場合のみ前方一致を試す
-          repeat with w in (get every Finder window)
-            if name of w starts with targetName then
-              set collapsed of w to true
-              set found to true
-              exit repeat
-            end if
-          end repeat
-          delay 0.15
-          repeat with w in (get every Finder window)
-            if name of w starts with targetName then
-              set collapsed of w to false
-              set index of w to 1
-              exit repeat
-            end if
-          end repeat
-        end if
-        activate
-      end tell
-      return found
-    `;
+    findBlock = `
+tell application "Finder"
+  repeat with w in (get every Finder window)
+    if name of w is equal to "${escapedName}" then
+      set targetWindowName to name of w
+      exit repeat
+    end if
+  end repeat
+  if targetWindowName is "" then
+    repeat with w in (get every Finder window)
+      if name of w starts with "${escapedName}" then
+        set targetWindowName to name of w
+        exit repeat
+      end if
+    end repeat
+  end if
+end tell`;
   }
 
-  const child = spawn('osascript', ['-e', script], {
-    detached: true,
-    stdio: 'ignore'
-  });
-  child.unref();
+  const script = `
+set targetWindowName to ""
+${findBlock}
+if targetWindowName is not "" then
+  tell application "System Events"
+    tell process "Finder"
+      repeat with w in windows
+        if name of w is targetWindowName then
+          perform action "AXRaise" of w
+          -- バウンスエフェクト: 縮小→戻す→少し縮小→戻す
+          try
+            set origPos to position of w
+            set origSize to size of w
+            set {x0, y0} to origPos
+            set {w0, h0} to origSize
+            set position of w to {x0 + 35, y0 + 35}
+            set size of w to {w0 - 70, h0 - 70}
+            delay 0.07
+            set position of w to origPos
+            set size of w to origSize
+            delay 0.06
+            set position of w to {x0 + 15, y0 + 15}
+            set size of w to {w0 - 30, h0 - 30}
+            delay 0.05
+            set position of w to origPos
+            set size of w to origSize
+          end try
+          exit repeat
+        end if
+      end repeat
+    end tell
+  end tell
+end if
+return targetWindowName is not ""
+`;
+
+  const tmpFile = path.join(os.tmpdir(), `atelierx-activate-finder-${Date.now()}.scpt`);
+  try {
+    fs.writeFileSync(tmpFile, script, 'utf-8');
+    const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
+    child.unref();
+    setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} }, 5000);
+  } catch (error) {
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+    console.error('activateFinderWindow error:', error.message);
+  }
 }
 
 /**
