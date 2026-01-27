@@ -2,11 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
-  getAppWindows: () => ipcRenderer.invoke('get-app-windows'),
+  getAppWindows: (appNames) => ipcRenderer.invoke('get-app-windows', appNames),
   activateWindow: (app, windowId, windowName) => ipcRenderer.invoke('activate-window', app, windowId, windowName),
   openNewTerminal: (initialPath) => ipcRenderer.invoke('open-new-terminal', initialPath),
   openNewFinder: (targetPath) => ipcRenderer.invoke('open-new-finder', targetPath),
   closeWindow: (appName, windowId, windowName) => ipcRenderer.invoke('close-window', appName, windowId, windowName),
+  openNewGenericWindow: (appName) => ipcRenderer.invoke('open-new-generic-window', appName),
   exportLog: (content, filename) => ipcRenderer.invoke('export-log', content, filename),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectFile: () => ipcRenderer.invoke('select-file'),
@@ -23,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   arrangeTerminalGrid: (options) => ipcRenderer.invoke('arrange-terminal-grid', options),
   arrangeFinderGrid: (options) => ipcRenderer.invoke('arrange-finder-grid', options),
+  arrangeGenericGrid: (appName, options) => ipcRenderer.invoke('arrange-generic-grid', appName, options),
   // プラグイン関連
   plugins: {
     list: () => ipcRenderer.invoke('plugins:list'),

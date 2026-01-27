@@ -184,15 +184,7 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.nav-tab.active:first-child {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
-  color: #4ade80;
-}
-
-.nav-tab.active:last-child {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.15) 100%);
-  color: #60a5fa;
-}
+/* 動的タブ: borderColor がinline styleで設定される */
 
 .tab-icon {
   font-size: 14px;
@@ -4606,12 +4598,13 @@ body.theme-light {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.theme-light .nav-tab.active:first-child {
+/* 動的タブのため first/last-child は使わない */
+.theme-light .nav-tab.active.UNUSED-first-child {
   background: linear-gradient(135deg, rgba(22, 163, 74, 0.15) 0%, rgba(22, 163, 74, 0.08) 100%);
   color: #16a34a;
 }
 
-.theme-light .nav-tab.active:last-child {
+.theme-light .nav-tab.active.UNUSED-last-child {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.08) 100%);
   color: #2563eb;
 }
@@ -5342,4 +5335,422 @@ body.theme-light {
 .theme-light .tab-badge {
   background: rgba(245, 158, 11, 0.15);
   color: #d97706;
+}
+
+/* ===================================
+   アプリタブ管理セクション (v0.7.0)
+   =================================== */
+
+.settings-description {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 12px;
+}
+
+.theme-light .settings-description {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* 有効なタブ一覧 */
+.app-tabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.app-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+}
+
+.theme-light .app-tab-item {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.app-tab-icon {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.app-tab-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.app-tab-type {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.theme-light .app-tab-type {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.app-tab-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.app-tab-remove:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.theme-light .app-tab-remove {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+/* プリセットグリッド */
+.app-tabs-presets {
+  margin-bottom: 16px;
+}
+
+.app-tabs-presets label {
+  display: block;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.theme-light .app-tabs-presets label {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preset-app-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 0.15s;
+}
+
+.preset-app-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.theme-light .preset-app-btn {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.theme-light .preset-app-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.preset-icon {
+  font-size: 1rem;
+}
+
+.preset-name {
+  font-weight: 500;
+}
+
+.preset-empty {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 4px;
+}
+
+.theme-light .preset-empty {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+/* カスタムアプリ追加フォーム */
+.app-tabs-custom label {
+  display: block;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.theme-light .app-tabs-custom label {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.custom-app-form {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.custom-app-form input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.theme-light .custom-app-form input {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.btn-add-custom-app {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-add-custom-app:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+.btn-add-custom-app:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ============================================
+   タブ閉じるボタン / 追加ボタン / ポップオーバー
+   ============================================ */
+
+/* タブの閉じるボタン */
+.tab-close {
+  display: none;
+  margin-left: 2px;
+  padding: 0 3px;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+
+.nav-tab:hover .tab-close {
+  display: inline-flex;
+}
+
+.tab-close:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.theme-light .tab-close {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.theme-light .tab-close:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* タブ追加ボタンラッパー（ポップオーバーの位置基準） */
+.tab-add-wrapper {
+  position: relative;
+}
+
+.tab-add-btn {
+  padding: 8px 12px !important;
+  font-size: 16px !important;
+  opacity: 0.5;
+}
+
+.tab-add-btn:hover {
+  opacity: 1;
+}
+
+/* ポップオーバー */
+.tab-add-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: rgba(30, 30, 46, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+.theme-light .tab-add-popover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.popover-section {
+  padding: 4px 0;
+}
+
+.popover-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.theme-light .popover-label {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.popover-back {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.popover-back:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.theme-light .popover-back {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.theme-light .popover-back:hover {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.popover-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.theme-light .popover-item {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.theme-light .popover-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #000;
+}
+
+.popover-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.popover-divider {
+  height: 1px;
+  margin: 4px 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.theme-light .popover-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.popover-custom-form {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 6px;
+}
+
+.popover-custom-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  font-size: 12px;
+}
+
+.popover-custom-input:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.theme-light .popover-custom-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1a1a2e;
+}
+
+.popover-custom-add {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.popover-custom-add:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+.popover-custom-add:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.theme-light .popover-custom-add {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.theme-light .popover-custom-add:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.2);
 }

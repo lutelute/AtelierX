@@ -4,7 +4,7 @@ import { AppWindow } from '../types';
 interface WindowSelectModalProps {
   onClose: () => void;
   onSelect: (window: AppWindow) => void;
-  appFilter?: 'Terminal' | 'Finder';
+  appFilter?: string;  // アプリ名でフィルタ (例: 'Terminal', 'Finder', 'Obsidian')
 }
 
 export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelectModalProps) {
@@ -15,7 +15,11 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
   const fetchWindows = async () => {
     try {
       if (window.electronAPI?.getAppWindows) {
-        const appWindows = await window.electronAPI.getAppWindows();
+        // 汎用アプリも含めてウィンドウ取得
+        const extraApps = appFilter && appFilter !== 'Terminal' && appFilter !== 'Finder'
+          ? [appFilter]
+          : undefined;
+        const appWindows = await window.electronAPI.getAppWindows(extraApps);
         console.log('[WindowSelectModal] All windows:', appWindows.length);
         console.log('[WindowSelectModal] appFilter:', appFilter);
         // フィルタが指定されていればフィルタリング
@@ -93,8 +97,39 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
     }
   };
 
-  const showTerminalButton = !appFilter || appFilter === 'Terminal';
-  const showFinderButton = !appFilter || appFilter === 'Finder';
+  // 汎用アプリで新しいウィンドウを開く
+  const handleOpenNewGeneric = async () => {
+    if (!appFilter || !window.electronAPI?.openNewGenericWindow) return;
+    setOpening(true);
+    try {
+      const result = await window.electronAPI.openNewGenericWindow(appFilter);
+      if (result.success && result.windowName) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const extraApps = [appFilter];
+        const appWindows = await window.electronAPI.getAppWindows(extraApps);
+        const newWindow = appWindows.find(
+          (w: AppWindow) => w.app === appFilter && w.name.includes(result.windowName!)
+        );
+        if (newWindow) {
+          onSelect(newWindow);
+        } else {
+          onSelect({
+            app: appFilter,
+            id: `${appFilter}-1`,
+            name: result.windowName,
+          });
+        }
+      }
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const isTerminal = appFilter === 'Terminal';
+  const isFinder = appFilter === 'Finder';
+  const isGeneric = appFilter && !isTerminal && !isFinder;
+  const showTerminalButton = !appFilter || isTerminal;
+  const showFinderButton = !appFilter || isFinder;
   const noWindows = !loading && windows.length === 0;
 
   return (
@@ -108,15 +143,15 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
           {loading && <div className="window-empty">読み込み中...</div>}
           {noWindows && (
             <div className="window-empty">
-              {appFilter === 'Terminal' && 'Terminal のウィンドウが開いていません'}
-              {appFilter === 'Finder' && 'Finder のウィンドウが開いていません'}
-              {!appFilter && 'Terminal または Finder のウィンドウが開いていません'}
+              {appFilter
+                ? `${appFilter} のウィンドウが開いていません`
+                : 'ウィンドウが開いていません'}
             </div>
           )}
           {!loading && windows.map((w, index) => (
             <button
               key={`${w.app}-${w.id}`}
-              className={`window-item window-item-${w.app.toLowerCase()}`}
+              className={`window-item window-item-${w.app.toLowerCase().replace(/\s+/g, '-')}`}
               onClick={() => {
                 // 選択したウィンドウをポップアップして確認
                 if (window.electronAPI?.activateWindow) {
@@ -125,7 +160,7 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
                 onSelect(w);
               }}
             >
-              <span className={`window-app-badge window-app-${w.app.toLowerCase()}`}>
+              <span className={`window-app-badge window-app-${w.app.toLowerCase().replace(/\s+/g, '-')}`}>
                 {w.app} #{w.windowIndex ?? index + 1}
               </span>
               <span className="window-name">{w.name.split(' — ')[0]}</span>
@@ -139,7 +174,7 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
 
         {/* 新規ウィンドウを開くボタン */}
         <div className="window-open-new-section">
-          {showTerminalButton && (
+          {showTerminalButton && isTerminal && (
             <button
               className="btn-open-new btn-open-new-terminal"
               onClick={handleOpenNewTerminal}
@@ -148,13 +183,22 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
               {opening ? '開いています...' : '新しい Terminal を開く'}
             </button>
           )}
-          {showFinderButton && noWindows && (
+          {showFinderButton && isFinder && noWindows && (
             <button
               className="btn-open-new btn-open-new-finder"
               onClick={handleOpenNewFinder}
               disabled={opening}
             >
               {opening ? '開いています...' : 'Finder を開く'}
+            </button>
+          )}
+          {isGeneric && (
+            <button
+              className="btn-open-new"
+              onClick={handleOpenNewGeneric}
+              disabled={opening}
+            >
+              {opening ? '開いています...' : `新しい ${appFilter} ウィンドウを開く`}
             </button>
           )}
         </div>

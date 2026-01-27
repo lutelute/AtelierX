@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { DisplayInfo, GridOptions, PluginGridLayout } from '../types';
 
 interface GridArrangeModalProps {
-  appType: 'Terminal' | 'Finder';
+  appType: string;
   onClose: () => void;
   onArrange: (options: GridOptions) => Promise<{ success: boolean; arranged: number }>;
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress } from '../types';
+import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, PRESET_APPS } from '../types';
 
 export { type CardClickBehavior };
 export { type Settings };
@@ -52,6 +52,40 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
 
   // タブ管理
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
+  // アプリタブ管理
+  const [customAppName, setCustomAppName] = useState('');
+  const [customDisplayName, setCustomDisplayName] = useState('');
+  const enabledTabs = settings.enabledAppTabs && settings.enabledAppTabs.length > 0
+    ? settings.enabledAppTabs
+    : BUILTIN_APPS;
+
+  const addAppTab = (tab: AppTabConfig) => {
+    const current = [...enabledTabs];
+    if (current.find(t => t.id === tab.id)) return; // 重複防止
+    setSettings(prev => ({ ...prev, enabledAppTabs: [...current, tab] }));
+  };
+
+  const removeAppTab = (tabId: string) => {
+    const updated = enabledTabs.filter(t => t.id !== tabId);
+    setSettings(prev => ({ ...prev, enabledAppTabs: updated }));
+  };
+
+  const addCustomApp = () => {
+    if (!customAppName.trim()) return;
+    const id = `custom-${customAppName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    const tab: AppTabConfig = {
+      id,
+      appName: customAppName.trim(),
+      displayName: customDisplayName.trim() || customAppName.trim(),
+      icon: '🪟',
+      color: PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)],
+      type: 'custom',
+    };
+    addAppTab(tab);
+    setCustomAppName('');
+    setCustomDisplayName('');
+  };
 
   // プラグイン管理
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
@@ -483,6 +517,95 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
         <div className="settings-content">
           {activeTab === 'general' && (
             <>
+          {/* アプリタブ管理セクション */}
+          <div className="settings-section">
+            <h3>アプリタブ</h3>
+            <p className="settings-description">管理するアプリを追加・削除します。Terminal と Finder は常に有効です。</p>
+
+            {/* 有効なタブ一覧 */}
+            <div className="app-tabs-list">
+              {enabledTabs.map((tab) => (
+                <div key={tab.id} className="app-tab-item">
+                  <span className="app-tab-icon" style={{ color: tab.color }}>{tab.icon}</span>
+                  <span className="app-tab-name">{tab.displayName}</span>
+                  <span className="app-tab-type">{tab.type === 'builtin' ? '(ビルトイン)' : tab.type === 'preset' ? '(プリセット)' : '(カスタム)'}</span>
+                  {tab.type !== 'builtin' && (
+                    <button
+                      type="button"
+                      className="app-tab-remove"
+                      onClick={() => removeAppTab(tab.id)}
+                      title="削除"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* プリセットから追加 */}
+            <div className="app-tabs-presets">
+              <label>プリセットから追加:</label>
+              <div className="preset-grid">
+                {PRESET_APPS.filter(p => !enabledTabs.find(t => t.id === p.id)).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="preset-app-btn"
+                    onClick={() => addAppTab(preset)}
+                    title={preset.appName}
+                  >
+                    <span className="preset-icon">{preset.icon}</span>
+                    <span className="preset-name">{preset.displayName}</span>
+                  </button>
+                ))}
+                {PRESET_APPS.filter(p => !enabledTabs.find(t => t.id === p.id)).length === 0 && (
+                  <span className="preset-empty">全てのプリセットが追加済みです</span>
+                )}
+              </div>
+            </div>
+
+            {/* カスタムアプリ追加 */}
+            <div className="app-tabs-custom">
+              <label>カスタムアプリを追加:</label>
+              <div className="custom-app-form">
+                <input
+                  type="text"
+                  placeholder="macOSアプリ名 (例: Notion)"
+                  value={customAppName}
+                  onChange={(e) => setCustomAppName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomApp();
+                    }
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="表示名 (任意)"
+                  value={customDisplayName}
+                  onChange={(e) => setCustomDisplayName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomApp();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-add-custom-app"
+                  onClick={addCustomApp}
+                  disabled={!customAppName.trim()}
+                >
+                  追加
+                </button>
+              </div>
+              <span className="form-hint">macOSのアプリ名を正確に入力してください（例: Google Chrome, Microsoft Word）</span>
+            </div>
+          </div>
+
           <div className="settings-section">
             <h3>外観</h3>
             <div className="form-group">

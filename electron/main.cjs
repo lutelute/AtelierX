@@ -11,12 +11,14 @@ const {
   activateWindow,
   openNewTerminalWindow,
   openNewFinderWindow,
+  openNewGenericWindow,
   closeWindow,
 } = require('./windowManager.cjs');
 const {
   getDisplayInfo,
   arrangeTerminalGrid,
   arrangeFinderGrid,
+  arrangeGenericGrid,
 } = require('./gridManager.cjs');
 const {
   getInstalledPlugins,
@@ -69,9 +71,9 @@ app.whenReady().then(() => {
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
 
-  // IPC: ウィンドウ一覧を取得
-  ipcMain.handle('get-app-windows', async () => {
-    return await getAppWindows();
+  // IPC: ウィンドウ一覧を取得（引数で追加アプリ名を指定可能）
+  ipcMain.handle('get-app-windows', async (_, appNames) => {
+    return await getAppWindows(appNames);
   });
 
   // IPC: ウィンドウをアクティブにする
@@ -92,6 +94,11 @@ app.whenReady().then(() => {
   // IPC: リンクされたウィンドウを閉じる
   ipcMain.handle('close-window', async (_, appName, windowId, windowName) => {
     return await closeWindow(appName, windowId, windowName);
+  });
+
+  // IPC: 汎用アプリで新しいウィンドウを開く
+  ipcMain.handle('open-new-generic-window', async (_, appName) => {
+    return await openNewGenericWindow(appName);
   });
 
   // IPC: ログをファイルにエクスポート
@@ -384,6 +391,11 @@ ipcMain.handle('arrange-terminal-grid', async (_, options = {}) => {
 // IPC: Finderウィンドウをグリッド配置
 ipcMain.handle('arrange-finder-grid', async (_, options = {}) => {
   return arrangeFinderGrid(options);
+});
+
+// IPC: 汎用アプリウィンドウをグリッド配置
+ipcMain.handle('arrange-generic-grid', async (_, appName, options = {}) => {
+  return arrangeGenericGrid(appName, options);
 });
 
 // =====================================================

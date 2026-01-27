@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, TagType, SubTagType, TAG_LABELS, TAG_COLORS, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow } from '../types';
+import { Card, TagType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow, AppTabConfig, BUILTIN_APPS, getAppNameForTab } from '../types';
 
 // プリセットカラー
 const PRESET_COLORS = [
@@ -20,9 +20,11 @@ interface EditCardModalProps {
   onDeleteSubtag?: (id: string) => void;
   onUpdateDefaultSubtag?: (id: string, updates: { name?: string; color?: string }) => void;
   defaultSubtagSettings?: DefaultSubtagSettings;
+  enabledTabs?: AppTabConfig[];
 }
 
-export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings }: EditCardModalProps) {
+export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings, enabledTabs }: EditCardModalProps) {
+  const tabs = enabledTabs && enabledTabs.length > 0 ? enabledTabs : BUILTIN_APPS;
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [comment, setComment] = useState(card.comment || '');
@@ -36,7 +38,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
   const [editingSubtagId, setEditingSubtagId] = useState<string | null>(null);
 
   // ウィンドウ紐付け用の状態
-  const [windowApp, setWindowApp] = useState<'Terminal' | 'Finder' | undefined>(card.windowApp);
+  const [windowApp, setWindowApp] = useState<string | undefined>(card.windowApp);
   const [windowId, setWindowId] = useState<string | undefined>(card.windowId);
   const [windowName, setWindowName] = useState<string | undefined>(card.windowName);
   const [showWindowSelect, setShowWindowSelect] = useState(false);
@@ -65,11 +67,16 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
     if (!window.electronAPI?.getAppWindows) return;
     setLoadingWindows(true);
     try {
-      const windows = await window.electronAPI.getAppWindows();
+      // タグに応じたアプリ名を取得
+      const appName = getAppNameForTab(tag, enabledTabs);
+      const extraApps = appName && appName !== 'Terminal' && appName !== 'Finder'
+        ? [appName]
+        : undefined;
+      const windows = await window.electronAPI.getAppWindows(extraApps);
       // タグに応じてフィルタ
-      const filtered = windows.filter((w: AppWindow) =>
-        tag === 'terminal' ? w.app === 'Terminal' : w.app === 'Finder'
-      );
+      const filtered = appName
+        ? windows.filter((w: AppWindow) => w.app === appName)
+        : windows;
       setAvailableWindows(filtered);
       setCurrentWindowIndex(0);
       // 最初のウィンドウをポップアップ
@@ -267,22 +274,22 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
           <div className="form-group">
             <label>タグ</label>
             <div className="tag-selector">
-              {(Object.keys(TAG_LABELS) as TagType[]).map((tagOption) => (
+              {tabs.map((tabConfig) => (
                 <button
-                  key={tagOption}
+                  key={tabConfig.id}
                   type="button"
-                  className={`tag-option ${tag === tagOption ? 'selected' : ''}`}
+                  className={`tag-option ${tag === tabConfig.id ? 'selected' : ''}`}
                   style={{
-                    borderColor: tag === tagOption ? TAG_COLORS[tagOption] : 'transparent',
-                    backgroundColor: tag === tagOption ? `${TAG_COLORS[tagOption]}20` : 'transparent',
+                    borderColor: tag === tabConfig.id ? tabConfig.color : 'transparent',
+                    backgroundColor: tag === tabConfig.id ? `${tabConfig.color}20` : 'transparent',
                   }}
-                  onClick={() => setTag(tagOption)}
+                  onClick={() => setTag(tabConfig.id)}
                 >
                   <span
                     className="tag-dot"
-                    style={{ backgroundColor: TAG_COLORS[tagOption] }}
+                    style={{ backgroundColor: tabConfig.color }}
                   />
-                  {TAG_LABELS[tagOption]}
+                  {tabConfig.displayName}
                 </button>
               ))}
             </div>
@@ -517,6 +524,32 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                     {openingNewTerminal ? '開いています...' : '+ 新しい Terminal を開く'}
                   </button>
                 )}
+                {tag !== 'terminal' && tag !== 'finder' && (
+                  <button
+                    type="button"
+                    className="btn-link-terminal"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      const appName = getAppNameForTab(tag, enabledTabs);
+                      if (appName && window.electronAPI?.openNewGenericWindow) {
+                        setOpeningNewTerminal(true);
+                        try {
+                          const result = await window.electronAPI.openNewGenericWindow(appName);
+                          if (result.success && result.windowName) {
+                            setWindowApp(appName);
+                            setWindowName(result.windowName);
+                          }
+                        } finally {
+                          setOpeningNewTerminal(false);
+                        }
+                      }
+                    }}
+                    disabled={openingNewTerminal}
+                  >
+                    {openingNewTerminal ? '開いています...' : `+ 新しい ${getAppNameForTab(tag, enabledTabs) || ''} を開く`}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-link-existing"
@@ -535,7 +568,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                 {loadingWindows && <div className="window-loading">読み込み中...</div>}
                 {!loadingWindows && availableWindows.length === 0 && (
                   <div className="window-empty-inline">
-                    {tag === 'terminal' ? 'Terminal' : 'Finder'} のウィンドウがありません
+                    {getAppNameForTab(tag, enabledTabs) || tag} のウィンドウがありません
                   </div>
                 )}
                 {!loadingWindows && availableWindows.length > 0 && (

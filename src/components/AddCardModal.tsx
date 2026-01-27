@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TagType, SubTagType, TAG_LABELS, TAG_COLORS, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings } from '../types';
+import { TagType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppTabConfig, BUILTIN_APPS } from '../types';
 
 // プリセットカラー
 const PRESET_COLORS = [
@@ -15,12 +15,15 @@ interface AddCardModalProps {
   customSubtags?: CustomSubtag[];
   onAddSubtag?: (subtag: CustomSubtag) => void;
   defaultSubtagSettings?: DefaultSubtagSettings;
+  enabledTabs?: AppTabConfig[];
+  activeBoard?: string;
 }
 
-export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubtags = [], onAddSubtag, defaultSubtagSettings }: AddCardModalProps) {
+export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubtags = [], onAddSubtag, defaultSubtagSettings, enabledTabs, activeBoard }: AddCardModalProps) {
+  const tabs = enabledTabs && enabledTabs.length > 0 ? enabledTabs : BUILTIN_APPS;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tag, setTag] = useState<TagType>('terminal');
+  const [tag, setTag] = useState<TagType>(activeBoard && activeBoard !== 'ideas' ? activeBoard : tabs[0].id);
   const [subtags, setSubtags] = useState<SubTagType[]>([]);
   const [showAddSubtag, setShowAddSubtag] = useState(false);
   const [newSubtagName, setNewSubtagName] = useState('');
@@ -103,22 +106,22 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
           <div className="form-group">
             <label>タグ</label>
             <div className="tag-selector">
-              {(Object.keys(TAG_LABELS) as TagType[]).map((tagOption) => (
+              {tabs.map((tabConfig) => (
                 <button
-                  key={tagOption}
+                  key={tabConfig.id}
                   type="button"
-                  className={`tag-option ${tag === tagOption ? 'selected' : ''}`}
+                  className={`tag-option ${tag === tabConfig.id ? 'selected' : ''}`}
                   style={{
-                    borderColor: tag === tagOption ? TAG_COLORS[tagOption] : 'transparent',
-                    backgroundColor: tag === tagOption ? `${TAG_COLORS[tagOption]}20` : 'transparent',
+                    borderColor: tag === tabConfig.id ? tabConfig.color : 'transparent',
+                    backgroundColor: tag === tabConfig.id ? `${tabConfig.color}20` : 'transparent',
                   }}
-                  onClick={() => setTag(tagOption)}
+                  onClick={() => setTag(tabConfig.id)}
                 >
                   <span
                     className="tag-dot"
-                    style={{ backgroundColor: TAG_COLORS[tagOption] }}
+                    style={{ backgroundColor: tabConfig.color }}
                   />
-                  {TAG_LABELS[tagOption]}
+                  {tabConfig.displayName}
                 </button>
               ))}
             </div>

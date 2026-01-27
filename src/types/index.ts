@@ -1,8 +1,58 @@
-export type TagType = 'terminal' | 'finder';
+// タグ・ボード型 (string に拡張して任意アプリ対応)
+export type TagType = string;
 
 export type SubTagType = 'research' | 'routine' | 'misc' | string;
 
-export type BoardType = 'terminal' | 'finder';
+export type BoardType = string;
+
+// アプリタブ設定
+export interface AppTabConfig {
+  id: string;            // 'terminal', 'obsidian', 'custom-slack-1234' など
+  appName: string;       // macOSアプリ名 ('Terminal', 'Obsidian', 'Google Chrome')
+  displayName: string;   // タブ表示名
+  icon: string;          // アイコン文字
+  color: string;         // タグカラー
+  type: 'builtin' | 'preset' | 'custom';
+}
+
+// ビルトインアプリ (常に存在、削除不可、専用API)
+export const BUILTIN_APPS: AppTabConfig[] = [
+  { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '⌘', color: '#22c55e', type: 'builtin' },
+  { id: 'finder', appName: 'Finder', displayName: 'Finder', icon: '◫', color: '#3b82f6', type: 'builtin' },
+];
+
+// ブラウザ選択肢 (Webタブ用)
+export const BROWSER_APPS: { id: string; appName: string; displayName: string }[] = [
+  { id: 'vivaldi', appName: 'Vivaldi', displayName: 'Vivaldi' },
+  { id: 'safari', appName: 'Safari', displayName: 'Safari' },
+  { id: 'chrome', appName: 'Google Chrome', displayName: 'Chrome' },
+  { id: 'firefox', appName: 'Firefox', displayName: 'Firefox' },
+  { id: 'arc', appName: 'Arc', displayName: 'Arc' },
+  { id: 'edge', appName: 'Microsoft Edge', displayName: 'Edge' },
+  { id: 'brave', appName: 'Brave Browser', displayName: 'Brave' },
+];
+
+// Webタブテンプレート（ブラウザ選択後に appName を差し替え）
+export const WEB_TAB_TEMPLATE: AppTabConfig = {
+  id: 'web',
+  appName: 'Vivaldi', // デフォルト、ユーザー選択で上書き
+  displayName: 'Web',
+  icon: '🌐',
+  color: '#0ea5e9',
+  type: 'builtin',
+};
+
+// プリセットアプリ (ワンクリック追加、ブラウザ以外)
+export const PRESET_APPS: AppTabConfig[] = [
+  { id: 'obsidian', appName: 'Obsidian', displayName: 'Obsidian', icon: '📝', color: '#7c3aed', type: 'preset' },
+  { id: 'vscode', appName: 'Visual Studio Code', displayName: 'VS Code', icon: '💻', color: '#06b6d4', type: 'preset' },
+  { id: 'word', appName: 'Microsoft Word', displayName: 'Word', icon: '📄', color: '#2563eb', type: 'preset' },
+  { id: 'powerpoint', appName: 'Microsoft PowerPoint', displayName: 'PowerPoint', icon: '📊', color: '#ea580c', type: 'preset' },
+  { id: 'excel', appName: 'Microsoft Excel', displayName: 'Excel', icon: '📈', color: '#16a34a', type: 'preset' },
+  { id: 'preview', appName: 'Preview', displayName: 'Preview', icon: '🖼', color: '#8b5cf6', type: 'preset' },
+  { id: 'notes', appName: 'Notes', displayName: 'Notes', icon: '📒', color: '#eab308', type: 'preset' },
+  { id: 'slack', appName: 'Slack', displayName: 'Slack', icon: '💬', color: '#e11d48', type: 'preset' },
+];
 
 // アイデアカテゴリ
 export type IdeaCategory = 'feature' | 'improvement' | 'bug' | 'other' | string;
@@ -43,23 +93,23 @@ export interface CustomSubtag {
 
 // アプリウィンドウ情報
 export interface AppWindow {
-  app: 'Terminal' | 'Finder';
-  id: string;           // ウィンドウID（Terminalの場合はttyパス）
+  app: string;            // アプリ名 (string に拡張)
+  id: string;             // ウィンドウID（Terminalの場合はttyパス）
   name: string;
   path?: string;
-  preview?: string;     // ターミナルの実行中プロセス
-  windowIndex?: number; // ウィンドウインデックス
-  tty?: string;         // ターミナルのttyパス（例: /dev/ttys001）
+  preview?: string;       // ターミナルの実行中プロセス
+  windowIndex?: number;   // ウィンドウインデックス
+  tty?: string;           // ターミナルのttyパス（例: /dev/ttys001）
 }
 
 // ウィンドウ履歴（過去にリンクされていたウィンドウ）
 export interface WindowHistory {
-  id: string;           // 履歴ID
-  app: 'Terminal' | 'Finder';
-  windowId: string;     // 元のウィンドウID
-  windowName: string;   // ウィンドウ名
-  cardTitle: string;    // 紐付いていたカードのタイトル
-  lastUsed: number;     // 最後に使用された時刻
+  id: string;             // 履歴ID
+  app: string;            // アプリ名 (string に拡張)
+  windowId: string;       // 元のウィンドウID
+  windowName: string;     // ウィンドウ名
+  cardTitle: string;      // 紐付いていたカードのタイトル
+  lastUsed: number;       // 最後に使用された時刻
 }
 
 // アクティビティログ
@@ -102,6 +152,7 @@ export interface Settings {
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
   theme?: ThemeType;
+  enabledAppTabs?: AppTabConfig[];  // 有効なアプリタブ一覧
 }
 
 // ノート情報
@@ -275,10 +326,11 @@ declare global {
   interface Window {
     electronAPI?: {
       platform: string;
-      getAppWindows: () => Promise<AppWindow[]>;
+      getAppWindows: (appNames?: string[]) => Promise<AppWindow[]>;
       activateWindow: (app: string, windowId: string, windowName?: string) => Promise<boolean>;
       openNewTerminal: (initialPath?: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
       openNewFinder: (targetPath?: string) => Promise<{ success: boolean; windowName?: string; path?: string; error?: string }>;
+      openNewGenericWindow: (appName: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
       closeWindow: (appName: string, windowId: string, windowName?: string) => Promise<{ success: boolean; error?: string }>;
       exportLog: (content: string, filename: string) => Promise<boolean>;
       selectFolder: () => Promise<string | null>;
@@ -296,6 +348,7 @@ declare global {
       getDisplays: () => Promise<DisplayInfo[]>;
       arrangeTerminalGrid: (options?: GridOptions) => Promise<GridResult>;
       arrangeFinderGrid: (options?: GridOptions) => Promise<GridResult>;
+      arrangeGenericGrid: (appName: string, options?: GridOptions) => Promise<GridResult>;
       // プラグイン関連
       plugins: {
         list: () => Promise<{ success: boolean; data: InstalledPlugin[] }>;
@@ -357,7 +410,7 @@ export interface Card {
   archived?: boolean;    // アーカイブ済みフラグ
   archivedAt?: number;   // アーカイブ時刻
   // ウィンドウ情報（ジャンプ用）
-  windowApp?: 'Terminal' | 'Finder';
+  windowApp?: string;    // アプリ名 (string に拡張)
   windowId?: string;     // ウィンドウID（一意識別用）
   windowName?: string;
   // 時間記録
@@ -378,12 +431,13 @@ export interface BoardData {
   ideas?: Idea[];  // アイデアバックログ
 }
 
-export const TAG_COLORS: Record<TagType, string> = {
+// 後方互換性: ビルトインのタグ色・ラベル
+export const TAG_COLORS: Record<string, string> = {
   terminal: '#22c55e',
   finder: '#3b82f6',
 };
 
-export const TAG_LABELS: Record<TagType, string> = {
+export const TAG_LABELS: Record<string, string> = {
   terminal: 'Terminal',
   finder: 'Finder',
 };
@@ -399,3 +453,54 @@ export const SUBTAG_LABELS: Record<SubTagType, string> = {
   routine: '雑務',
   misc: 'その他',
 };
+
+// タブ設定からタグ色を動的に取得
+export function getTagColor(tag: string, enabledTabs?: AppTabConfig[]): string {
+  // enabledTabs 優先（Webタブ等の動的設定を含む）
+  if (enabledTabs) {
+    const found = enabledTabs.find(a => a.id === tag);
+    if (found) return found.color;
+  }
+  // ビルトイン・プリセットから検索
+  const allApps = [...BUILTIN_APPS, ...PRESET_APPS];
+  const found = allApps.find(a => a.id === tag);
+  if (found) return found.color;
+  // フォールバック
+  return TAG_COLORS[tag] || '#6b7280';
+}
+
+// タブ設定からタグラベルを動的に取得
+export function getTagLabel(tag: string, enabledTabs?: AppTabConfig[]): string {
+  if (enabledTabs) {
+    const found = enabledTabs.find(a => a.id === tag);
+    if (found) return found.displayName;
+  }
+  const allApps = [...BUILTIN_APPS, ...PRESET_APPS];
+  const found = allApps.find(a => a.id === tag);
+  if (found) return found.displayName;
+  return TAG_LABELS[tag] || tag;
+}
+
+// タブIDからappNameを取得
+export function getAppNameForTab(tabId: string, enabledTabs?: AppTabConfig[]): string | undefined {
+  if (enabledTabs) {
+    const found = enabledTabs.find(a => a.id === tabId);
+    if (found) return found.appName;
+  }
+  const allApps = [...BUILTIN_APPS, ...PRESET_APPS];
+  const found = allApps.find(a => a.id === tabId);
+  if (found) return found.appName;
+  return undefined;
+}
+
+// appNameからタブIDを逆引き
+export function getTabIdForApp(appName: string, enabledTabs?: AppTabConfig[]): string | undefined {
+  if (enabledTabs) {
+    const found = enabledTabs.find(a => a.appName === appName);
+    if (found) return found.id;
+  }
+  const allApps = [...BUILTIN_APPS, ...PRESET_APPS];
+  const found = allApps.find(a => a.appName === appName);
+  if (found) return found.id;
+  return undefined;
+}

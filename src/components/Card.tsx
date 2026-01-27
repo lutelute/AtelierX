@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, CardStatusMarker, TAG_COLORS, TAG_LABELS, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction } from '../types';
+import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, getTagColor, getTagLabel } from '../types';
 
 interface CardProps {
   card: CardType;
@@ -629,9 +629,9 @@ export function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUpdateDe
           )}
           <span
             className="card-tag"
-            style={{ backgroundColor: TAG_COLORS[card.tag] }}
+            style={{ backgroundColor: getTagColor(card.tag) }}
           >
-            {TAG_LABELS[card.tag]}
+            {getTagLabel(card.tag)}
           </span>
           {subtagInfos.map((info, index) => (
             <span

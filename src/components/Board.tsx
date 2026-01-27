@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction } from '../types';
+import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, PRESET_APPS, BROWSER_APPS, WEB_TAB_TEMPLATE, getTabIdForApp } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -65,9 +65,20 @@ export function Board() {
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
   const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
+  const [showTabAddPopover, setShowTabAddPopover] = useState(false);
+  const [showBrowserSelect, setShowBrowserSelect] = useState(false);
+  const [customAppName, setCustomAppName] = useState('');
+  const tabAddRef = useRef<HTMLDivElement>(null);
   // 差分チェック用: 前回のウィンドウID一覧を保持
   const prevWindowIdsRef = useRef<string>('');
   const prevBrokenIdsRef = useRef<string>('');
+
+  // 有効なアプリタブ一覧 (後方互換: 未設定ならビルトインのみ)
+  const enabledTabs: AppTabConfig[] = useMemo(() => {
+    return settings.enabledAppTabs && settings.enabledAppTabs.length > 0
+      ? settings.enabledAppTabs
+      : BUILTIN_APPS;
+  }, [settings.enabledAppTabs]);
 
   // プラグインカードアクションを取得
   useEffect(() => {
@@ -179,6 +190,75 @@ export function Board() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // タブ追加ポップオーバーの外側クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tabAddRef.current && !tabAddRef.current.contains(e.target as Node)) {
+        setShowTabAddPopover(false);
+        setShowBrowserSelect(false);
+        setCustomAppName('');
+      }
+    };
+    if (showTabAddPopover) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showTabAddPopover]);
+
+  // タブを追加
+  const handleAddTab = useCallback((tab: AppTabConfig) => {
+    setSettings(prev => {
+      const current = prev.enabledAppTabs && prev.enabledAppTabs.length > 0
+        ? prev.enabledAppTabs
+        : [...BUILTIN_APPS];
+      if (current.find(t => t.id === tab.id)) return prev;
+      return { ...prev, enabledAppTabs: [...current, tab] };
+    });
+    setShowTabAddPopover(false);
+    setShowBrowserSelect(false);
+    setCustomAppName('');
+  }, [setSettings]);
+
+  // タブを削除
+  const handleRemoveTab = useCallback((tabId: string) => {
+    setSettings(prev => {
+      const current = prev.enabledAppTabs && prev.enabledAppTabs.length > 0
+        ? prev.enabledAppTabs
+        : [...BUILTIN_APPS];
+      const updated = current.filter(t => t.id !== tabId);
+      return { ...prev, enabledAppTabs: updated };
+    });
+    // 削除したタブがアクティブならTerminalに切り替え
+    if (activeBoard === tabId) {
+      setActiveBoard('terminal');
+    }
+  }, [setSettings, activeBoard]);
+
+  // Webタブ追加（ブラウザ選択）
+  const handleAddWebTab = useCallback((browserAppName: string) => {
+    const webTab: AppTabConfig = {
+      ...WEB_TAB_TEMPLATE,
+      appName: browserAppName,
+    };
+    handleAddTab(webTab);
+  }, [handleAddTab]);
+
+  // カスタムアプリタブ追加
+  const handleAddCustomTab = useCallback(() => {
+    if (!customAppName.trim()) return;
+    const name = customAppName.trim();
+    const id = `custom-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    const tab: AppTabConfig = {
+      id,
+      appName: name,
+      displayName: name,
+      icon: '🪟',
+      color: '#6b7280',
+      type: 'custom',
+    };
+    handleAddTab(tab);
+  }, [customAppName, handleAddTab]);
+
   // バックアップから復元
   const handleRestoreFromBackup = () => {
     if (backupToRestore) {
@@ -248,9 +328,14 @@ export function Board() {
     if (activeBoard === 'terminal') {
       if (!window.electronAPI?.arrangeTerminalGrid) return { success: false, arranged: 0 };
       return await window.electronAPI.arrangeTerminalGrid(options);
-    } else {
+    } else if (activeBoard === 'finder') {
       if (!window.electronAPI?.arrangeFinderGrid) return { success: false, arranged: 0 };
       return await window.electronAPI.arrangeFinderGrid(options);
+    } else {
+      // 汎用アプリ: enabledTabsからappNameを取得
+      const activeTab = enabledTabs.find(t => t.id === activeBoard);
+      if (!activeTab || !window.electronAPI?.arrangeGenericGrid) return { success: false, arranged: 0 };
+      return await window.electronAPI.arrangeGenericGrid(activeTab.appName, options);
     }
   };
 
@@ -289,7 +374,18 @@ export function Board() {
     if (!window.electronAPI?.getAppWindows) return;
 
     try {
-      const currentWindows = await window.electronAPI.getAppWindows();
+      // アクティブタブのアプリ名を取得
+      const activeTab = enabledTabs.find(t => t.id === activeBoard);
+      if (!activeTab) return; // ideas等の場合はスキップ
+
+      // 汎用アプリ名のリストを作成（Terminal/Finder以外）
+      const genericAppNames = enabledTabs
+        .filter(t => t.appName !== 'Terminal' && t.appName !== 'Finder')
+        .map(t => t.appName);
+
+      const currentWindows = await window.electronAPI.getAppWindows(
+        genericAppNames.length > 0 ? genericAppNames : undefined
+      );
       const currentWindowIds = new Set(currentWindows.map((w: AppWindow) => w.id));
 
       // ボードに登録されているウィンドウIDを取得
@@ -302,18 +398,15 @@ export function Board() {
       // 未登録のウィンドウをフィルタ（アクティブなボードに応じて）
       const unadded = currentWindows.filter((win: AppWindow) => {
         const isRegistered = registeredWindowIds.has(win.id);
-        const matchesActiveBoard = activeBoard === 'terminal'
-          ? win.app === 'Terminal'
-          : win.app === 'Finder';
-        return !isRegistered && matchesActiveBoard;
+        return !isRegistered && win.app === activeTab.appName;
       });
 
       // リンク切れカードをチェック
       const broken = Object.values(data.cards).filter((card) => {
         if (!card.windowApp || card.archived) return false;
-        const matchesActiveBoard = activeBoard === 'terminal'
-          ? card.windowApp === 'Terminal' || card.tag === 'terminal'
-          : card.windowApp === 'Finder' || card.tag === 'finder';
+        // カードがアクティブタブに属するか判定
+        const matchesActiveBoard =
+          card.windowApp === activeTab.appName || card.tag === activeBoard;
         if (!matchesActiveBoard) return false;
 
         if (!card.windowId) return true;
@@ -335,7 +428,7 @@ export function Board() {
     } catch (error) {
       console.error('Failed to check window status:', error);
     }
-  }, [data.cards, activeBoard]);
+  }, [data.cards, activeBoard, enabledTabs]);
 
   // 定期的にチェック + アプリフォーカス時に即座にチェック
   useEffect(() => {
@@ -364,7 +457,7 @@ export function Board() {
   // リマインダから直接ウィンドウを追加
   const handleAddFromReminder = (appWindow: AppWindow) => {
     const cardId = `card-${Date.now()}`;
-    const tag: TagType = appWindow.app === 'Terminal' ? 'terminal' : 'finder';
+    const tag: TagType = getTabIdForApp(appWindow.app, enabledTabs) || activeBoard;
     const displayName = appWindow.name.split(' — ')[0];
     const newCard: CardType = {
       id: cardId,
@@ -408,7 +501,7 @@ export function Board() {
 
     unaddedWindows.forEach((appWindow, index) => {
       const cardId = `card-${Date.now()}-${index}`;
-      const tag: TagType = appWindow.app === 'Terminal' ? 'terminal' : 'finder';
+      const tag: TagType = getTabIdForApp(appWindow.app, enabledTabs) || activeBoard;
       const displayName = appWindow.name.split(' — ')[0];
       newCards[cardId] = {
         id: cardId,
@@ -827,13 +920,11 @@ export function Board() {
 
   // アーカイブされたカードを取得
   const getArchivedCards = () => {
+    const activeTab = enabledTabs.find(t => t.id === activeBoard);
     return Object.values(data.cards).filter((card) => {
       if (!card.archived) return false;
-      if (activeBoard === 'terminal') {
-        return card.tag === 'terminal' || card.windowApp === 'Terminal';
-      } else {
-        return card.tag === 'finder' || card.windowApp === 'Finder';
-      }
+      if (!activeTab) return false;
+      return card.tag === activeBoard || card.windowApp === activeTab.appName;
     });
   };
 
@@ -1244,7 +1335,7 @@ export function Board() {
     if (!windowSelectColumnId) return;
 
     const cardId = `card-${Date.now()}`;
-    const tag: TagType = appWindow.app === 'Terminal' ? 'terminal' : 'finder';
+    const tag: TagType = getTabIdForApp(appWindow.app, enabledTabs) || activeBoard;
     // Terminalはフォルダ名だけ表示（最初の部分）
     const displayName = appWindow.name.split(' — ')[0];
     const newCard: CardType = {
@@ -1280,15 +1371,13 @@ export function Board() {
 
   // アクティブなボードに応じてカードをフィルタリング（アーカイブ済みを除外）
   const getFilteredCards = (cardIds: string[]) => {
+    const activeTab = enabledTabs.find(t => t.id === activeBoard);
     return cardIds
       .map((id) => data.cards[id])
       .filter((card) => {
         if (!card || card.archived) return false;
-        if (activeBoard === 'terminal') {
-          return card.tag === 'terminal' || card.windowApp === 'Terminal';
-        } else {
-          return card.tag === 'finder' || card.windowApp === 'Finder';
-        }
+        if (!activeTab) return false;
+        return card.tag === activeBoard || card.windowApp === activeTab.appName;
       });
   };
 
@@ -1328,20 +1417,27 @@ export function Board() {
 
         <div className="nav-section nav-center">
           <div className="nav-tabs">
-            <button
-              className={`nav-tab ${activeBoard === 'terminal' ? 'active' : ''}`}
-              onClick={() => setActiveBoard('terminal')}
-            >
-              <span className="tab-icon">⌘</span>
-              <span className="tab-label">Terminal</span>
-            </button>
-            <button
-              className={`nav-tab ${activeBoard === 'finder' ? 'active' : ''}`}
-              onClick={() => setActiveBoard('finder')}
-            >
-              <span className="tab-icon">◫</span>
-              <span className="tab-label">Finder</span>
-            </button>
+            {enabledTabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`nav-tab ${activeBoard === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveBoard(tab.id)}
+                style={activeBoard === tab.id ? {
+                  background: `linear-gradient(135deg, ${tab.color}40 0%, ${tab.color}26 100%)`,
+                  color: tab.color,
+                } : undefined}
+              >
+                <span className="tab-icon">{tab.icon}</span>
+                <span className="tab-label">{tab.displayName}</span>
+                {tab.type !== 'builtin' && (
+                  <span
+                    className="tab-close"
+                    onClick={(e) => { e.stopPropagation(); handleRemoveTab(tab.id); }}
+                    title="タブを削除"
+                  >×</span>
+                )}
+              </button>
+            ))}
             <button
               className={`nav-tab ${activeBoard === 'ideas' ? 'active' : ''}`}
               onClick={() => setActiveBoard('ideas')}
@@ -1352,6 +1448,93 @@ export function Board() {
                 <span className="tab-badge">{data.ideas?.length}</span>
               )}
             </button>
+            {/* タブ追加ボタン */}
+            <div className="tab-add-wrapper" ref={tabAddRef}>
+              <button
+                className="nav-tab tab-add-btn"
+                onClick={() => setShowTabAddPopover(!showTabAddPopover)}
+                title="アプリタブを追加"
+              >
+                <span className="tab-icon">+</span>
+              </button>
+              {showTabAddPopover && (
+                <div className="tab-add-popover">
+                  {!showBrowserSelect ? (
+                    <>
+                      <div className="popover-section">
+                        <div className="popover-label">アプリを追加</div>
+                        {/* Web (ブラウザ) */}
+                        {!enabledTabs.find(t => t.id === 'web') && (
+                          <button
+                            className="popover-item popover-item-web"
+                            onClick={() => setShowBrowserSelect(true)}
+                          >
+                            <span className="popover-icon">🌐</span>
+                            <span>Web (ブラウザ)</span>
+                          </button>
+                        )}
+                        {/* プリセット */}
+                        {PRESET_APPS
+                          .filter(p => !enabledTabs.find(t => t.id === p.id))
+                          .map(preset => (
+                            <button
+                              key={preset.id}
+                              className="popover-item"
+                              onClick={() => handleAddTab(preset)}
+                            >
+                              <span className="popover-icon">{preset.icon}</span>
+                              <span>{preset.displayName}</span>
+                            </button>
+                          ))
+                        }
+                      </div>
+                      <div className="popover-divider" />
+                      <div className="popover-section">
+                        <div className="popover-label">カスタム</div>
+                        <div className="popover-custom-form">
+                          <input
+                            type="text"
+                            className="popover-custom-input"
+                            placeholder="macOSアプリ名"
+                            value={customAppName}
+                            onChange={(e) => setCustomAppName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddCustomTab();
+                              }
+                            }}
+                          />
+                          <button
+                            className="popover-custom-add"
+                            onClick={handleAddCustomTab}
+                            disabled={!customAppName.trim()}
+                          >
+                            追加
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="popover-section">
+                      <div className="popover-label">
+                        <button className="popover-back" onClick={() => setShowBrowserSelect(false)}>←</button>
+                        ブラウザを選択
+                      </div>
+                      {BROWSER_APPS.map(browser => (
+                        <button
+                          key={browser.id}
+                          className="popover-item"
+                          onClick={() => handleAddWebTab(browser.appName)}
+                        >
+                          <span>{browser.displayName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1445,13 +1628,15 @@ export function Board() {
             }));
           }}
           defaultSubtagSettings={settings.defaultSubtagSettings}
+          enabledTabs={enabledTabs}
+          activeBoard={activeBoard}
         />
       )}
       {windowSelectColumnId && (
         <WindowSelectModal
           onClose={() => setWindowSelectColumnId(null)}
           onSelect={handleSelectWindow}
-          appFilter={activeBoard === 'terminal' ? 'Terminal' : 'Finder'}
+          appFilter={enabledTabs.find(t => t.id === activeBoard)?.appName || 'Terminal'}
         />
       )}
       {editingCard && (
@@ -1499,6 +1684,7 @@ export function Board() {
             }));
           }}
           defaultSubtagSettings={settings.defaultSubtagSettings}
+          enabledTabs={enabledTabs}
         />
       )}
       {!reminderDismissed && (
@@ -1563,7 +1749,7 @@ export function Board() {
       )}
       {showGridModal && (
         <GridArrangeModal
-          appType={activeBoard === 'terminal' ? 'Terminal' : 'Finder'}
+          appType={enabledTabs.find(t => t.id === activeBoard)?.appName || 'Terminal'}
           onClose={() => setShowGridModal(false)}
           onArrange={handleArrangeGrid}
         />
