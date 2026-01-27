@@ -37,7 +37,7 @@ const initialData: BoardData = {
   columnOrder: ['todo', 'in-progress', 'done'],
 };
 
-const WINDOW_CHECK_INTERVAL = 5000; // 5秒ごとにウィンドウ状態をチェック
+const WINDOW_CHECK_INTERVAL = 3000; // 3秒ごとにウィンドウ状態をチェック
 const BACKUP_INTERVAL = 60000; // 1分ごとに自動バックアップ
 
 export function Board() {
