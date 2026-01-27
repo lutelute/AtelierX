@@ -183,8 +183,9 @@ set totalArranged to 0
 set targetDisplay to ${displayIndex}
 set menuOffset to 0
 
--- Terminal.appからウィンドウ数を取得
+-- Terminal.appからウィンドウ数を取得 & 前面に配置
 tell application "Terminal"
+    activate
     set wl to every window whose visible is true
     set cnt to count of wl
     if cnt = 0 then return 0
@@ -451,6 +452,7 @@ set totalArranged to 0
 set targetDisplay to ${displayIndex}
 
 tell application "Finder"
+    activate
     set wl to every Finder window whose visible is true
     set cnt to count of wl
     if cnt = 0 then return 0
@@ -619,6 +621,10 @@ set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
 set menuOffset to 0
+
+-- アプリを前面に配置
+tell application "${escapedAppName}" to activate
+delay 0.3
 
 tell application "System Events"
     if not (exists process "${escapedAppName}") then return 0

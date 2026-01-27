@@ -91,6 +91,11 @@ body {
   font-size: 18px;
 }
 
+.sidebar-icon-svg {
+  display: block;
+  opacity: 0.7;
+}
+
 /* ============================================
    フローティングナビゲーションバー
    ============================================ */
@@ -2469,6 +2474,55 @@ body {
   min-width: 200px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+}
+
+.context-menu-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-light .context-menu-topbar {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.context-menu-topbar-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.theme-light .context-menu-topbar-title {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.context-menu-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.context-menu-close:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.theme-light .context-menu-close {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.theme-light .context-menu-close:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .context-menu-header {
@@ -5580,9 +5634,15 @@ body.theme-light {
 }
 
 .tab-add-btn {
-  padding: 8px 12px !important;
-  font-size: 16px !important;
-  opacity: 0.5;
+  padding: 8px 10px !important;
+  font-size: 14px !important;
+  opacity: 0.4;
+  min-width: unset;
+}
+
+.tab-add-btn .tab-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .tab-add-btn:hover {
@@ -6089,4 +6149,220 @@ body.theme-light {
   background: #fff;
   border-top-color: #e2e8f0;
   border-radius: 0 0 16px 16px;
+}
+
+/* =====================================================
+   App Icon / Data URI Support (v0.8.0)
+   ===================================================== */
+
+/* タブのアイコン画像 (data URI) */
+.tab-icon-img {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+/* 設定モーダル: アプリタブリストのアイコン画像 */
+.app-tab-icon-img {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+/* インストール済みアプリピッカー (設定モーダル) */
+.app-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-picker-search {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  font-size: 0.85rem;
+}
+
+.app-picker-search:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.theme-light .app-picker-search {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+}
+
+.theme-light .app-picker-search:focus {
+  border-color: #6366f1;
+}
+
+.app-picker-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .app-picker-list {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.app-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.app-picker-item:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-picker-item.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.theme-light .app-picker-item {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.theme-light .app-picker-item:hover:not(.disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.app-picker-icon-img {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.app-picker-icon-text {
+  width: 20px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.app-picker-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-picker-badge {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.theme-light .app-picker-badge {
+  color: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.app-picker-loading,
+.app-picker-empty {
+  padding: 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.82rem;
+}
+
+.theme-light .app-picker-loading,
+.theme-light .app-picker-empty {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* ポップオーバーのアプリリスト & 検索 */
+.popover-app-search {
+  width: calc(100% - 20px);
+  margin: 4px 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e4e4e7;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.popover-app-search:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.theme-light .popover-app-search {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+}
+
+.theme-light .popover-app-search:focus {
+  border-color: #6366f1;
+}
+
+.popover-app-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.popover-app-loading {
+  padding: 12px 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+.theme-light .popover-app-loading {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.popover-icon-img {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.popover-item-disabled {
+  opacity: 0.4;
+  cursor: default !important;
+}
+
+.popover-item-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.theme-light .popover-item-badge {
+  color: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.06);
 }

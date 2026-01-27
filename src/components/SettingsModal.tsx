@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, PRESET_APPS } from '../types';
+import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, InstalledAppInfo } from '../types';
 
 export { type CardClickBehavior };
 export { type Settings };
@@ -85,6 +85,58 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
     addAppTab(tab);
     setCustomAppName('');
     setCustomDisplayName('');
+  };
+
+  // インストール済みアプリ
+  const [installedApps, setInstalledApps] = useState<InstalledAppInfo[]>([]);
+  const [appSearchQuery, setAppSearchQuery] = useState('');
+  const [isLoadingApps, setIsLoadingApps] = useState(false);
+
+  // インストール済みアプリをロード
+  useEffect(() => {
+    const loadApps = async () => {
+      if (!window.electronAPI?.scanInstalledApps) return;
+      setIsLoadingApps(true);
+      try {
+        const apps = await window.electronAPI.scanInstalledApps();
+        setInstalledApps(apps);
+      } catch (error) {
+        console.error('Failed to load installed apps:', error);
+      } finally {
+        setIsLoadingApps(false);
+      }
+    };
+    loadApps();
+  }, []);
+
+  // フィルタ済みアプリ一覧
+  const filteredApps = installedApps.filter(app => {
+    // 検索クエリでフィルタ
+    if (appSearchQuery) {
+      const q = appSearchQuery.toLowerCase();
+      return app.appName.toLowerCase().includes(q) || app.bundleId.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  // アプリを追加
+  const addInstalledApp = (app: InstalledAppInfo) => {
+    const id = `app-${app.appName.toLowerCase().replace(/\s+/g, '-')}`;
+    const tab: AppTabConfig = {
+      id,
+      appName: app.appName,
+      displayName: app.appName,
+      icon: '🪟',
+      iconDataUri: app.iconDataUri || undefined,
+      color: PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)],
+      type: 'custom',
+    };
+    addAppTab(tab);
+  };
+
+  // 既に追加済みかチェック
+  const isAppAlreadyAdded = (app: InstalledAppInfo): boolean => {
+    return enabledTabs.some(t => t.appName === app.appName);
   };
 
   // プラグイン管理
@@ -526,7 +578,11 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
             <div className="app-tabs-list">
               {enabledTabs.map((tab) => (
                 <div key={tab.id} className="app-tab-item">
-                  <span className="app-tab-icon" style={{ color: tab.color }}>{tab.icon}</span>
+                  {tab.iconDataUri ? (
+                    <img src={tab.iconDataUri} className="app-tab-icon-img" alt={tab.displayName} />
+                  ) : (
+                    <span className="app-tab-icon" style={{ color: tab.color }}>{tab.icon}</span>
+                  )}
                   <span className="app-tab-name">{tab.displayName}</span>
                   <span className="app-tab-type">{tab.type === 'builtin' ? '(ビルトイン)' : tab.type === 'preset' ? '(プリセット)' : '(カスタム)'}</span>
                   {tab.type !== 'builtin' && (
@@ -543,25 +599,48 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
               ))}
             </div>
 
-            {/* プリセットから追加 */}
+            {/* インストール済みアプリから追加 */}
             <div className="app-tabs-presets">
-              <label>プリセットから追加:</label>
-              <div className="preset-grid">
-                {PRESET_APPS.filter(p => !enabledTabs.find(t => t.id === p.id)).map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className="preset-app-btn"
-                    onClick={() => addAppTab(preset)}
-                    title={preset.appName}
-                  >
-                    <span className="preset-icon">{preset.icon}</span>
-                    <span className="preset-name">{preset.displayName}</span>
-                  </button>
-                ))}
-                {PRESET_APPS.filter(p => !enabledTabs.find(t => t.id === p.id)).length === 0 && (
-                  <span className="preset-empty">全てのプリセットが追加済みです</span>
-                )}
+              <label>アプリを追加:</label>
+              <div className="app-picker">
+                <input
+                  type="text"
+                  className="app-picker-search"
+                  placeholder="アプリを検索..."
+                  value={appSearchQuery}
+                  onChange={(e) => setAppSearchQuery(e.target.value)}
+                />
+                <div className="app-picker-list">
+                  {isLoadingApps ? (
+                    <div className="app-picker-loading">スキャン中...</div>
+                  ) : filteredApps.length === 0 ? (
+                    <div className="app-picker-empty">
+                      {appSearchQuery ? '該当するアプリがありません' : 'アプリが見つかりません'}
+                    </div>
+                  ) : (
+                    filteredApps.map((app) => {
+                      const added = isAppAlreadyAdded(app);
+                      return (
+                        <button
+                          key={app.path}
+                          type="button"
+                          className={`app-picker-item ${added ? 'disabled' : ''}`}
+                          onClick={() => !added && addInstalledApp(app)}
+                          disabled={added}
+                          title={added ? '追加済み' : app.path}
+                        >
+                          {app.iconDataUri ? (
+                            <img src={app.iconDataUri} className="app-picker-icon-img" alt={app.appName} />
+                          ) : (
+                            <span className="app-picker-icon-text">🪟</span>
+                          )}
+                          <span className="app-picker-name">{app.appName}</span>
+                          {added && <span className="app-picker-badge">追加済み</span>}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
 

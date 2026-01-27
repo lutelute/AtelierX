@@ -39,6 +39,7 @@ const {
   cleanupOldFiles,
   startupCleanup,
 } = require('./updateManager.cjs');
+const { scanInstalledApps } = require('./appScanner.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -517,6 +518,15 @@ ipcMain.handle('plugins:execute-card-action', async (_, { actionId, cardId, card
 
 // 有効なプラグインをロード
 loadEnabledPlugins();
+
+// =====================================================
+// インストール済みアプリスキャン (appScanner.cjs モジュールを使用)
+// =====================================================
+
+// IPC: インストール済みアプリ一覧を取得
+ipcMain.handle('scan-installed-apps', async () => {
+  return await scanInstalledApps();
+});
 
 // =====================================================
 // 自動アップデート機能 (updateManager.cjs モジュールを使用)

@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, PRESET_APPS, BROWSER_APPS, WEB_TAB_TEMPLATE, getTabIdForApp } from '../types';
+import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, BROWSER_APPS, WEB_TAB_TEMPLATE, InstalledAppInfo, getTabIdForApp } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -68,6 +68,9 @@ export function Board() {
   const [showTabAddPopover, setShowTabAddPopover] = useState(false);
   const [showBrowserSelect, setShowBrowserSelect] = useState(false);
   const [customAppName, setCustomAppName] = useState('');
+  const [popoverInstalledApps, setPopoverInstalledApps] = useState<InstalledAppInfo[]>([]);
+  const [popoverAppSearch, setPopoverAppSearch] = useState('');
+  const [isLoadingPopoverApps, setIsLoadingPopoverApps] = useState(false);
   const tabAddRef = useRef<HTMLDivElement>(null);
   // 差分チェック用: 前回のウィンドウID一覧を保持
   const prevWindowIdsRef = useRef<string>('');
@@ -200,6 +203,7 @@ export function Board() {
         setShowTabAddPopover(false);
         setShowBrowserSelect(false);
         setCustomAppName('');
+        setPopoverAppSearch('');
       }
     };
     if (showTabAddPopover) {
@@ -207,6 +211,25 @@ export function Board() {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showTabAddPopover]);
+
+  // ポップオーバーが開いたらインストール済みアプリをロード
+  useEffect(() => {
+    if (!showTabAddPopover) return;
+    if (popoverInstalledApps.length > 0) return; // 既にロード済み
+    const loadApps = async () => {
+      if (!window.electronAPI?.scanInstalledApps) return;
+      setIsLoadingPopoverApps(true);
+      try {
+        const apps = await window.electronAPI.scanInstalledApps();
+        setPopoverInstalledApps(apps);
+      } catch (error) {
+        console.error('Failed to load installed apps:', error);
+      } finally {
+        setIsLoadingPopoverApps(false);
+      }
+    };
+    loadApps();
+  }, [showTabAddPopover, popoverInstalledApps.length]);
 
   // タブを追加
   const handleAddTab = useCallback((tab: AppTabConfig) => {
@@ -244,6 +267,23 @@ export function Board() {
       appName: browserAppName,
     };
     handleAddTab(webTab);
+  }, [handleAddTab]);
+
+  // インストール済みアプリをタブとして追加
+  const handleAddInstalledAppTab = useCallback((app: InstalledAppInfo) => {
+    const id = `app-${app.appName.toLowerCase().replace(/\s+/g, '-')}`;
+    const colors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#6b7280'];
+    const tab: AppTabConfig = {
+      id,
+      appName: app.appName,
+      displayName: app.appName,
+      icon: '🪟',
+      iconDataUri: app.iconDataUri || undefined,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      type: 'custom',
+    };
+    handleAddTab(tab);
+    setPopoverAppSearch('');
   }, [handleAddTab]);
 
   // カスタムアプリタブ追加
@@ -1454,12 +1494,12 @@ export function Board() {
       <aside className="sidebar">
         <div className="sidebar-top">
           <button className="sidebar-btn active" title="ボード">
-            <span className="sidebar-icon">▦</span>
+            <svg className="sidebar-icon-svg" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="11" y="2" width="5" height="5" rx="1"/><rect x="2" y="11" width="5" height="5" rx="1"/><rect x="11" y="11" width="5" height="5" rx="1"/></svg>
           </button>
         </div>
         <div className="sidebar-bottom">
           <button className="sidebar-btn" onClick={() => setShowSettingsModal(true)} title="設定">
-            <span className="sidebar-icon">⚯</span>
+            <svg className="sidebar-icon-svg" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="9" cy="9" r="2.5"/><path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.7 3.7l1.4 1.4M12.9 12.9l1.4 1.4M3.7 14.3l1.4-1.4M12.9 5.1l1.4-1.4"/></svg>
           </button>
         </div>
       </aside>
@@ -1484,7 +1524,11 @@ export function Board() {
                   color: tab.color,
                 } : undefined}
               >
-                <span className="tab-icon">{tab.icon}</span>
+                {tab.iconDataUri ? (
+                  <img src={tab.iconDataUri} className="tab-icon-img" alt={tab.displayName} />
+                ) : (
+                  <span className="tab-icon">{tab.icon}</span>
+                )}
                 <span className="tab-label">{tab.displayName}</span>
                 {tab.type !== 'builtin' && (
                   <span
@@ -1530,20 +1574,47 @@ export function Board() {
                             <span>Web (ブラウザ)</span>
                           </button>
                         )}
-                        {/* プリセット */}
-                        {PRESET_APPS
-                          .filter(p => !enabledTabs.find(t => t.id === p.id))
-                          .map(preset => (
-                            <button
-                              key={preset.id}
-                              className="popover-item"
-                              onClick={() => handleAddTab(preset)}
-                            >
-                              <span className="popover-icon">{preset.icon}</span>
-                              <span>{preset.displayName}</span>
-                            </button>
-                          ))
-                        }
+                        {/* インストール済みアプリ検索 */}
+                        <input
+                          type="text"
+                          className="popover-app-search"
+                          placeholder="アプリを検索..."
+                          value={popoverAppSearch}
+                          onChange={(e) => setPopoverAppSearch(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="popover-app-list">
+                          {isLoadingPopoverApps ? (
+                            <div className="popover-app-loading">スキャン中...</div>
+                          ) : (
+                            popoverInstalledApps
+                              .filter(app => {
+                                if (!popoverAppSearch) return true;
+                                const q = popoverAppSearch.toLowerCase();
+                                return app.appName.toLowerCase().includes(q);
+                              })
+                              .slice(0, 20)
+                              .map(app => {
+                                const added = enabledTabs.some(t => t.appName === app.appName);
+                                return (
+                                  <button
+                                    key={app.path}
+                                    className={`popover-item ${added ? 'popover-item-disabled' : ''}`}
+                                    onClick={() => !added && handleAddInstalledAppTab(app)}
+                                    disabled={added}
+                                  >
+                                    {app.iconDataUri ? (
+                                      <img src={app.iconDataUri} className="popover-icon-img" alt={app.appName} />
+                                    ) : (
+                                      <span className="popover-icon">🪟</span>
+                                    )}
+                                    <span>{app.appName}</span>
+                                    {added && <span className="popover-item-badge">追加済</span>}
+                                  </button>
+                                );
+                              })
+                          )}
+                        </div>
                       </div>
                       <div className="popover-divider" />
                       <div className="popover-section">

@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     checkUpdate: (pluginId) => ipcRenderer.invoke('plugins:check-update', pluginId),
     update: (pluginId) => ipcRenderer.invoke('plugins:update', pluginId),
   },
+  // インストール済みアプリスキャン
+  scanInstalledApps: () => ipcRenderer.invoke('scan-installed-apps'),
   // アップデート関連
   update: {
     check: () => ipcRenderer.invoke('update:check'),

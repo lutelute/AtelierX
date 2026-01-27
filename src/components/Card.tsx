@@ -373,18 +373,21 @@ const MarkdownContent = memo(function MarkdownContent({
   const handleSelectMarker = useCallback((marker: string) => {
     if (contextMenu && onChangeTaskMarker) {
       onChangeTaskMarker(contextMenu.lineIndex, marker);
+      // メニューは閉じない（マーカーを更新して開いたまま）
+      setContextMenu(prev => prev ? { ...prev, marker } : null);
     }
-    setContextMenu(null);
   }, [contextMenu, onChangeTaskMarker]);
 
   const closeMenu = useCallback(() => setContextMenu(null), []);
 
-  // タイマーアクションのハンドラ
+  // タイマーアクションのハンドラ（メニューは閉じない）
   const handleTimerAction = useCallback((action: TimerAction) => {
     if (contextMenu && onTimerAction) {
       onTimerAction(contextMenu.taskIndex, action);
+      // タイマー状態を更新してメニューは開いたまま
+      const newIsRunning = action === 'start';
+      setContextMenu(prev => prev ? { ...prev, isTimerRunning: newIsRunning } : null);
     }
-    setContextMenu(null);
   }, [contextMenu, onTimerAction]);
 
   if (!hasTaskList) {
@@ -461,6 +464,10 @@ const MarkdownContent = memo(function MarkdownContent({
           onClose={closeMenu}
         >
           <div className="task-context-menu">
+            <div className="context-menu-topbar">
+              <span className="context-menu-topbar-title">タスクメニュー</span>
+              <button className="context-menu-close" onClick={closeMenu} title="閉じる">✕</button>
+            </div>
             {/* タイマーメニュー */}
             {onTimerAction && (
               <>

@@ -11,14 +11,23 @@ export interface AppTabConfig {
   appName: string;       // macOSアプリ名 ('Terminal', 'Obsidian', 'Google Chrome')
   displayName: string;   // タブ表示名
   icon: string;          // アイコン文字
+  iconDataUri?: string;  // アプリアイコンのbase64 data URI (あれば優先)
   color: string;         // タグカラー
   type: 'builtin' | 'preset' | 'custom';
 }
 
+// インストール済みアプリ情報
+export interface InstalledAppInfo {
+  appName: string;
+  bundleId: string;
+  path: string;
+  iconDataUri: string;
+}
+
 // ビルトインアプリ (常に存在、削除不可、専用API)
 export const BUILTIN_APPS: AppTabConfig[] = [
-  { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '⌘', color: '#22c55e', type: 'builtin' },
-  { id: 'finder', appName: 'Finder', displayName: 'Finder', icon: '◫', color: '#3b82f6', type: 'builtin' },
+  { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '>_', color: '#22c55e', type: 'builtin' },
+  { id: 'finder', appName: 'Finder', displayName: 'Finder', icon: '📁', color: '#3b82f6', type: 'builtin' },
 ];
 
 // ブラウザ選択肢 (Webタブ用)
@@ -42,17 +51,9 @@ export const WEB_TAB_TEMPLATE: AppTabConfig = {
   type: 'builtin',
 };
 
-// プリセットアプリ (ワンクリック追加、ブラウザ以外)
-export const PRESET_APPS: AppTabConfig[] = [
-  { id: 'obsidian', appName: 'Obsidian', displayName: 'Obsidian', icon: '📝', color: '#7c3aed', type: 'preset' },
-  { id: 'vscode', appName: 'Visual Studio Code', displayName: 'VS Code', icon: '💻', color: '#06b6d4', type: 'preset' },
-  { id: 'word', appName: 'Microsoft Word', displayName: 'Word', icon: '📄', color: '#2563eb', type: 'preset' },
-  { id: 'powerpoint', appName: 'Microsoft PowerPoint', displayName: 'PowerPoint', icon: '📊', color: '#ea580c', type: 'preset' },
-  { id: 'excel', appName: 'Microsoft Excel', displayName: 'Excel', icon: '📈', color: '#16a34a', type: 'preset' },
-  { id: 'preview', appName: 'Preview', displayName: 'Preview', icon: '🖼', color: '#8b5cf6', type: 'preset' },
-  { id: 'notes', appName: 'Notes', displayName: 'Notes', icon: '📒', color: '#eab308', type: 'preset' },
-  { id: 'slack', appName: 'Slack', displayName: 'Slack', icon: '💬', color: '#e11d48', type: 'preset' },
-];
+// プリセットアプリ (v0.8.0で廃止 → インストール済みアプリピッカーに移行)
+// 後方互換のため空配列として維持
+export const PRESET_APPS: AppTabConfig[] = [];
 
 // アイデアカテゴリ
 export type IdeaCategory = 'feature' | 'improvement' | 'bug' | 'other' | string;
@@ -349,6 +350,8 @@ declare global {
       arrangeTerminalGrid: (options?: GridOptions) => Promise<GridResult>;
       arrangeFinderGrid: (options?: GridOptions) => Promise<GridResult>;
       arrangeGenericGrid: (appName: string, options?: GridOptions) => Promise<GridResult>;
+      // インストール済みアプリスキャン
+      scanInstalledApps: () => Promise<InstalledAppInfo[]>;
       // プラグイン関連
       plugins: {
         list: () => Promise<{ success: boolean; data: InstalledPlugin[] }>;
