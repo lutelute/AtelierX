@@ -37,7 +37,7 @@ const initialData: BoardData = {
   columnOrder: ['todo', 'in-progress', 'done'],
 };
 
-const WINDOW_CHECK_INTERVAL = 3000; // 3秒ごとにウィンドウ状態をチェック
+const WINDOW_CHECK_INTERVAL = 10000; // 10秒ごとにウィンドウ状態をチェック
 const BACKUP_INTERVAL = 60000; // 1分ごとに自動バックアップ
 
 export function Board() {
@@ -72,6 +72,10 @@ export function Board() {
   // 差分チェック用: 前回のウィンドウID一覧を保持
   const prevWindowIdsRef = useRef<string>('');
   const prevBrokenIdsRef = useRef<string>('');
+  // ウィンドウデータキャッシュ（findMatchingWindow用）
+  const cachedWindowsRef = useRef<AppWindow[]>([]);
+  // 最後のチェック時刻（デバウンス用）
+  const lastCheckTimeRef = useRef<number>(0);
 
   // 有効なアプリタブ一覧 (後方互換: 未設定ならビルトインのみ)
   const enabledTabs: AppTabConfig[] = useMemo(() => {
@@ -80,7 +84,7 @@ export function Board() {
       : BUILTIN_APPS;
   }, [settings.enabledAppTabs]);
 
-  // プラグインカードアクションを取得
+  // プラグインカードアクションを取得（起動時のみ）
   useEffect(() => {
     const loadCardActions = async () => {
       if (!window.electronAPI?.plugins?.getCardActions) return;
@@ -92,9 +96,6 @@ export function Board() {
       }
     };
     loadCardActions();
-    // プラグインの有効/無効時に再取得するため、定期的にチェック
-    const interval = setInterval(loadCardActions, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   // テーマを適用
@@ -386,6 +387,9 @@ export function Board() {
       const currentWindows = await window.electronAPI.getAppWindows(
         genericAppNames.length > 0 ? genericAppNames : undefined
       );
+      // キャッシュに保存（findMatchingWindow用）
+      cachedWindowsRef.current = currentWindows;
+      lastCheckTimeRef.current = Date.now();
       const currentWindowIds = new Set(currentWindows.map((w: AppWindow) => w.id));
 
       // ボードに登録されているウィンドウIDを取得
@@ -430,27 +434,27 @@ export function Board() {
     }
   }, [data.cards, activeBoard, enabledTabs]);
 
-  // 定期的にチェック + アプリフォーカス時に即座にチェック
+  // 定期的にチェック + アプリフォーカス時にデバウンス付きチェック
   useEffect(() => {
     checkWindowStatus();
     const interval = setInterval(checkWindowStatus, WINDOW_CHECK_INTERVAL);
 
-    // アプリにフォーカスが戻った時に即座にチェック
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
+    // フォーカス復帰時は最後のチェックから3秒以上経過していれば実行
+    const debouncedCheck = () => {
+      if (Date.now() - lastCheckTimeRef.current > 3000) {
         checkWindowStatus();
       }
     };
-    const handleFocus = () => {
-      checkWindowStatus();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) debouncedCheck();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', debouncedCheck);
 
     return () => {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', debouncedCheck);
     };
   }, [checkWindowStatus]);
 
@@ -967,21 +971,30 @@ export function Board() {
     });
   }, [setWindowHistory]);
 
-  // ウィンドウが存在するかチェック（IDのみで検索、名前は信頼できない）
+  // ウィンドウが存在するかチェック（キャッシュ優先、古い場合のみ再取得）
   const findMatchingWindow = async (card: CardType): Promise<AppWindow | null> => {
-    if (!window.electronAPI?.getAppWindows) return null;
     if (!card.windowApp || !card.windowId) return null;
 
-    try {
-      const windows = await window.electronAPI.getAppWindows();
-      const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
-
-      // IDで検索（名前は同じディレクトリ名の場合があるため使用しない）
-      const byId = appWindows.find((w: AppWindow) => w.id === card.windowId);
-      return byId || null;
-    } catch {
-      return null;
+    // キャッシュが5秒以内ならそのまま使用
+    let windows = cachedWindowsRef.current;
+    const cacheAge = Date.now() - lastCheckTimeRef.current;
+    if (cacheAge > 5000 && window.electronAPI?.getAppWindows) {
+      try {
+        const genericAppNames = enabledTabs
+          .filter(t => t.appName !== 'Terminal' && t.appName !== 'Finder')
+          .map(t => t.appName);
+        windows = await window.electronAPI.getAppWindows(
+          genericAppNames.length > 0 ? genericAppNames : undefined
+        );
+        cachedWindowsRef.current = windows;
+        lastCheckTimeRef.current = Date.now();
+      } catch {
+        // キャッシュをフォールバックとして使用
+      }
     }
+
+    const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
+    return appWindows.find((w: AppWindow) => w.id === card.windowId) || null;
   };
 
   const handleJumpToWindow = async (card: CardType) => {

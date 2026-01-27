@@ -181,7 +181,7 @@ end repeat
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
-set menuOffset to 50
+set menuOffset to 0
 
 -- Terminal.appからウィンドウ数を取得
 tell application "Terminal"

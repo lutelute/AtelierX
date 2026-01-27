@@ -10,11 +10,35 @@ const os = require('os');
 
 /**
  * Terminal/Finderのウィンドウ一覧を取得（＋汎用アプリのウィンドウも取得）
+ * 全アプリのクエリを1回のosascript実行にバッチ化してパフォーマンスを最適化
  * @param {string[]} [appNames] - 追加取得するアプリ名の配列 (Terminal/Finder以外)
  * @returns {Promise<Array<{app: string, id: string, name: string, path?: string}>>}
  */
 function getAppWindows(appNames) {
   return new Promise((resolve) => {
+    // 汎用アプリのSystem Eventsクエリをスクリプトに統合
+    const genericApps = (appNames || []).filter(name => name !== 'Terminal' && name !== 'Finder');
+    const genericBlocks = genericApps.map(appName => {
+      const escaped = appName.replace(/"/g, '\\"');
+      return `
+try
+  if exists (process "${escaped}") then
+    tell process "${escaped}"
+      set windowIndex to 1
+      repeat with w in windows
+        try
+          set windowTitle to name of w
+          if windowTitle is not "" then
+            set end of windowList to "GENERIC:${escaped}|" & windowIndex & "|" & windowTitle
+          end if
+          set windowIndex to windowIndex + 1
+        end try
+      end repeat
+    end tell
+  end if
+end try`;
+    }).join('\n');
+
     const script = `
 set windowList to {}
 
@@ -62,13 +86,16 @@ try
   end if
 end try
 
+-- Generic apps (System Events)
+${genericBlocks ? `tell application "System Events"\n${genericBlocks}\nend tell` : ''}
+
 return windowList
 `;
 
     const tmpFile = path.join(os.tmpdir(), `atelierx-windows-${Date.now()}.scpt`);
     try {
       fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { timeout: 10000 }, (error, stdout) => {
+      exec(`osascript "${tmpFile}"`, { timeout: 15000 }, (error, stdout) => {
         try { fs.unlinkSync(tmpFile); } catch (_) {}
 
         if (error) {
@@ -80,6 +107,22 @@ return windowList
         const windows = lines
           .filter(line => line.length > 0)
           .map((line, index) => {
+            // 汎用アプリのウィンドウ ("GENERIC:AppName|index|title")
+            if (line.startsWith('GENERIC:')) {
+              const genericLine = line.substring(8); // "GENERIC:" を除去
+              const parts = genericLine.split('|');
+              const appName = parts[0] || 'Unknown';
+              const windowIndex = parseInt(parts[1]) || 1;
+              const name = parts[2] || 'Window';
+              return {
+                app: appName,
+                id: `${appName}-${windowIndex}`,
+                name,
+                windowIndex,
+              };
+            }
+
+            // Terminal/Finder
             const parts = line.split('|');
             const app = parts[0] || 'Terminal';
             let preview = '';
@@ -101,20 +144,7 @@ return windowList
             };
           });
 
-        // 追加アプリのウィンドウも取得
-        if (appNames && appNames.length > 0) {
-          const genericPromises = appNames
-            .filter(name => name !== 'Terminal' && name !== 'Finder')
-            .map(name => getGenericAppWindows(name));
-          Promise.all(genericPromises).then((results) => {
-            for (const genericWindows of results) {
-              windows.push(...genericWindows);
-            }
-            resolve(windows);
-          });
-        } else {
-          resolve(windows);
-        }
+        resolve(windows);
       });
     } catch (error) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
