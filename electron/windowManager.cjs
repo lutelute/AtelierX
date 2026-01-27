@@ -399,9 +399,176 @@ function openNewFinderWindow(targetPath) {
   });
 }
 
+/**
+ * Terminalウィンドウを閉じる
+ * @param {string} windowId - ウィンドウID（ttyパスまたは数値ID）
+ * @param {string} [windowName] - ウィンドウ名（フォールバック用）
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+function closeTerminalWindow(windowId, windowName) {
+  return new Promise((resolve) => {
+    const isTtyPath = windowId.startsWith('/dev/');
+    const isNumericId = /^\d+$/.test(windowId);
+
+    let script;
+    if (isTtyPath) {
+      const escapedTty = windowId.replace(/"/g, '\\"');
+      script = `
+        set targetTty to "${escapedTty}"
+        set found to false
+        tell application "Terminal"
+          repeat with w in windows
+            try
+              if tty of selected tab of w is equal to targetTty then
+                close w
+                set found to true
+                exit repeat
+              end if
+            end try
+          end repeat
+        end tell
+        return found
+      `;
+    } else if (isNumericId) {
+      script = `
+        set targetId to ${windowId}
+        set found to false
+        tell application "Terminal"
+          repeat with w in windows
+            if id of w is targetId then
+              close w
+              set found to true
+              exit repeat
+            end if
+          end repeat
+        end tell
+        return found
+      `;
+    } else {
+      const escapedName = (windowName || windowId).replace(/"/g, '\\"');
+      script = `
+        set targetName to "${escapedName}"
+        set found to false
+        tell application "Terminal"
+          repeat with w in windows
+            if name of w is equal to targetName then
+              close w
+              set found to true
+              exit repeat
+            end if
+          end repeat
+          if not found then
+            repeat with w in windows
+              if name of w starts with targetName then
+                close w
+                set found to true
+                exit repeat
+              end if
+            end repeat
+          end if
+        end tell
+        return found
+      `;
+    }
+
+    exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error, stdout) => {
+      if (error) {
+        console.error('closeTerminalWindow error:', error);
+        resolve({ success: false, error: error.message });
+        return;
+      }
+      const found = stdout.trim() === 'true';
+      resolve({ success: found, error: found ? undefined : 'Window not found' });
+    });
+  });
+}
+
+/**
+ * Finderウィンドウを閉じる
+ * @param {string} windowId - ウィンドウID
+ * @param {string} [windowName] - ウィンドウ名（フォールバック用）
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+function closeFinderWindow(windowId, windowName) {
+  return new Promise((resolve) => {
+    const isNumericId = /^\d+$/.test(windowId);
+
+    let script;
+    if (isNumericId) {
+      script = `
+        set targetId to ${windowId}
+        set found to false
+        tell application "Finder"
+          repeat with w in (get every Finder window)
+            if id of w is targetId then
+              close w
+              set found to true
+              exit repeat
+            end if
+          end repeat
+        end tell
+        return found
+      `;
+    } else {
+      const escapedName = (windowName || windowId).replace(/"/g, '\\"');
+      script = `
+        set targetName to "${escapedName}"
+        set found to false
+        tell application "Finder"
+          repeat with w in (get every Finder window)
+            if name of w is equal to targetName then
+              close w
+              set found to true
+              exit repeat
+            end if
+          end repeat
+          if not found then
+            repeat with w in (get every Finder window)
+              if name of w starts with targetName then
+                close w
+                set found to true
+                exit repeat
+              end if
+            end repeat
+          end if
+        end tell
+        return found
+      `;
+    }
+
+    exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error, stdout) => {
+      if (error) {
+        console.error('closeFinderWindow error:', error);
+        resolve({ success: false, error: error.message });
+        return;
+      }
+      const found = stdout.trim() === 'true';
+      resolve({ success: found, error: found ? undefined : 'Window not found' });
+    });
+  });
+}
+
+/**
+ * 指定したウィンドウを閉じる
+ * @param {string} appName - アプリ名 ('Terminal' | 'Finder')
+ * @param {string} windowId - ウィンドウID
+ * @param {string} [windowName] - ウィンドウ名（フォールバック用）
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+function closeWindow(appName, windowId, windowName) {
+  if (appName === 'Terminal') {
+    return closeTerminalWindow(windowId, windowName);
+  } else if (appName === 'Finder') {
+    return closeFinderWindow(windowId, windowName);
+  } else {
+    return Promise.resolve({ success: false, error: 'Unknown app' });
+  }
+}
+
 module.exports = {
   getAppWindows,
   activateWindow,
   openNewTerminalWindow,
   openNewFinderWindow,
+  closeWindow,
 };

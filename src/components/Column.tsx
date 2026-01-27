@@ -10,6 +10,7 @@ interface ColumnProps {
   onDeleteCard: (cardId: string) => void;
   onEditCard: (cardId: string) => void;
   onJumpCard: (cardId: string) => void;
+  onCloseWindowCard?: (cardId: string) => void;
   onDropWindow: (columnId: string) => void;
   onUpdateDescription: (cardId: string, description: string) => void;
   onUpdateStatusMarker?: (cardId: string, marker: CardStatusMarker) => void;
@@ -23,7 +24,7 @@ interface ColumnProps {
   onTimerAction?: (cardId: string, taskIndex: number, action: TimerAction) => void;
 }
 
-export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction }: ColumnProps) {
+export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -43,6 +44,7 @@ export function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJ
               onDelete={onDeleteCard}
               onEdit={onEditCard}
               onJump={onJumpCard}
+              onCloseWindow={onCloseWindowCard}
               onUpdateDescription={onUpdateDescription}
               onUpdateStatusMarker={onUpdateStatusMarker}
               onCardClick={onCardClick}

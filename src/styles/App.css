@@ -628,6 +628,40 @@ body {
   font-family: 'SF Mono', Monaco, Consolas, monospace;
 }
 
+/* Card Window Actions */
+.card-window-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.card-window-actions .card-jump-button {
+  flex: 1;
+  margin-top: 0;
+}
+
+.card-close-window-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: auto;
+  padding: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.card-close-window-button:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
 /* Column Actions */
 .column-actions {
   display: flex;
@@ -4718,6 +4752,17 @@ body.theme-light {
 .theme-light .card-jump-button:hover {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.theme-light .card-close-window-button {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.theme-light .card-close-window-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 /* Modal Light Theme */
