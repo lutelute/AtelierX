@@ -76,6 +76,8 @@ export function Board() {
   const cachedWindowsRef = useRef<AppWindow[]>([]);
   // 最後のチェック時刻（デバウンス用）
   const lastCheckTimeRef = useRef<number>(0);
+  // 連続ミスカウント（一時的な失敗でリンク切れ表示を防止）
+  const missCountRef = useRef<Record<string, number>>({});
 
   // 有効なアプリタブ一覧 (後方互換: 未設定ならビルトインのみ)
   const enabledTabs: AppTabConfig[] = useMemo(() => {
@@ -405,16 +407,50 @@ export function Board() {
         return !isRegistered && win.app === activeTab.appName;
       });
 
-      // リンク切れカードをチェック
-      const broken = Object.values(data.cards).filter((card) => {
+      // リンク切れカードをチェック（連続ミスカウントで一時的な失敗を許容）
+      const potentiallyBroken = Object.values(data.cards).filter((card) => {
         if (!card.windowApp || card.archived) return false;
-        // カードがアクティブタブに属するか判定
         const matchesActiveBoard =
           card.windowApp === activeTab.appName || card.tag === activeBoard;
         if (!matchesActiveBoard) return false;
 
         if (!card.windowId) return true;
-        return !currentWindowIds.has(card.windowId);
+
+        // ID完全一致チェック
+        if (currentWindowIds.has(card.windowId)) {
+          // 見つかった → ミスカウントをリセット
+          missCountRef.current[card.id] = 0;
+          return false;
+        }
+
+        // 後方互換: 旧ID形式（Excel-5等）→ 名前ベースでフォールバック検索
+        if (card.windowName) {
+          const nameMatch = currentWindows.find((w: AppWindow) =>
+            w.app === card.windowApp && w.name === card.windowName
+          );
+          if (nameMatch) {
+            // 見つかった → ミスカウントリセット & カードのwindowIdを自動更新
+            missCountRef.current[card.id] = 0;
+            setData((prev) => ({
+              ...prev,
+              cards: {
+                ...prev.cards,
+                [card.id]: { ...prev.cards[card.id], windowId: nameMatch.id },
+              },
+            }));
+            return false;
+          }
+        }
+
+        // 見つからない → ミスカウント増加
+        missCountRef.current[card.id] = (missCountRef.current[card.id] || 0) + 1;
+        return true;
+      });
+
+      // 2回以上連続でミスしたカードのみリンク切れ表示
+      const broken = potentiallyBroken.filter((card) => {
+        if (!card.windowId) return true; // windowId未設定は即表示
+        return (missCountRef.current[card.id] || 0) >= 2;
       });
 
       // 差分チェック: 前回と同じならsetStateをスキップ
@@ -432,7 +468,7 @@ export function Board() {
     } catch (error) {
       console.error('Failed to check window status:', error);
     }
-  }, [data.cards, activeBoard, enabledTabs]);
+  }, [data.cards, activeBoard, enabledTabs, setData]);
 
   // 定期的にチェック + アプリフォーカス時にデバウンス付きチェック
   useEffect(() => {
@@ -994,7 +1030,15 @@ export function Board() {
     }
 
     const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
-    return appWindows.find((w: AppWindow) => w.id === card.windowId) || null;
+    // ID完全一致
+    const idMatch = appWindows.find((w: AppWindow) => w.id === card.windowId);
+    if (idMatch) return idMatch;
+    // 後方互換: 旧IDフォーマット（Excel-5等）→ 名前ベースでフォールバック
+    if (card.windowName) {
+      const nameMatch = appWindows.find((w: AppWindow) => w.name === card.windowName);
+      if (nameMatch) return nameMatch;
+    }
+    return null;
   };
 
   const handleJumpToWindow = async (card: CardType) => {

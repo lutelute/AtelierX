@@ -10,35 +10,17 @@ const os = require('os');
 
 /**
  * Terminal/Finderのウィンドウ一覧を取得（＋汎用アプリのウィンドウも取得）
- * 全アプリのクエリを1回のosascript実行にバッチ化してパフォーマンスを最適化
+ *
+ * 安定性のため2段階で取得:
+ * 1. Terminal/Finder: 専用API（高速・安定）
+ * 2. 汎用アプリ: System Events（1回のバッチ呼出、失敗してもT/Fに影響なし）
+ *
  * @param {string[]} [appNames] - 追加取得するアプリ名の配列 (Terminal/Finder以外)
  * @returns {Promise<Array<{app: string, id: string, name: string, path?: string}>>}
  */
 function getAppWindows(appNames) {
   return new Promise((resolve) => {
-    // 汎用アプリのSystem Eventsクエリをスクリプトに統合
-    const genericApps = (appNames || []).filter(name => name !== 'Terminal' && name !== 'Finder');
-    const genericBlocks = genericApps.map(appName => {
-      const escaped = appName.replace(/"/g, '\\"');
-      return `
-try
-  if exists (process "${escaped}") then
-    tell process "${escaped}"
-      set windowIndex to 1
-      repeat with w in windows
-        try
-          set windowTitle to name of w
-          if windowTitle is not "" then
-            set end of windowList to "GENERIC:${escaped}|" & windowIndex & "|" & windowTitle
-          end if
-          set windowIndex to windowIndex + 1
-        end try
-      end repeat
-    end tell
-  end if
-end try`;
-    }).join('\n');
-
+    // ステージ1: Terminal/Finder（安定）
     const script = `
 set windowList to {}
 
@@ -86,43 +68,22 @@ try
   end if
 end try
 
--- Generic apps (System Events)
-${genericBlocks ? `tell application "System Events"\n${genericBlocks}\nend tell` : ''}
-
 return windowList
 `;
 
     const tmpFile = path.join(os.tmpdir(), `atelierx-windows-${Date.now()}.scpt`);
     try {
       fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { timeout: 15000 }, (error, stdout) => {
+      exec(`osascript "${tmpFile}"`, { timeout: 10000 }, (error, stdout) => {
         try { fs.unlinkSync(tmpFile); } catch (_) {}
 
-        if (error) {
-          resolve([]);
-          return;
-        }
+        const windows = [];
 
-        const lines = stdout.trim().split(', ');
-        const windows = lines
-          .filter(line => line.length > 0)
-          .map((line, index) => {
-            // 汎用アプリのウィンドウ ("GENERIC:AppName|index|title")
-            if (line.startsWith('GENERIC:')) {
-              const genericLine = line.substring(8); // "GENERIC:" を除去
-              const parts = genericLine.split('|');
-              const appName = parts[0] || 'Unknown';
-              const windowIndex = parseInt(parts[1]) || 1;
-              const name = parts[2] || 'Window';
-              return {
-                app: appName,
-                id: `${appName}-${windowIndex}`,
-                name,
-                windowIndex,
-              };
-            }
-
-            // Terminal/Finder
+        if (!error && stdout.trim()) {
+          const lines = stdout.trim().split(', ');
+          for (let index = 0; index < lines.length; index++) {
+            const line = lines[index];
+            if (!line) continue;
             const parts = line.split('|');
             const app = parts[0] || 'Terminal';
             let preview = '';
@@ -134,20 +95,101 @@ return windowList
             const tty = parts[5]?.trim();
             const stableId = (app === 'Terminal' && tty) ? tty : (parts[1] || String(index + 1));
 
-            return {
+            windows.push({
               app,
               id: stableId,
               name: parts[2] || 'Window',
               preview: preview || undefined,
               windowIndex: parseInt(parts[4]) || (index + 1),
               tty: tty || undefined,
-            };
-          });
+            });
+          }
+        }
 
-        resolve(windows);
+        // ステージ2: 汎用アプリ（バッチ、失敗してもTerminal/Finderに影響なし）
+        const genericApps = (appNames || []).filter(name => name !== 'Terminal' && name !== 'Finder');
+        if (genericApps.length > 0) {
+          getBatchedGenericWindows(genericApps).then((genericWindows) => {
+            windows.push(...genericWindows);
+            resolve(windows);
+          });
+        } else {
+          resolve(windows);
+        }
       });
     } catch (error) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
+      resolve([]);
+    }
+  });
+}
+
+/**
+ * 複数の汎用アプリのウィンドウを1回のSystem Eventsスクリプトでバッチ取得
+ * @param {string[]} appNames - アプリ名の配列
+ * @returns {Promise<Array<{app: string, id: string, name: string, windowIndex: number}>>}
+ */
+function getBatchedGenericWindows(appNames) {
+  return new Promise((resolve) => {
+    const blocks = appNames.map(appName => {
+      const escaped = appName.replace(/"/g, '\\"');
+      return `
+  try
+    if exists (process "${escaped}") then
+      tell process "${escaped}"
+        set windowIndex to 1
+        repeat with w in windows
+          try
+            set windowTitle to name of w
+            if windowTitle is not "" then
+              set output to output & "${escaped}" & "|" & windowIndex & "|" & windowTitle & linefeed
+            end if
+            set windowIndex to windowIndex + 1
+          end try
+        end repeat
+      end tell
+    end if
+  end try`;
+    }).join('\n');
+
+    const script = `
+set output to ""
+tell application "System Events"
+${blocks}
+end tell
+return output
+`;
+
+    const tmpFile = path.join(os.tmpdir(), `atelierx-generic-batch-${Date.now()}.scpt`);
+    try {
+      fs.writeFileSync(tmpFile, script, 'utf-8');
+      const stdout = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 });
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+
+      const titleCounts = {};
+      const windows = stdout.trim().split('\n')
+        .filter(line => line.length > 0 && line.includes('|'))
+        .map((line) => {
+          const parts = line.split('|');
+          const appName = parts[0] || 'Unknown';
+          const windowIndex = parseInt(parts[1]) || 1;
+          const name = parts[2] || 'Window';
+          // タイトルベースの安定ID（同名は連番で区別）
+          if (!titleCounts[appName]) titleCounts[appName] = {};
+          titleCounts[appName][name] = (titleCounts[appName][name] || 0) + 1;
+          const titleSuffix = titleCounts[appName][name] > 1 ? `-${titleCounts[appName][name]}` : '';
+          return {
+            app: appName,
+            id: `${appName}:${name}${titleSuffix}`,
+            name,
+            windowIndex,
+          };
+        });
+
+      resolve(windows);
+    } catch (error) {
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+      console.error('getBatchedGenericWindows error:', error.message);
       resolve([]);
     }
   });
@@ -191,15 +233,20 @@ return ""
       fs.unlinkSync(tmpFile);
 
       const lines = stdout.trim().split('\n');
+      // タイトル出現回数を追跡（同名ウィンドウの区別用）
+      const titleCounts = {};
       const windows = lines
         .filter(line => line.length > 0 && line.includes('|'))
         .map((line) => {
           const parts = line.split('|');
           const name = parts[0] || 'Window';
           const windowIndex = parseInt(parts[1]) || 1;
+          // タイトルベースの安定ID（同名は連番で区別）
+          titleCounts[name] = (titleCounts[name] || 0) + 1;
+          const titleSuffix = titleCounts[name] > 1 ? `-${titleCounts[name]}` : '';
           return {
             app: appName,
-            id: `${appName}-${windowIndex}`,
+            id: `${appName}:${name}${titleSuffix}`,
             name,
             windowIndex,
           };
@@ -581,10 +628,8 @@ function activateWindow(appName, windowId, windowName) {
       activateFinderWindow(windowId, windowName || windowId);
       resolve(true);
     } else {
-      // 汎用アプリ
-      const indexMatch = windowId.match(/-(\d+)$/);
-      const windowIndex = indexMatch ? parseInt(indexMatch[1]) : 1;
-      activateGenericWindow(appName, windowName || '', windowIndex);
+      // 汎用アプリ: タイトルベースIDから名前で検索
+      activateGenericWindow(appName, windowName || '', 1);
       resolve(true);
     }
   });
@@ -821,10 +866,8 @@ function closeWindow(appName, windowId, windowName) {
   } else if (appName === 'Finder') {
     return closeFinderWindow(windowId, windowName);
   } else {
-    // 汎用アプリ
-    const indexMatch = windowId.match(/-(\d+)$/);
-    const windowIndex = indexMatch ? parseInt(indexMatch[1]) : 1;
-    return closeGenericWindow(appName, windowName || '', windowIndex);
+    // 汎用アプリ: タイトルベースIDから名前で検索
+    return closeGenericWindow(appName, windowName || '', 1);
   }
 }
 

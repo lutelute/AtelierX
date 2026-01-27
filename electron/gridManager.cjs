@@ -22,11 +22,11 @@ const { execSync } = require('child_process');
  * @param {string} script - AppleScriptコード
  * @returns {string} 実行結果
  */
-function runAppleScript(script) {
+function runAppleScript(script, timeout = 15000) {
   const tmpFile = path.join(os.tmpdir(), `applescript-${Date.now()}.scpt`);
   try {
     fs.writeFileSync(tmpFile, script, 'utf-8');
-    const result = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8' });
+    const result = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout });
     return result;
   } finally {
     try {
@@ -222,10 +222,6 @@ if targetDisplay > 0 and targetDisplay ≤ screenCount then
         set screenW to 2048
     end if
 
-    set adjustedH to screenH - menuOffset
-    set winW to ((screenW - pad * (gridCols + 1)) / gridCols) as integer
-    set winH to ((adjustedH - pad * (gridRows + 1)) / gridRows) as integer
-
     -- 外部ディスプレイの場合: ハイブリッドアプローチ
     -- 1. Terminal APIで全ウィンドウをメインディスプレイに移動
     -- 2. System Eventsで正確に位置設定
@@ -237,7 +233,7 @@ if targetDisplay > 0 and targetDisplay ≤ screenCount then
         end tell
         delay 0.5
 
-        -- System Eventsで配置
+        -- System Eventsで配置（比例分割）
         tell application "System Events"
             tell process "Terminal"
                 set windowList to every window
@@ -247,26 +243,30 @@ if targetDisplay > 0 and targetDisplay ≤ screenCount then
                     set idx to i - 1
                     set gridCol to idx mod gridCols
                     set gridRow to idx div gridCols
-                    set x1 to screenX + pad + gridCol * (winW + pad)
-                    set y1 to screenY + menuOffset + pad + gridRow * (winH + pad)
+                    set x1 to screenX + (screenW * gridCol div gridCols) + pad
+                    set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
+                    set y1 to screenY + (screenH * gridRow div gridRows) + pad
+                    set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
 
                     set position of window i to {x1, y1}
-                    set size of window i to {winW, winH}
+                    set size of window i to {x2 - x1, y2 - y1}
                     set totalArranged to totalArranged + 1
                 end repeat
             end tell
         end tell
     else
-        -- メインディスプレイの場合: Terminal APIで直接配置
+        -- メインディスプレイの場合: Terminal APIで直接配置（比例分割）
         tell application "Terminal"
             set wl to every window whose visible is true
             repeat with i from 1 to cnt
                 set idx to i - 1
                 set gridCol to idx mod gridCols
                 set gridRow to idx div gridCols
-                set x1 to screenX + pad + gridCol * (winW + pad)
-                set y1 to screenY + menuOffset + pad + gridRow * (winH + pad)
-                set bounds of item i of wl to {x1, y1, x1 + winW, y1 + winH}
+                set x1 to screenX + (screenW * gridCol div gridCols) + pad
+                set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
+                set y1 to screenY + (screenH * gridRow div gridRows) + pad
+                set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
+                set bounds of item i of wl to {x1, y1, x2, y2}
                 set totalArranged to totalArranged + 1
             end repeat
         end tell
@@ -326,10 +326,6 @@ else
                 set screenW to 2048
             end if
 
-            set adjustedH to screenH - menuOffset
-            set winW to ((screenW - pad * (gridCols + 1)) / gridCols) as integer
-            set winH to ((adjustedH - pad * (gridRows + 1)) / gridRows) as integer
-
             -- 外部ディスプレイ判定
             set isExternal to (screenY < 0)
 
@@ -352,27 +348,31 @@ else
                                 set idx to j - 1
                                 set gridCol to idx mod gridCols
                                 set gridRow to idx div gridCols
-                                set x1 to screenX + pad + gridCol * (winW + pad)
-                                set y1 to screenY + menuOffset + pad + gridRow * (winH + pad)
+                                set x1 to screenX + (screenW * gridCol div gridCols) + pad
+                                set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
+                                set y1 to screenY + (screenH * gridRow div gridRows) + pad
+                                set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
 
                                 set position of window j to {x1, y1}
-                                set size of window j to {winW, winH}
+                                set size of window j to {x2 - x1, y2 - y1}
                                 set totalArranged to totalArranged + 1
                             end if
                         end repeat
                     end tell
                 end tell
             else
-                -- メインディスプレイ: Terminal APIで直接配置
+                -- メインディスプレイ: Terminal APIで直接配置（比例分割）
                 tell application "Terminal"
                     repeat with j from 1 to dispCnt
                         set winIdx to item j of dispWindows
                         set idx to j - 1
                         set gridCol to idx mod gridCols
                         set gridRow to idx div gridCols
-                        set x1 to screenX + pad + gridCol * (winW + pad)
-                        set y1 to screenY + menuOffset + pad + gridRow * (winH + pad)
-                        set bounds of item winIdx of wl to {x1, y1, x1 + winW, y1 + winH}
+                        set x1 to screenX + (screenW * gridCol div gridCols) + pad
+                        set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
+                        set y1 to screenY + (screenH * gridRow div gridRows) + pad
+                        set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
+                        set bounds of item winIdx of wl to {x1, y1, x2, y2}
                         set totalArranged to totalArranged + 1
                     end repeat
                 end tell
@@ -480,16 +480,15 @@ tell application "Finder"
             set r to (cnt + c - 1) div c
         end if
 
-        set winW to ((screenW - pad * (c + 1)) / c) as integer
-        set winH to ((screenH - pad * (r + 1)) / r) as integer
-
         repeat with i from 1 to cnt
             set idx to i - 1
-            set col to idx mod c
-            set row to idx div c
-            set x1 to screenX + pad + col * (winW + pad)
-            set y1 to screenY + pad + row * (winH + pad)
-            set bounds of item i of wl to {x1, y1, x1 + winW, y1 + winH}
+            set gCol to idx mod c
+            set gRow to idx div c
+            set x1 to screenX + (screenW * gCol div c) + pad
+            set x2 to screenX + (screenW * (gCol + 1) div c)
+            set y1 to screenY + (screenH * gRow div r) + pad
+            set y2 to screenY + (screenH * (gRow + 1) div r)
+            set bounds of item i of wl to {x1, y1, x2, y2}
             set totalArranged to totalArranged + 1
         end repeat
     else
@@ -534,17 +533,16 @@ tell application "Finder"
                 end if
                 set r to (dispCnt + c - 1) div c
 
-                set winW to ((screenW - pad * (c + 1)) / c) as integer
-                set winH to ((screenH - pad * (r + 1)) / r) as integer
-
                 repeat with j from 1 to dispCnt
                     set winIdx to item j of dispWindows
                     set idx to j - 1
-                    set col to idx mod c
-                    set row to idx div c
-                    set x1 to screenX + pad + col * (winW + pad)
-                    set y1 to screenY + pad + row * (winH + pad)
-                    set bounds of item winIdx of wl to {x1, y1, x1 + winW, y1 + winH}
+                    set gCol to idx mod c
+                    set gRow to idx div c
+                    set x1 to screenX + (screenW * gCol div c) + pad
+                    set x2 to screenX + (screenW * (gCol + 1) div c)
+                    set y1 to screenY + (screenH * gRow div r) + pad
+                    set y2 to screenY + (screenH * (gRow + 1) div r)
+                    set bounds of item winIdx of wl to {x1, y1, x2, y2}
                     set totalArranged to totalArranged + 1
                 end repeat
             end if
@@ -654,18 +652,16 @@ tell application "System Events"
                 set gridR to (cnt + gridC - 1) div gridC
             end if
 
-            set adjustedH to screenH - menuOffset
-            set winW to ((screenW - pad * (gridC + 1)) / gridC) as integer
-            set winH to ((adjustedH - pad * (gridR + 1)) / gridR) as integer
-
             repeat with i from 1 to cnt
                 set idx to i - 1
                 set gridCol to idx mod gridC
                 set gridRow to idx div gridC
-                set x1 to screenX + pad + gridCol * (winW + pad)
-                set y1 to screenY + menuOffset + pad + gridRow * (winH + pad)
+                set x1 to screenX + (screenW * gridCol div gridC) + pad
+                set x2 to screenX + (screenW * (gridCol + 1) div gridC)
+                set y1 to screenY + (screenH * gridRow div gridR) + pad
+                set y2 to screenY + (screenH * (gridRow + 1) div gridR)
                 set position of window i to {x1, y1}
-                set size of window i to {winW, winH}
+                set size of window i to {x2 - x1, y2 - y1}
                 set totalArranged to totalArranged + 1
             end repeat
         else
@@ -693,18 +689,16 @@ tell application "System Events"
                 set gridR to (cnt + gridC - 1) div gridC
             end if
 
-            set adjustedH to screenH - menuOffset
-            set winW to ((screenW - pad * (gridC + 1)) / gridC) as integer
-            set winH to ((adjustedH - pad * (gridR + 1)) / gridR) as integer
-
             repeat with i from 1 to cnt
                 set idx to i - 1
                 set gridCol to idx mod gridC
                 set gridRow to idx div gridC
-                set x1 to screenX + pad + gridCol * (winW + pad)
-                set y1 to screenY + menuOffset + pad + gridRow * (winH + pad)
+                set x1 to screenX + (screenW * gridCol div gridC) + pad
+                set x2 to screenX + (screenW * (gridCol + 1) div gridC)
+                set y1 to screenY + (screenH * gridRow div gridR) + pad
+                set y2 to screenY + (screenH * (gridRow + 1) div gridR)
                 set position of window i to {x1, y1}
-                set size of window i to {winW, winH}
+                set size of window i to {x2 - x1, y2 - y1}
                 set totalArranged to totalArranged + 1
             end repeat
         end if
