@@ -837,7 +837,8 @@ body {
 
 .form-group textarea {
   resize: vertical;
-  min-height: 80px;
+  min-height: 100px;
+  max-height: 50vh;
 }
 
 .tag-selector {

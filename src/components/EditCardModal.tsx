@@ -244,7 +244,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="詳細を入力&#10;- [ ] タスク1&#10;- [ ] タスク2"
-              rows={4}
+              rows={6}
             />
             <span className="form-hint">「- [ ] 」でタスクリスト、「- [x] 」で完了</span>
           </div>
@@ -267,7 +267,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="メモやコメントを入力&#10;**太字** *斜体* `コード`"
-              rows={3}
+              rows={5}
             />
             <span className="form-hint">Markdown対応: **太字**, *斜体*, `コード`, - リスト</span>
           </div>

@@ -100,7 +100,7 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="詳細を入力"
-              rows={3}
+              rows={5}
             />
           </div>
           <div className="form-group">
