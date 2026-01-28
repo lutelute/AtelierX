@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, InstalledAppInfo } from '../types';
+import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, InstalledAppInfo, shortenAppName } from '../types';
 
 export { type CardClickBehavior };
 export { type Settings };
@@ -99,7 +99,7 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
       setIsLoadingApps(true);
       try {
         const apps = await window.electronAPI.scanInstalledApps();
-        setInstalledApps(apps);
+        setInstalledApps(apps || []);
       } catch (error) {
         console.error('Failed to load installed apps:', error);
       } finally {
@@ -125,7 +125,7 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
     const tab: AppTabConfig = {
       id,
       appName: app.appName,
-      displayName: app.appName,
+      displayName: shortenAppName(app.appName),
       icon: '🪟',
       iconDataUri: app.iconDataUri || undefined,
       color: PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)],

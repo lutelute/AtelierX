@@ -24,6 +24,42 @@ export interface InstalledAppInfo {
   iconDataUri: string;
 }
 
+// アプリ名を短縮表示名に変換
+const SHORT_NAME_MAP: Record<string, string> = {
+  'Microsoft Word': 'Word',
+  'Microsoft Excel': 'Excel',
+  'Microsoft PowerPoint': 'PPT',
+  'Microsoft Outlook': 'Outlook',
+  'Microsoft OneNote': 'OneNote',
+  'Microsoft Teams': 'Teams',
+  'Microsoft Edge': 'Edge',
+  'Google Chrome': 'Chrome',
+  'Visual Studio Code': 'VS Code',
+  'Visual Studio Code - Insiders': 'VS Code',
+  'Adobe Photoshop': 'Photoshop',
+  'Adobe Illustrator': 'Illustrator',
+  'Adobe Premiere Pro': 'Premiere',
+  'Adobe After Effects': 'After Effects',
+  'Adobe Lightroom': 'Lightroom',
+  'Adobe XD': 'XD',
+  'Adobe InDesign': 'InDesign',
+  'IntelliJ IDEA': 'IntelliJ',
+  'IntelliJ IDEA CE': 'IntelliJ',
+  'Android Studio': 'Android',
+  'Activity Monitor': 'Monitor',
+  'System Preferences': 'SysPref',
+  'System Settings': 'Settings',
+  'App Store': 'AppStore',
+  'Disk Utility': 'DiskUtil',
+};
+
+export function shortenAppName(appName: string): string {
+  if (SHORT_NAME_MAP[appName]) return SHORT_NAME_MAP[appName];
+  // "Apple xxx" → "xxx"
+  if (appName.startsWith('Apple ')) return appName.slice(6);
+  return appName;
+}
+
 // ビルトインアプリ (常に存在、削除不可、専用API)
 export const BUILTIN_APPS: AppTabConfig[] = [
   { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '>_', color: '#22c55e', type: 'builtin' },

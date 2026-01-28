@@ -155,12 +155,56 @@ body {
 }
 
 /* ナビゲーションタブ */
+.nav-tabs-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 60vw;
+}
+
+.nav-tabs-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.nav-tabs-fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(30, 30, 46, 0.95), transparent);
+  border-radius: 12px 0 0 12px;
+}
+
+.nav-tabs-fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(30, 30, 46, 0.95), transparent);
+  border-radius: 0 12px 12px 0;
+}
+
+.theme-light .nav-tabs-fade-left {
+  background: linear-gradient(to right, rgba(245, 245, 250, 0.95), transparent);
+}
+
+.theme-light .nav-tabs-fade-right {
+  background: linear-gradient(to left, rgba(245, 245, 250, 0.95), transparent);
+}
+
 .nav-tabs {
   display: flex;
   gap: 4px;
   padding: 4px;
   background: rgba(255, 255, 255, 0.04);
   border-radius: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 60vw;
+  scrollbar-width: none; /* Firefox */
+}
+
+.nav-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-tab {
@@ -176,6 +220,8 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-tab:hover {
@@ -5653,9 +5699,8 @@ body.theme-light {
 .tab-add-popover {
   position: absolute;
   top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 240px;
+  right: 0;
+  width: 260px;
   max-height: 400px;
   overflow-y: auto;
   background: rgba(30, 30, 46, 0.98);

@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, BROWSER_APPS, WEB_TAB_TEMPLATE, InstalledAppInfo, getTabIdForApp } from '../types';
+import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, BROWSER_APPS, WEB_TAB_TEMPLATE, InstalledAppInfo, shortenAppName, getTabIdForApp } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -72,6 +72,8 @@ export function Board() {
   const [popoverAppSearch, setPopoverAppSearch] = useState('');
   const [isLoadingPopoverApps, setIsLoadingPopoverApps] = useState(false);
   const tabAddRef = useRef<HTMLDivElement>(null);
+  const navTabsRef = useRef<HTMLDivElement>(null);
+  const [tabsScrollState, setTabsScrollState] = useState<'none' | 'left' | 'right' | 'both'>('none');
   // 差分チェック用: 前回のウィンドウID一覧を保持
   const prevWindowIdsRef = useRef<string>('');
   const prevBrokenIdsRef = useRef<string>('');
@@ -196,6 +198,27 @@ export function Board() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // タブのスクロール状態を監視
+  useEffect(() => {
+    const el = navTabsRef.current;
+    if (!el) return;
+    const update = () => {
+      const canScrollLeft = el.scrollLeft > 2;
+      const canScrollRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 2;
+      const overflow = el.scrollWidth > el.clientWidth;
+      if (!overflow) { setTabsScrollState('none'); return; }
+      if (canScrollLeft && canScrollRight) setTabsScrollState('both');
+      else if (canScrollLeft) setTabsScrollState('left');
+      else if (canScrollRight) setTabsScrollState('right');
+      else setTabsScrollState('none');
+    };
+    update();
+    el.addEventListener('scroll', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', update); ro.disconnect(); };
+  }, [enabledTabs]);
+
   // タブ追加ポップオーバーの外側クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -221,7 +244,7 @@ export function Board() {
       setIsLoadingPopoverApps(true);
       try {
         const apps = await window.electronAPI.scanInstalledApps();
-        setPopoverInstalledApps(apps);
+        setPopoverInstalledApps(apps || []);
       } catch (error) {
         console.error('Failed to load installed apps:', error);
       } finally {
@@ -276,7 +299,7 @@ export function Board() {
     const tab: AppTabConfig = {
       id,
       appName: app.appName,
-      displayName: app.appName,
+      displayName: shortenAppName(app.appName),
       icon: '🪟',
       iconDataUri: app.iconDataUri || undefined,
       color: colors[Math.floor(Math.random() * colors.length)],
@@ -1513,7 +1536,11 @@ export function Board() {
         </div>
 
         <div className="nav-section nav-center">
-          <div className="nav-tabs">
+          <div className="nav-tabs-wrapper">
+          {(tabsScrollState === 'left' || tabsScrollState === 'both') && (
+            <div className="nav-tabs-fade nav-tabs-fade-left" />
+          )}
+          <div className="nav-tabs" ref={navTabsRef}>
             {enabledTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1549,120 +1576,127 @@ export function Board() {
                 <span className="tab-badge">{data.ideas?.length}</span>
               )}
             </button>
-            {/* タブ追加ボタン */}
-            <div className="tab-add-wrapper" ref={tabAddRef}>
-              <button
-                className="nav-tab tab-add-btn"
-                onClick={() => setShowTabAddPopover(!showTabAddPopover)}
-                title="アプリタブを追加"
-              >
-                <span className="tab-icon">+</span>
-              </button>
-              {showTabAddPopover && (
-                <div className="tab-add-popover">
-                  {!showBrowserSelect ? (
-                    <>
-                      <div className="popover-section">
-                        <div className="popover-label">アプリを追加</div>
-                        {/* Web (ブラウザ) */}
-                        {!enabledTabs.find(t => t.id === 'web') && (
-                          <button
-                            className="popover-item popover-item-web"
-                            onClick={() => setShowBrowserSelect(true)}
-                          >
-                            <span className="popover-icon">🌐</span>
-                            <span>Web (ブラウザ)</span>
-                          </button>
+          </div>
+          {(tabsScrollState === 'right' || tabsScrollState === 'both') && (
+            <div className="nav-tabs-fade nav-tabs-fade-right" />
+          )}
+          </div>
+          {/* タブ追加ボタン（nav-tabsの外に配置 — overflow:autoによるクリップを回避） */}
+          <div className="tab-add-wrapper" ref={tabAddRef}>
+            <button
+              className="nav-tab tab-add-btn"
+              onClick={() => setShowTabAddPopover(!showTabAddPopover)}
+              title="アプリタブを追加"
+            >
+              <span className="tab-icon">+</span>
+            </button>
+            {showTabAddPopover && (
+              <div className="tab-add-popover" onPointerDown={(e) => e.stopPropagation()}>
+                {!showBrowserSelect ? (
+                  <>
+                    <div className="popover-section">
+                      <div className="popover-label">アプリを追加</div>
+                      {/* Web (ブラウザ) */}
+                      {!enabledTabs.find(t => t.id === 'web') && (
+                        <button
+                          className="popover-item popover-item-web"
+                          onClick={() => setShowBrowserSelect(true)}
+                        >
+                          <span className="popover-icon">🌐</span>
+                          <span>Web (ブラウザ)</span>
+                        </button>
+                      )}
+                      {/* インストール済みアプリ検索 */}
+                      <input
+                        type="text"
+                        className="popover-app-search"
+                        placeholder="アプリを検索..."
+                        value={popoverAppSearch}
+                        onChange={(e) => setPopoverAppSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        autoFocus
+                      />
+                      <div className="popover-app-list">
+                        {isLoadingPopoverApps ? (
+                          <div className="popover-app-loading">スキャン中...</div>
+                        ) : (
+                          popoverInstalledApps
+                            .filter(app => {
+                              if (!popoverAppSearch) return true;
+                              const q = popoverAppSearch.toLowerCase();
+                              return app.appName.toLowerCase().includes(q);
+                            })
+                            .slice(0, 20)
+                            .map(app => {
+                              const added = enabledTabs.some(t => t.appName === app.appName);
+                              return (
+                                <button
+                                  key={app.path}
+                                  className={`popover-item ${added ? 'popover-item-disabled' : ''}`}
+                                  onClick={() => !added && handleAddInstalledAppTab(app)}
+                                  disabled={added}
+                                >
+                                  {app.iconDataUri ? (
+                                    <img src={app.iconDataUri} className="popover-icon-img" alt={app.appName} />
+                                  ) : (
+                                    <span className="popover-icon">🪟</span>
+                                  )}
+                                  <span>{app.appName}</span>
+                                  {added && <span className="popover-item-badge">追加済</span>}
+                                </button>
+                              );
+                            })
                         )}
-                        {/* インストール済みアプリ検索 */}
+                      </div>
+                    </div>
+                    <div className="popover-divider" />
+                    <div className="popover-section">
+                      <div className="popover-label">カスタム</div>
+                      <div className="popover-custom-form">
                         <input
                           type="text"
-                          className="popover-app-search"
-                          placeholder="アプリを検索..."
-                          value={popoverAppSearch}
-                          onChange={(e) => setPopoverAppSearch(e.target.value)}
-                          autoFocus
+                          className="popover-custom-input"
+                          placeholder="macOSアプリ名"
+                          value={customAppName}
+                          onChange={(e) => setCustomAppName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomTab();
+                            }
+                          }}
                         />
-                        <div className="popover-app-list">
-                          {isLoadingPopoverApps ? (
-                            <div className="popover-app-loading">スキャン中...</div>
-                          ) : (
-                            popoverInstalledApps
-                              .filter(app => {
-                                if (!popoverAppSearch) return true;
-                                const q = popoverAppSearch.toLowerCase();
-                                return app.appName.toLowerCase().includes(q);
-                              })
-                              .slice(0, 20)
-                              .map(app => {
-                                const added = enabledTabs.some(t => t.appName === app.appName);
-                                return (
-                                  <button
-                                    key={app.path}
-                                    className={`popover-item ${added ? 'popover-item-disabled' : ''}`}
-                                    onClick={() => !added && handleAddInstalledAppTab(app)}
-                                    disabled={added}
-                                  >
-                                    {app.iconDataUri ? (
-                                      <img src={app.iconDataUri} className="popover-icon-img" alt={app.appName} />
-                                    ) : (
-                                      <span className="popover-icon">🪟</span>
-                                    )}
-                                    <span>{app.appName}</span>
-                                    {added && <span className="popover-item-badge">追加済</span>}
-                                  </button>
-                                );
-                              })
-                          )}
-                        </div>
-                      </div>
-                      <div className="popover-divider" />
-                      <div className="popover-section">
-                        <div className="popover-label">カスタム</div>
-                        <div className="popover-custom-form">
-                          <input
-                            type="text"
-                            className="popover-custom-input"
-                            placeholder="macOSアプリ名"
-                            value={customAppName}
-                            onChange={(e) => setCustomAppName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddCustomTab();
-                              }
-                            }}
-                          />
-                          <button
-                            className="popover-custom-add"
-                            onClick={handleAddCustomTab}
-                            disabled={!customAppName.trim()}
-                          >
-                            追加
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="popover-section">
-                      <div className="popover-label">
-                        <button className="popover-back" onClick={() => setShowBrowserSelect(false)}>←</button>
-                        ブラウザを選択
-                      </div>
-                      {BROWSER_APPS.map(browser => (
                         <button
-                          key={browser.id}
-                          className="popover-item"
-                          onClick={() => handleAddWebTab(browser.appName)}
+                          className="popover-custom-add"
+                          onClick={handleAddCustomTab}
+                          disabled={!customAppName.trim()}
                         >
-                          <span>{browser.displayName}</span>
+                          追加
                         </button>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </>
+                ) : (
+                  <div className="popover-section">
+                    <div className="popover-label">
+                      <button className="popover-back" onClick={() => setShowBrowserSelect(false)}>←</button>
+                      ブラウザを選択
+                    </div>
+                    {BROWSER_APPS.map(browser => (
+                      <button
+                        key={browser.id}
+                        className="popover-item"
+                        onClick={() => handleAddWebTab(browser.appName)}
+                      >
+                        <span>{browser.displayName}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

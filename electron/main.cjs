@@ -3,6 +3,14 @@
  * あなたの創作空間
  */
 
+// EPIPE エラーでクラッシュしないようにする (devモードでstdoutパイプが切れた場合)
+process.stdout?.on?.('error', () => {});
+process.stderr?.on?.('error', () => {});
+process.on('uncaughtException', (err) => {
+  if (err.code === 'EPIPE') return; // stdoutパイプ切れは無視
+  console.error('Uncaught Exception:', err);
+});
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
