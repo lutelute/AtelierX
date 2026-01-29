@@ -277,46 +277,11 @@ return ""
 }
 
 /**
- * アクティベーション時のアニメーション AppleScript を生成
- *
- * @param {'pop'|'minimize'} animation - アニメーションタイプ
+ * ポップエフェクト（System Events 内で実行）
  * @param {string} windowVar - System Events ウィンドウ変数名
- * @param {string} appName - アプリ名
- * @returns {{ inner: string, outer: string }}
- *   inner: System Events tell block 内に挿入するコード
- *   outer: System Events tell block の後に挿入するコード
  */
-function buildActivateAnimation(animation, windowVar, appName) {
-  const escaped = (appName || '').replace(/"/g, '\\"');
-  if (animation === 'minimize') {
-    // minimize: System Events内では何もせず、外でアプリネイティブAPIを使う
-    return {
-      inner: '',
-      outer: `
-  try
-    tell application "${escaped}"
-      repeat with w in windows
-        if name of w is targetWindowName then
-          set miniaturized of w to true
-          exit repeat
-        end if
-      end repeat
-    end tell
-    delay 0.3
-    tell application "${escaped}"
-      repeat with w in windows
-        if name of w is targetWindowName then
-          set miniaturized of w to false
-          exit repeat
-        end if
-      end repeat
-    end tell
-  end try`,
-    };
-  }
-  // デフォルト: ポップエフェクト（引っ込んで→飛び出す→戻る）
-  return {
-    inner: `
+function popAnimationSnippet(windowVar) {
+  return `
           try
             set origPos to position of ${windowVar}
             set origSize to size of ${windowVar}
@@ -330,9 +295,61 @@ function buildActivateAnimation(animation, windowVar, appName) {
             delay 0.04
             set position of ${windowVar} to origPos
             set size of ${windowVar} to origSize
-          end try`,
-    outer: '',
-  };
+          end try`;
+}
+
+/**
+ * 最小化→復帰エフェクト（System Events ブロックの外で実行）
+ * アプリごとにAPIが異なるため分岐:
+ *   - Terminal: miniaturized
+ *   - Finder: collapsed (miniaturizedは非サポート)
+ *   - Generic: System Events の AXMinimized 属性
+ */
+function minimizeAnimationOuter(appType, appName) {
+  const escaped = (appName || '').replace(/"/g, '\\"');
+  if (appType === 'Terminal') {
+    return `
+  try
+    tell application "Terminal"
+      set miniaturized of window targetWindowName to true
+    end tell
+    delay 0.3
+    tell application "Terminal"
+      set miniaturized of window targetWindowName to false
+    end tell
+  end try`;
+  }
+  if (appType === 'Finder') {
+    return `
+  try
+    tell application "Finder"
+      set collapsed of Finder window targetWindowName to true
+    end tell
+    delay 0.3
+    tell application "Finder"
+      set collapsed of Finder window targetWindowName to false
+    end tell
+  end try`;
+  }
+  // Generic: System Events AXMinimized（アプリネイティブAPIが不確実なため）
+  return `
+  if targetWindowName is not "" then
+    try
+      tell application "System Events"
+        tell process "${escaped}"
+          repeat with w in windows
+            if name of w is targetWindowName then
+              set value of attribute "AXMinimized" of w to true
+              delay 0.3
+              -- Dock クリックで復帰（AXMinimized=false は不安定）
+              tell application "${escaped}" to activate
+              exit repeat
+            end if
+          end repeat
+        end tell
+      end tell
+    end try
+  end if`;
 }
 
 /**
@@ -347,33 +364,53 @@ function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const escapedName = (windowName || '').replace(/"/g, '\\"');
   const idx = parseInt(windowIndex) || 1;
 
-  const anim = buildActivateAnimation(animation || 'pop', 'w', escapedApp);
+  const anim = animation || 'pop';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
+  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Generic', escapedApp) : '';
 
   // 対象ウィンドウだけを前面に表示（frontmostは使わずAXRaiseのみ）
+  // 名前が変わりやすいアプリ（ブラウザ等）のため3段階で検索:
+  //   1. 完全一致  2. 部分一致(contains)  3. ウィンドウインデックス
   const script = `
 set targetWindowName to ""
+set targetW to missing value
 tell application "System Events"
   tell process "${escapedApp}"
     try
-      set found to false
+      -- 1. 完全一致
       repeat with w in windows
         if name of w is "${escapedName}" then
-          perform action "AXRaise" of w
+          set targetW to w
           set targetWindowName to name of w
-${anim.inner}
-          set found to true
           exit repeat
         end if
       end repeat
-      if not found then
+      -- 2. 部分一致 (ブラウザのタブ切替でタイトルが変わるため)
+      if targetW is missing value and "${escapedName}" is not "" then
+        repeat with w in windows
+          if name of w contains "${escapedName}" then
+            set targetW to w
+            set targetWindowName to name of w
+            exit repeat
+          end if
+        end repeat
+      end if
+      -- 3. インデックスフォールバック
+      if targetW is missing value then
         if (count of windows) >= ${idx} then
-          perform action "AXRaise" of window ${idx}
+          set targetW to window ${idx}
+          set targetWindowName to name of targetW
         end if
+      end if
+      -- アクティベーション + アニメーション
+      if targetW is not missing value then
+        perform action "AXRaise" of targetW
+${innerSnippet}
       end if
     end try
   end tell
 end tell
-${anim.outer}
+${outerSnippet}
 `;
 
   const tmpFile = path.join(os.tmpdir(), `atelierx-activate-${Date.now()}.scpt`);
@@ -505,53 +542,65 @@ function activateTerminalWindow(windowId, windowName, animation) {
   // 対象ウィンドウだけを前面に表示（他のウィンドウは移動しない）
   // 1. Terminal.appで対象ウィンドウの名前を取得
   // 2. System Eventsで名前マッチしたウィンドウだけAXRaise（frontmostは使わない）
-  let findCondition;
-  if (isTtyPath) {
-    const escapedTty = windowId.replace(/"/g, '\\"');
-    findCondition = `tty of selected tab of w is equal to "${escapedTty}"`;
-  } else if (isNumericId) {
-    findCondition = `id of w is ${windowId}`;
-  } else {
-    const escapedName = (windowName || windowId).replace(/"/g, '\\"');
-    findCondition = `name of w is equal to "${escapedName}"`;
-  }
-
   const escapedName = (windowName || '').replace(/"/g, '\\"');
-  const anim = buildActivateAnimation(animation || 'pop', 'w', 'Terminal');
-  const script = `
-set targetWindowName to ""
+  const anim = animation || 'pop';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('w') : '';
+  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Terminal', 'Terminal') : '';
+
+  // ウィンドウ名取得: IDで直接アクセス（反復不要）、ttyは反復必須
+  let findBlock;
+  if (isNumericId) {
+    findBlock = `
+tell application "Terminal"
+  try
+    set targetWindowName to name of window id ${windowId}
+  end try
+end tell`;
+  } else if (isTtyPath) {
+    const escapedTty = windowId.replace(/"/g, '\\"');
+    findBlock = `
 tell application "Terminal"
   repeat with w in windows
     try
-      if ${findCondition} then
+      if tty of selected tab of w is equal to "${escapedTty}" then
         set targetWindowName to name of w
         exit repeat
       end if
     end try
   end repeat
-  ${!isTtyPath && !isNumericId ? `
-  if targetWindowName is "" then
+end tell`;
+  } else {
+    findBlock = `
+tell application "Terminal"
+  try
+    set targetWindowName to name of window "${escapedName}"
+  on error
     repeat with w in windows
       if name of w starts with "${escapedName}" then
         set targetWindowName to name of w
         exit repeat
       end if
     end repeat
-  end if` : ''}
-end tell
+  end try
+end tell`;
+  }
+
+  const script = `
+set targetWindowName to ""
+${findBlock}
 if targetWindowName is not "" then
   tell application "System Events"
     tell process "Terminal"
       repeat with w in windows
         if name of w is targetWindowName then
           perform action "AXRaise" of w
-${anim.inner}
+${innerSnippet}
           exit repeat
         end if
       end repeat
     end tell
   end tell
-${anim.outer}
+${outerSnippet}
 end if
 return targetWindowName is not ""
 `;
@@ -578,41 +627,27 @@ function activateFinderWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
 
-  // 対象ウィンドウだけを前面に表示（他のウィンドウは移動しない）
-  // Finder.appで対象ウィンドウ名を取得→System Eventsで名前マッチしてAXRaiseのみ
+  // Finder.appで対象ウィンドウ名を取得（反復なし、直接アクセス）
   let findBlock;
   if (isNumericId) {
     findBlock = `
-set targetId to ${windowId}
 tell application "Finder"
-  repeat with w in (get every Finder window)
-    if id of w is targetId then
-      set targetWindowName to name of w
-      exit repeat
-    end if
-  end repeat
+  try
+    set targetWindowName to name of Finder window id ${windowId}
+  end try
 end tell`;
   } else {
     findBlock = `
 tell application "Finder"
-  repeat with w in (get every Finder window)
-    if name of w is equal to "${escapedName}" then
-      set targetWindowName to name of w
-      exit repeat
-    end if
-  end repeat
-  if targetWindowName is "" then
-    repeat with w in (get every Finder window)
-      if name of w starts with "${escapedName}" then
-        set targetWindowName to name of w
-        exit repeat
-      end if
-    end repeat
-  end if
+  try
+    set targetWindowName to name of Finder window "${escapedName}"
+  end try
 end tell`;
   }
 
-  const anim = buildActivateAnimation(animation || 'pop', 'w', 'Finder');
+  const anim = animation || 'pop';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('w') : '';
+  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
   const script = `
 set targetWindowName to ""
 ${findBlock}
@@ -622,13 +657,13 @@ if targetWindowName is not "" then
       repeat with w in windows
         if name of w is targetWindowName then
           perform action "AXRaise" of w
-${anim.inner}
+${innerSnippet}
           exit repeat
         end if
       end repeat
     end tell
   end tell
-${anim.outer}
+${outerSnippet}
 end if
 return targetWindowName is not ""
 `;
@@ -653,7 +688,7 @@ return targetWindowName is not ""
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  * @returns {Promise<boolean>}
  */
-function activateWindow(appName, windowId, windowName, animation) {
+function activateWindow(appName, windowId, windowName, animation, windowIndex) {
   const anim = animation || 'pop';
   return new Promise((resolve) => {
     if (appName === 'Terminal') {
@@ -664,7 +699,7 @@ function activateWindow(appName, windowId, windowName, animation) {
       resolve(true);
     } else {
       // 汎用アプリ: タイトルベースIDから名前で検索
-      activateGenericWindow(appName, windowName || '', 1, anim);
+      activateGenericWindow(appName, windowName || '', windowIndex || 1, anim);
       resolve(true);
     }
   });

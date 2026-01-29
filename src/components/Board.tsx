@@ -1143,7 +1143,7 @@ export function Board() {
     const cached = findWindowInCache(card);
     if (cached) {
       addToWindowHistory(card);
-      window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim);
+      window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim, (cached as any).windowIndex);
       return;
     }
 
@@ -1151,7 +1151,7 @@ export function Board() {
     const matchedWindow = await findMatchingWindow(card);
     if (matchedWindow) {
       addToWindowHistory(card);
-      window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name, anim);
+      window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name, anim, (matchedWindow as any).windowIndex);
     } else {
       setRelinkingCard(card);
     }
