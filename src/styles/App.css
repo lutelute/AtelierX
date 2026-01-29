@@ -109,9 +109,7 @@ body {
   align-items: center;
   gap: 0;
   padding: 6px;
-  background: rgba(20, 20, 30, 0.85);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(20, 20, 30, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   box-shadow:
@@ -219,7 +217,7 @@ body {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s ease, color 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -426,6 +424,7 @@ body {
   gap: 20px;
   overflow-x: auto;
   padding-bottom: 20px;
+  will-change: scroll-position;
 }
 
 /* Column Styles */
@@ -512,6 +511,7 @@ body {
   flex-direction: column;
   gap: 12px;
   min-height: 100px;
+  will-change: scroll-position;
 }
 
 /* Card Styles */
@@ -520,8 +520,9 @@ body {
   border-radius: 10px;
   padding: 14px;
   cursor: grab;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  contain: content;
 }
 
 /* Card Status Bar Colors - Only for linked cards */
@@ -747,7 +748,6 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  backdrop-filter: blur(4px);
 }
 
 .modal {
@@ -1569,7 +1569,6 @@ body {
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   z-index: 50;
-  backdrop-filter: blur(8px);
 }
 
 .reminder-header {

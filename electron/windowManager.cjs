@@ -163,30 +163,38 @@ return output
     const tmpFile = path.join(os.tmpdir(), `atelierx-generic-batch-${Date.now()}.scpt`);
     try {
       fs.writeFileSync(tmpFile, script, 'utf-8');
-      const stdout = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 });
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
+      // 非同期実行（メインプロセスをブロックしない）
+      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
+        try { fs.unlinkSync(tmpFile); } catch (_) {}
 
-      const titleCounts = {};
-      const windows = stdout.trim().split('\n')
-        .filter(line => line.length > 0 && line.includes('|'))
-        .map((line) => {
-          const parts = line.split('|');
-          const appName = parts[0] || 'Unknown';
-          const windowIndex = parseInt(parts[1]) || 1;
-          const name = parts[2] || 'Window';
-          // タイトルベースの安定ID（同名は連番で区別）
-          if (!titleCounts[appName]) titleCounts[appName] = {};
-          titleCounts[appName][name] = (titleCounts[appName][name] || 0) + 1;
-          const titleSuffix = titleCounts[appName][name] > 1 ? `-${titleCounts[appName][name]}` : '';
-          return {
-            app: appName,
-            id: `${appName}:${name}${titleSuffix}`,
-            name,
-            windowIndex,
-          };
-        });
+        if (error) {
+          console.error('getBatchedGenericWindows error:', error.message);
+          resolve([]);
+          return;
+        }
 
-      resolve(windows);
+        const titleCounts = {};
+        const windows = (stdout || '').trim().split('\n')
+          .filter(line => line.length > 0 && line.includes('|'))
+          .map((line) => {
+            const parts = line.split('|');
+            const appName = parts[0] || 'Unknown';
+            const windowIndex = parseInt(parts[1]) || 1;
+            const name = parts[2] || 'Window';
+            // タイトルベースの安定ID（同名は連番で区別）
+            if (!titleCounts[appName]) titleCounts[appName] = {};
+            titleCounts[appName][name] = (titleCounts[appName][name] || 0) + 1;
+            const titleSuffix = titleCounts[appName][name] > 1 ? `-${titleCounts[appName][name]}` : '';
+            return {
+              app: appName,
+              id: `${appName}:${name}${titleSuffix}`,
+              name,
+              windowIndex,
+            };
+          });
+
+        resolve(windows);
+      });
     } catch (error) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
       console.error('getBatchedGenericWindows error:', error.message);
