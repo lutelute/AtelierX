@@ -3,10 +3,79 @@
  * Terminal/Finder は専用API、その他は System Events 経由の汎用APIを使用
  */
 
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
+/**
+ * AppleScriptを実行して結果を返す（stdinパイプ方式 — 一時ファイル不要）
+ * @param {string} script - AppleScriptコード
+ * @param {number} [timeout=10000] - タイムアウト(ms)
+ * @returns {Promise<string>} stdout
+ */
+function runAppleScript(script, timeout = 10000) {
+  return new Promise((resolve) => {
+    const child = spawn('osascript', ['-'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout,
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill('SIGKILL');
+        console.error('runAppleScript timeout');
+        resolve('');
+      }
+    }, timeout);
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code !== 0 && stderr) {
+        console.error('runAppleScript error:', stderr.trim().slice(0, 200));
+      }
+      resolve(stdout);
+    });
+    child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      console.error('runAppleScript spawn error:', err.message);
+      resolve('');
+    });
+    child.stdin.write(script);
+    child.stdin.end();
+  });
+}
+
+/**
+ * AppleScriptをfire-and-forget実行（stdinパイプ方式 — 一時ファイル不要）
+ * 結果は待たないが、エラーはログに出力する
+ * @param {string} script - AppleScriptコード
+ */
+function runAppleScriptAsync(script) {
+  const child = spawn('osascript', ['-'], {
+    stdio: ['pipe', 'ignore', 'pipe'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (d) => { stderr += d; });
+  child.on('close', (code) => {
+    if (code !== 0 && stderr) {
+      console.error('runAppleScriptAsync error:', stderr.trim().slice(0, 200));
+    }
+  });
+  child.on('error', (err) => {
+    console.error('runAppleScriptAsync spawn error:', err.message);
+  });
+  child.stdin.write(script);
+  child.stdin.end();
+}
 
 /**
  * Terminal/Finderのウィンドウ一覧を取得（＋汎用アプリのウィンドウも取得）
@@ -71,58 +140,50 @@ end try
 return windowList
 `;
 
-    const tmpFile = path.join(os.tmpdir(), `atelierx-windows-${Date.now()}.scpt`);
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { timeout: 10000 }, (error, stdout) => {
-        try { fs.unlinkSync(tmpFile); } catch (_) {}
+    runAppleScript(script).then((stdout) => {
+      const windows = [];
 
-        const windows = [];
+      if (stdout.trim()) {
+        const lines = stdout.trim().split(', ');
+        for (let index = 0; index < lines.length; index++) {
+          const line = lines[index];
+          if (!line) continue;
+          const parts = line.split('|');
+          const app = parts[0] || 'Terminal';
+          let preview = '';
 
-        if (!error && stdout.trim()) {
-          const lines = stdout.trim().split(', ');
-          for (let index = 0; index < lines.length; index++) {
-            const line = lines[index];
-            if (!line) continue;
-            const parts = line.split('|');
-            const app = parts[0] || 'Terminal';
-            let preview = '';
-
-            if (app === 'Terminal' && parts[3]) {
-              preview = parts[3].trim();
-            }
-
-            const tty = parts[5]?.trim();
-            const numericId = parts[1]?.trim();
-            const stableId = (app === 'Terminal' && tty) ? tty : (numericId || String(index + 1));
-
-            windows.push({
-              app,
-              id: stableId,
-              numericId: numericId || undefined,
-              name: parts[2] || 'Window',
-              preview: preview || undefined,
-              windowIndex: parseInt(parts[4]) || (index + 1),
-              tty: tty || undefined,
-            });
+          if (app === 'Terminal' && parts[3]) {
+            preview = parts[3].trim();
           }
-        }
 
-        // ステージ2: 汎用アプリ（バッチ、失敗してもTerminal/Finderに影響なし）
-        const genericApps = (appNames || []).filter(name => name !== 'Terminal' && name !== 'Finder');
-        if (genericApps.length > 0) {
-          getBatchedGenericWindows(genericApps).then((genericWindows) => {
-            windows.push(...genericWindows);
-            resolve(windows);
+          const tty = parts[5]?.trim();
+          const numericId = parts[1]?.trim();
+          // 常にnumeric window IDをプライマリIDとして使用
+          // （ttyは取得失敗することがあり、複数ウィンドウが同一IDになる問題があった）
+          const stableId = numericId || String(index + 1);
+
+          windows.push({
+            app,
+            id: stableId,
+            name: parts[2] || 'Window',
+            preview: preview || undefined,
+            windowIndex: parseInt(parts[4]) || (index + 1),
+            tty: tty || undefined,
           });
-        } else {
-          resolve(windows);
         }
-      });
-    } catch (error) {
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      resolve([]);
-    }
+      }
+
+      // ステージ2: 汎用アプリ（バッチ、失敗してもTerminal/Finderに影響なし）
+      const genericApps = (appNames || []).filter(name => name !== 'Terminal' && name !== 'Finder');
+      if (genericApps.length > 0) {
+        getBatchedGenericWindows(genericApps).then((genericWindows) => {
+          windows.push(...genericWindows);
+          resolve(windows);
+        });
+      } else {
+        resolve(windows);
+      }
+    });
   });
 }
 
@@ -162,46 +223,29 @@ end tell
 return output
 `;
 
-    const tmpFile = path.join(os.tmpdir(), `atelierx-generic-batch-${Date.now()}.scpt`);
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-      // 非同期実行（メインプロセスをブロックしない）
-      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
-        try { fs.unlinkSync(tmpFile); } catch (_) {}
+    runAppleScript(script).then((stdout) => {
+      const titleCounts = {};
+      const windows = (stdout || '').trim().split('\n')
+        .filter(line => line.length > 0 && line.includes('|'))
+        .map((line) => {
+          const parts = line.split('|');
+          const appName = parts[0] || 'Unknown';
+          const windowIndex = parseInt(parts[1]) || 1;
+          const name = parts[2] || 'Window';
+          // タイトルベースの安定ID（同名は連番で区別）
+          if (!titleCounts[appName]) titleCounts[appName] = {};
+          titleCounts[appName][name] = (titleCounts[appName][name] || 0) + 1;
+          const titleSuffix = titleCounts[appName][name] > 1 ? `-${titleCounts[appName][name]}` : '';
+          return {
+            app: appName,
+            id: `${appName}:${name}${titleSuffix}`,
+            name,
+            windowIndex,
+          };
+        });
 
-        if (error) {
-          console.error('getBatchedGenericWindows error:', error.message);
-          resolve([]);
-          return;
-        }
-
-        const titleCounts = {};
-        const windows = (stdout || '').trim().split('\n')
-          .filter(line => line.length > 0 && line.includes('|'))
-          .map((line) => {
-            const parts = line.split('|');
-            const appName = parts[0] || 'Unknown';
-            const windowIndex = parseInt(parts[1]) || 1;
-            const name = parts[2] || 'Window';
-            // タイトルベースの安定ID（同名は連番で区別）
-            if (!titleCounts[appName]) titleCounts[appName] = {};
-            titleCounts[appName][name] = (titleCounts[appName][name] || 0) + 1;
-            const titleSuffix = titleCounts[appName][name] > 1 ? `-${titleCounts[appName][name]}` : '';
-            return {
-              app: appName,
-              id: `${appName}:${name}${titleSuffix}`,
-              name,
-              windowIndex,
-            };
-          });
-
-        resolve(windows);
-      });
-    } catch (error) {
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      console.error('getBatchedGenericWindows error:', error.message);
-      resolve([]);
-    }
+      resolve(windows);
+    });
   });
 }
 
@@ -235,51 +279,35 @@ end tell
 return ""
 `;
 
-    // 一時ファイル経由で非同期実行
-    const tmpFile = path.join(os.tmpdir(), `atelierx-generic-${Date.now()}.scpt`);
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
-        try { fs.unlinkSync(tmpFile); } catch (_) {}
+    runAppleScript(script).then((stdout) => {
+      const lines = (stdout || '').trim().split('\n');
+      // タイトル出現回数を追跡（同名ウィンドウの区別用）
+      const titleCounts = {};
+      const windows = lines
+        .filter(line => line.length > 0 && line.includes('|'))
+        .map((line) => {
+          const parts = line.split('|');
+          const name = parts[0] || 'Window';
+          const windowIndex = parseInt(parts[1]) || 1;
+          // タイトルベースの安定ID（同名は連番で区別）
+          titleCounts[name] = (titleCounts[name] || 0) + 1;
+          const titleSuffix = titleCounts[name] > 1 ? `-${titleCounts[name]}` : '';
+          return {
+            app: appName,
+            id: `${appName}:${name}${titleSuffix}`,
+            name,
+            windowIndex,
+          };
+        });
 
-        if (error) {
-          console.error(`getGenericAppWindows error for ${appName}:`, error.message);
-          resolve([]);
-          return;
-        }
-
-        const lines = (stdout || '').trim().split('\n');
-        // タイトル出現回数を追跡（同名ウィンドウの区別用）
-        const titleCounts = {};
-        const windows = lines
-          .filter(line => line.length > 0 && line.includes('|'))
-          .map((line) => {
-            const parts = line.split('|');
-            const name = parts[0] || 'Window';
-            const windowIndex = parseInt(parts[1]) || 1;
-            // タイトルベースの安定ID（同名は連番で区別）
-            titleCounts[name] = (titleCounts[name] || 0) + 1;
-            const titleSuffix = titleCounts[name] > 1 ? `-${titleCounts[name]}` : '';
-            return {
-              app: appName,
-              id: `${appName}:${name}${titleSuffix}`,
-              name,
-              windowIndex,
-            };
-          });
-
-        resolve(windows);
-      });
-    } catch (error) {
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      console.error(`getGenericAppWindows error for ${appName}:`, error.message);
-      resolve([]);
-    }
+      resolve(windows);
+    });
   });
 }
 
 /**
  * ポップエフェクト（System Events 内で実行）
+ * サイズガード付き: 小さすぎるウィンドウでは縮小幅を調整し最小化を防止
  * @param {string} windowVar - System Events ウィンドウ変数名
  */
 function popAnimationSnippet(windowVar) {
@@ -289,19 +317,31 @@ function popAnimationSnippet(windowVar) {
             set origSize to size of ${windowVar}
             set {x0, y0} to origPos
             set {w0, h0} to origSize
-            set position of ${windowVar} to {x0 + 30, y0 + 30}
-            set size of ${windowVar} to {w0 - 60, h0 - 60}
-            delay 0.04
-            set position of ${windowVar} to {x0 - 6, y0 - 6}
-            set size of ${windowVar} to {w0 + 12, h0 + 12}
-            delay 0.04
-            set position of ${windowVar} to origPos
-            set size of ${windowVar} to origSize
+            -- サイズガード: 小さいウィンドウでは縮小量を調整
+            if w0 > 120 and h0 > 120 then
+              set shrink to 30
+            else if w0 > 60 and h0 > 60 then
+              set shrink to 10
+            else
+              set shrink to 0
+            end if
+            if shrink > 0 then
+              set position of ${windowVar} to {x0 + shrink, y0 + shrink}
+              set size of ${windowVar} to {w0 - (shrink * 2), h0 - (shrink * 2)}
+              delay 0.04
+              set position of ${windowVar} to {x0 - 6, y0 - 6}
+              set size of ${windowVar} to {w0 + 12, h0 + 12}
+              delay 0.04
+              set position of ${windowVar} to origPos
+              set size of ${windowVar} to origSize
+            end if
           end try`;
 }
 
 /**
  * 最小化→復帰エフェクト（System Events ブロックの外で実行）
+ *
+ * 復帰後に再AXRaiseして確実に前面化する。
  * アプリごとにAPIが異なるため分岐:
  *   - Terminal: miniaturized
  *   - Finder: collapsed (miniaturizedは非サポート)
@@ -310,44 +350,81 @@ function popAnimationSnippet(windowVar) {
 function minimizeAnimationOuter(appType, appName) {
   const escaped = (appName || '').replace(/"/g, '\\"');
   if (appType === 'Terminal') {
+    // window id で直接操作（名前ループは最小化中に失敗しうる）
     return `
   try
-    tell application "Terminal"
-      set miniaturized of window targetWindowName to true
-    end tell
-    delay 0.3
-    tell application "Terminal"
-      set miniaturized of window targetWindowName to false
-    end tell
+    if targetWindowId > 0 then
+      tell application "Terminal"
+        set miniaturized of window id targetWindowId to true
+      end tell
+      delay 0.5
+      tell application "Terminal"
+        set miniaturized of window id targetWindowId to false
+        delay 0.1
+        set index of window id targetWindowId to 1
+      end tell
+      delay 0.15
+      tell application "System Events"
+        tell process "Terminal"
+          repeat with w in windows
+            if name of w is targetWindowName then
+              perform action "AXRaise" of w
+              exit repeat
+            end if
+          end repeat
+        end tell
+      end tell
+    end if
   end try`;
   }
   if (appType === 'Finder') {
+    // window id で直接操作
     return `
   try
-    tell application "Finder"
-      set collapsed of Finder window targetWindowName to true
-    end tell
-    delay 0.3
-    tell application "Finder"
-      set collapsed of Finder window targetWindowName to false
-    end tell
+    if targetWindowId > 0 then
+      tell application "Finder"
+        set collapsed of Finder window id targetWindowId to true
+      end tell
+      delay 0.5
+      tell application "Finder"
+        set collapsed of Finder window id targetWindowId to false
+        delay 0.1
+        set index of Finder window id targetWindowId to 1
+      end tell
+      delay 0.15
+      tell application "System Events"
+        tell process "Finder"
+          repeat with w in windows
+            if name of w is targetWindowName then
+              perform action "AXRaise" of w
+              exit repeat
+            end if
+          end repeat
+        end tell
+      end tell
+    end if
   end try`;
   }
-  // Generic: System Events AXMinimized（アプリネイティブAPIが不確実なため）
+  // Generic: System Events AXMinimized
   return `
   if targetWindowName is not "" then
     try
       tell application "System Events"
         tell process "${escaped}"
+          set targetW to missing value
           repeat with w in windows
             if name of w is targetWindowName then
-              set value of attribute "AXMinimized" of w to true
-              delay 0.3
-              -- Dock クリックで復帰（AXMinimized=false は不安定）
-              tell application "${escaped}" to activate
+              set targetW to w
               exit repeat
             end if
           end repeat
+          if targetW is not missing value then
+            set value of attribute "AXMinimized" of targetW to true
+            delay 0.5
+            set value of attribute "AXMinimized" of targetW to false
+            delay 0.15
+            perform action "AXRaise" of targetW
+          end if
         end tell
       end tell
     end try
@@ -415,17 +492,7 @@ end tell
 ${outerSnippet}
 `;
 
-  const tmpFile = path.join(os.tmpdir(), `atelierx-activate-${Date.now()}.scpt`);
-  try {
-    fs.writeFileSync(tmpFile, script, 'utf-8');
-    const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
-    child.unref();
-    child.on('close', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
-    child.on('error', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
-  } catch (error) {
-    try { fs.unlinkSync(tmpFile); } catch (_) {}
-    console.error('activateGenericWindow error:', error.message);
-  }
+  runAppleScriptAsync(script);
 }
 
 /**
@@ -465,22 +532,10 @@ end tell
 return found
 `;
 
-    const tmpFile = path.join(os.tmpdir(), `atelierx-close-${Date.now()}.scpt`);
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
-        try { fs.unlinkSync(tmpFile); } catch (_) {}
-        if (error) {
-          resolve({ success: false, error: error.message });
-          return;
-        }
-        const found = (stdout || '').trim() === 'true';
-        resolve({ success: found, error: found ? undefined : 'Window not found' });
-      });
-    } catch (error) {
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      resolve({ success: false, error: error.message });
-    }
+    runAppleScript(script).then((stdout) => {
+      const found = (stdout || '').trim() === 'true';
+      resolve({ success: found, error: found ? undefined : 'Window not found' });
+    });
   });
 }
 
@@ -513,34 +568,23 @@ end tell
 return windowName
 `;
 
-    const tmpFile = path.join(os.tmpdir(), `atelierx-open-${Date.now()}.scpt`);
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 15000 }, (error, stdout) => {
-        try { fs.unlinkSync(tmpFile); } catch (_) {}
-        if (error) {
-          resolve({ success: false, error: error.message });
-          return;
-        }
-        const windowName = (stdout || '').trim();
-        resolve({ success: true, windowName: windowName || appName });
-      });
-    } catch (error) {
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      resolve({ success: false, error: error.message });
-    }
+    runAppleScript(script, 15000).then((stdout) => {
+      const windowName = (stdout || '').trim();
+      resolve({ success: true, windowName: windowName || appName });
+    });
   });
 }
 
 /**
  * Terminalウィンドウをポップして前面に表示
  *
- * 2段階方式:
- *   Step 1: Terminal.appで対象ウィンドウを特定し、index 1に移動
- *   Step 2: System Eventsでwindow 1をAXRaise
+ * 名前ベースマッチング方式:
+ *   Step 1: Terminal.appで対象ウィンドウのnameを取得（IDで安定特定）
+ *   Step 2: System Eventsでそのnameのウィンドウを検索してAXRaise
  *
- * ※ 旧方式（Terminal.appのインデックスをSystem Eventsに渡す）は
- *   両者のウィンドウ順序が異なる場合があり、誤ったウィンドウが活性化される問題があった
+ * ※ 旧方式（window 1への依存）はTerminal.appとSystem Eventsの
+ *   ウィンドウ順序同期タイミングに依存し、間違ったウィンドウが
+ *   活性化・アニメーションされる問題があった
  *
  * @param {string} windowId - ウィンドウID（ttyパスまたは数値ID）
  * @param {string} windowName - ウィンドウ名（フォールバック用）
@@ -553,56 +597,47 @@ function activateTerminalWindow(windowId, windowName, animation) {
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Terminal', 'Terminal') : '';
 
-  // Step 1: Terminal.appで対象ウィンドウを見つけてindex 1に移動
-  let findAndBringToFront;
-  if (isTtyPath) {
-    const escapedTty = windowId.replace(/"/g, '\\"');
-    findAndBringToFront = `
-tell application "Terminal"
-  repeat with w in windows
-    try
-      if tty of selected tab of w is equal to "${escapedTty}" then
-        set index of w to 1
-        set targetWindowName to name of w
-        set found to true
-        exit repeat
-      end if
-    end try
-  end repeat
-  -- ttyで見つからない場合、ウィンドウIDでフォールバック
-  if not found then
-    repeat with w in windows
-      try
-        if id of w is ${isNumericId ? windowId : '-1'} then
-          set index of w to 1
-          set targetWindowName to name of w
-          set found to true
-          exit repeat
-        end if
-      end try
-    end repeat
-  end if
-end tell`;
-  } else if (isNumericId) {
-    findAndBringToFront = `
+  // Step 1: Terminal.appで対象ウィンドウを特定し、nameを取得
+  // numeric window ID → tty → 名前 の優先順でマッチ
+  let findWindow;
+  if (isNumericId) {
+    findWindow = `
 tell application "Terminal"
   repeat with w in windows
     if id of w is ${windowId} then
-      set index of w to 1
       set targetWindowName to name of w
+      set targetWindowId to id of w
+      set index of w to 1
       set found to true
       exit repeat
     end if
   end repeat
 end tell`;
+  } else if (isTtyPath) {
+    const escapedTty = windowId.replace(/"/g, '\\"');
+    findWindow = `
+tell application "Terminal"
+  repeat with w in windows
+    try
+      if tty of selected tab of w is equal to "${escapedTty}" then
+        set targetWindowName to name of w
+        set targetWindowId to id of w
+        set index of w to 1
+        set found to true
+        exit repeat
+      end if
+    end try
+  end repeat
+end tell`;
   } else {
-    findAndBringToFront = `
+    findWindow = `
 tell application "Terminal"
   repeat with w in windows
     try
       if name of w is "${escapedName}" or name of w starts with "${escapedName}" then
-        set index of w to 1
         set targetWindowName to name of w
+        set targetWindowId to id of w
+        set index of w to 1
         set found to true
         exit repeat
       end if
@@ -611,16 +646,25 @@ tell application "Terminal"
 end tell`;
   }
 
-  // Step 2: index 1に移動済みなので、System Eventsのwindow 1を確実にAXRaise
+  // Step 2: System Eventsで名前ベースでウィンドウを検索してAXRaise
+  // window 1 への依存を排除し、名前で正確にマッチする
   const script = `
 set targetWindowName to ""
+set targetWindowId to 0
 set found to false
-${findAndBringToFront}
+${findWindow}
 if found then
+  delay 0.1
   tell application "System Events"
     tell process "Terminal"
-      if (count of windows) >= 1 then
-        set targetW to window 1
+      set targetW to missing value
+      repeat with w in windows
+        if name of w is targetWindowName then
+          set targetW to w
+          exit repeat
+        end if
+      end repeat
+      if targetW is not missing value then
         perform action "AXRaise" of targetW
 ${innerSnippet}
       end if
@@ -631,25 +675,15 @@ end if
 return found
 `;
 
-  const tmpFile = path.join(os.tmpdir(), `atelierx-activate-term-${Date.now()}.scpt`);
-  try {
-    fs.writeFileSync(tmpFile, script, 'utf-8');
-    const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
-    child.unref();
-    child.on('close', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
-    child.on('error', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
-  } catch (error) {
-    try { fs.unlinkSync(tmpFile); } catch (_) {}
-    console.error('activateTerminalWindow error:', error.message);
-  }
+  runAppleScriptAsync(script);
 }
 
 /**
  * Finderウィンドウをポップして前面に表示
  *
- * 2段階方式（Terminalと同じ）:
- *   Step 1: Finder.appで対象ウィンドウをindex 1に移動
- *   Step 2: System Eventsでwindow 1をAXRaise
+ * 名前ベースマッチング方式（Terminalと同じ）:
+ *   Step 1: Finder.appで対象ウィンドウのnameを取得（IDで安定特定）
+ *   Step 2: System Eventsでそのnameのウィンドウを検索してAXRaise
  *
  * @param {string} windowId - ウィンドウID
  * @param {string} windowName - ウィンドウ名（フォールバック用）
@@ -658,24 +692,25 @@ function activateFinderWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
 
-  let findAndBringToFront;
+  let findWindow;
   if (isNumericId) {
-    findAndBringToFront = `
+    findWindow = `
 tell application "Finder"
   repeat with w in Finder windows
     if id of w is ${windowId} then
-      set index of w to 1
       set targetWindowName to name of w
+      set targetWindowId to id of w
+      set index of w to 1
       set found to true
       exit repeat
     end if
   end repeat
-  -- IDで見つからない場合、名前でフォールバック
   if not found then
     repeat with w in Finder windows
       if name of w is "${escapedName}" then
-        set index of w to 1
         set targetWindowName to name of w
+        set targetWindowId to id of w
+        set index of w to 1
         set found to true
         exit repeat
       end if
@@ -683,12 +718,13 @@ tell application "Finder"
   end if
 end tell`;
   } else {
-    findAndBringToFront = `
+    findWindow = `
 tell application "Finder"
   repeat with w in Finder windows
     if name of w is "${escapedName}" then
-      set index of w to 1
       set targetWindowName to name of w
+      set targetWindowId to id of w
+      set index of w to 1
       set found to true
       exit repeat
     end if
@@ -701,13 +737,21 @@ end tell`;
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
   const script = `
 set targetWindowName to ""
+set targetWindowId to 0
 set found to false
-${findAndBringToFront}
+${findWindow}
 if found then
+  delay 0.1
   tell application "System Events"
     tell process "Finder"
-      if (count of windows) >= 1 then
-        set targetW to window 1
+      set targetW to missing value
+      repeat with w in windows
+        if name of w is targetWindowName then
+          set targetW to w
+          exit repeat
+        end if
+      end repeat
+      if targetW is not missing value then
         perform action "AXRaise" of targetW
 ${innerSnippet}
       end if
@@ -718,17 +762,7 @@ end if
 return found
 `;
 
-  const tmpFile = path.join(os.tmpdir(), `atelierx-activate-finder-${Date.now()}.scpt`);
-  try {
-    fs.writeFileSync(tmpFile, script, 'utf-8');
-    const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
-    child.unref();
-    child.on('close', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
-    child.on('error', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
-  } catch (error) {
-    try { fs.unlinkSync(tmpFile); } catch (_) {}
-    console.error('activateFinderWindow error:', error.message);
-  }
+  runAppleScriptAsync(script);
 }
 
 /**
@@ -836,7 +870,22 @@ function closeTerminalWindow(windowId, windowName) {
     const isNumericId = /^\d+$/.test(windowId);
 
     let script;
-    if (isTtyPath) {
+    if (isNumericId) {
+      script = `
+        set targetId to ${windowId}
+        set found to false
+        tell application "Terminal"
+          repeat with w in windows
+            if id of w is targetId then
+              close w
+              set found to true
+              exit repeat
+            end if
+          end repeat
+        end tell
+        return found
+      `;
+    } else if (isTtyPath) {
       const escapedTty = windowId.replace(/"/g, '\\"');
       script = `
         set targetTty to "${escapedTty}"
@@ -850,21 +899,6 @@ function closeTerminalWindow(windowId, windowName) {
                 exit repeat
               end if
             end try
-          end repeat
-        end tell
-        return found
-      `;
-    } else if (isNumericId) {
-      script = `
-        set targetId to ${windowId}
-        set found to false
-        tell application "Terminal"
-          repeat with w in windows
-            if id of w is targetId then
-              close w
-              set found to true
-              exit repeat
-            end if
           end repeat
         end tell
         return found
@@ -896,13 +930,8 @@ function closeTerminalWindow(windowId, windowName) {
       `;
     }
 
-    exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error, stdout) => {
-      if (error) {
-        console.error('closeTerminalWindow error:', error);
-        resolve({ success: false, error: error.message });
-        return;
-      }
-      const found = stdout.trim() === 'true';
+    runAppleScript(script).then((stdout) => {
+      const found = (stdout || '').trim() === 'true';
       resolve({ success: found, error: found ? undefined : 'Window not found' });
     });
   });
@@ -949,24 +978,10 @@ return false
 `;
     }
 
-    const tmpFile = path.join(os.tmpdir(), `atelierx-close-finder-${Date.now()}.scpt`);
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-      exec(`osascript "${tmpFile}"`, { timeout: 10000 }, (error, stdout) => {
-        try { fs.unlinkSync(tmpFile); } catch (_) {}
-        if (error) {
-          console.error('closeFinderWindow error:', error);
-          resolve({ success: false, error: error.message });
-          return;
-        }
-        const found = stdout.trim() === 'true';
-        resolve({ success: found, error: found ? undefined : 'Window not found' });
-      });
-    } catch (error) {
-      try { fs.unlinkSync(tmpFile); } catch (_) {}
-      console.error('closeFinderWindow error:', error.message);
-      resolve({ success: false, error: error.message });
-    }
+    runAppleScript(script).then((stdout) => {
+      const found = (stdout || '').trim() === 'true';
+      resolve({ success: found, error: found ? undefined : 'Window not found' });
+    });
   });
 }
 

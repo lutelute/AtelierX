@@ -165,6 +165,7 @@ function buildSystemEventsGridScript(processName, options = {}) {
   const escaped = processName.replace(/"/g, '\\"');
 
   return `use framework "AppKit"
+use scripting additions
 ${asDisplayInfo()}
 
 set pad to ${padding}
@@ -291,6 +292,7 @@ function buildFinderGridScript(options = {}) {
   const { cols = 0, rows = 0, displayIndex = 0, padding = 0 } = options;
 
   return `use framework "AppKit"
+use scripting additions
 ${asDisplayInfo()}
 
 set pad to ${padding}

@@ -655,11 +655,21 @@ export function Board() {
           return false;
         }
 
-        // 後方互換: 旧ID形式（Excel-5等）→ 名前ベースでフォールバック検索
+        // 名前ベースでフォールバック検索
         if (card.windowName) {
-          const nameMatch = currentWindows.find((w: AppWindow) =>
-            w.app === card.windowApp && w.name === card.windowName
-          );
+          const appWins = currentWindows.filter((w: AppWindow) => w.app === card.windowApp);
+          // 完全一致
+          let nameMatch = appWins.find((w: AppWindow) => w.name === card.windowName);
+          // 汎用アプリ: 部分一致フォールバック（ブラウザのタブ切替でタイトル変動）
+          if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder') {
+            nameMatch = appWins.find((w: AppWindow) =>
+              w.name.includes(card.windowName!) || card.windowName!.includes(w.name)
+            );
+          }
+          // 汎用アプリ: ウィンドウが1つだけならマッチ
+          if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWins.length === 1) {
+            nameMatch = appWins[0];
+          }
           if (nameMatch) {
             // 見つかった → ミスカウントリセット & カードのwindowIdを自動更新
             missCountRef.current[card.id] = 0;
@@ -667,7 +677,7 @@ export function Board() {
               ...prev,
               cards: {
                 ...prev.cards,
-                [card.id]: { ...prev.cards[card.id], windowId: nameMatch.id },
+                [card.id]: { ...prev.cards[card.id], windowId: nameMatch!.id },
               },
             }));
             return false;
@@ -1331,10 +1341,22 @@ export function Board() {
     // ID完全一致
     const idMatch = appWindows.find((w: AppWindow) => w.id === card.windowId);
     if (idMatch) return idMatch;
-    // 後方互換: 旧IDフォーマット（Excel-5等）→ 名前ベースでフォールバック
+    // 名前完全一致
     if (card.windowName) {
       const nameMatch = appWindows.find((w: AppWindow) => w.name === card.windowName);
       if (nameMatch) return nameMatch;
+    }
+    // 汎用アプリ: タイトルベースIDから部分一致検索
+    // ブラウザ等でタブ切替するとタイトルが変わるため、元のタイトルをcontainsで検索
+    if (card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && card.windowName) {
+      const partialMatch = appWindows.find((w: AppWindow) =>
+        w.name.includes(card.windowName!) || card.windowName!.includes(w.name)
+      );
+      if (partialMatch) return partialMatch;
+    }
+    // 汎用アプリ: ウィンドウが1つしかない場合はそれにマッチ
+    if (card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWindows.length === 1) {
+      return appWindows[0];
     }
     return null;
   };
@@ -1363,6 +1385,17 @@ export function Board() {
         if (card.windowName) {
           const nameMatch = appWindows.find((w: AppWindow) => w.name === card.windowName);
           if (nameMatch) return nameMatch;
+          // 汎用アプリ: 部分一致フォールバック
+          if (card.windowApp !== 'Terminal' && card.windowApp !== 'Finder') {
+            const partialMatch = appWindows.find((w: AppWindow) =>
+              w.name.includes(card.windowName!) || card.windowName!.includes(w.name)
+            );
+            if (partialMatch) return partialMatch;
+          }
+        }
+        // 汎用アプリ: ウィンドウが1つしかない場合はそれにマッチ
+        if (card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWindows.length === 1) {
+          return appWindows[0];
         }
       } catch {
         // キャッシュをフォールバックとして使用
