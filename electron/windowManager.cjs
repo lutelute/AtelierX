@@ -277,18 +277,81 @@ return ""
 }
 
 /**
+ * アクティベーション時のアニメーション AppleScript を生成
+ *
+ * @param {'pop'|'minimize'} animation - アニメーションタイプ
+ * @param {string} windowVar - System Events ウィンドウ変数名
+ * @param {string} appName - アプリ名
+ * @returns {{ inner: string, outer: string }}
+ *   inner: System Events tell block 内に挿入するコード
+ *   outer: System Events tell block の後に挿入するコード
+ */
+function buildActivateAnimation(animation, windowVar, appName) {
+  const escaped = (appName || '').replace(/"/g, '\\"');
+  if (animation === 'minimize') {
+    // minimize: System Events内では何もせず、外でアプリネイティブAPIを使う
+    return {
+      inner: '',
+      outer: `
+  try
+    tell application "${escaped}"
+      repeat with w in windows
+        if name of w is targetWindowName then
+          set miniaturized of w to true
+          exit repeat
+        end if
+      end repeat
+    end tell
+    delay 0.3
+    tell application "${escaped}"
+      repeat with w in windows
+        if name of w is targetWindowName then
+          set miniaturized of w to false
+          exit repeat
+        end if
+      end repeat
+    end tell
+  end try`,
+    };
+  }
+  // デフォルト: ポップエフェクト（引っ込んで→飛び出す→戻る）
+  return {
+    inner: `
+          try
+            set origPos to position of ${windowVar}
+            set origSize to size of ${windowVar}
+            set {x0, y0} to origPos
+            set {w0, h0} to origSize
+            set position of ${windowVar} to {x0 + 30, y0 + 30}
+            set size of ${windowVar} to {w0 - 60, h0 - 60}
+            delay 0.04
+            set position of ${windowVar} to {x0 - 6, y0 - 6}
+            set size of ${windowVar} to {w0 + 12, h0 + 12}
+            delay 0.04
+            set position of ${windowVar} to origPos
+            set size of ${windowVar} to origSize
+          end try`,
+    outer: '',
+  };
+}
+
+/**
  * 汎用アプリのウィンドウを前面に表示 (System Events AXRaise)
  * @param {string} appName - アプリ名
  * @param {string} windowName - ウィンドウ名
  * @param {number} windowIndex - ウィンドウインデックス
+ * @param {string} animation - アニメーションタイプ
  */
-function activateGenericWindow(appName, windowName, windowIndex) {
+function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const escapedApp = appName.replace(/"/g, '\\"');
   const escapedName = (windowName || '').replace(/"/g, '\\"');
   const idx = parseInt(windowIndex) || 1;
 
+  const anim = buildActivateAnimation(animation || 'pop', 'w', escapedApp);
+
   // 対象ウィンドウだけを前面に表示（frontmostは使わずAXRaiseのみ）
   const script = `
+set targetWindowName to ""
 tell application "System Events"
   tell process "${escapedApp}"
     try
@@ -296,24 +359,8 @@ tell application "System Events"
       repeat with w in windows
         if name of w is "${escapedName}" then
           perform action "AXRaise" of w
-          -- ポップエフェクト: 引っ込んで→飛び出す→戻る
-          try
-            set origPos to position of w
-            set origSize to size of w
-            set {x0, y0} to origPos
-            set {w0, h0} to origSize
-            -- 引っ込む
-            set position of w to {x0 + 30, y0 + 30}
-            set size of w to {w0 - 60, h0 - 60}
-            delay 0.04
-            -- 少し大きく飛び出す
-            set position of w to {x0 - 6, y0 - 6}
-            set size of w to {w0 + 12, h0 + 12}
-            delay 0.04
-            -- 元に戻る
-            set position of w to origPos
-            set size of w to origSize
-          end try
+          set targetWindowName to name of w
+${anim.inner}
           set found to true
           exit repeat
         end if
@@ -326,6 +373,7 @@ tell application "System Events"
     end try
   end tell
 end tell
+${anim.outer}
 `;
 
   const tmpFile = path.join(os.tmpdir(), `atelierx-activate-${Date.now()}.scpt`);
@@ -450,7 +498,7 @@ return windowName
  * @param {string} windowId - ウィンドウID（ttyパスまたは数値ID）
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  */
-function activateTerminalWindow(windowId, windowName) {
+function activateTerminalWindow(windowId, windowName, animation) {
   const isTtyPath = windowId.startsWith('/dev/');
   const isNumericId = /^\d+$/.test(windowId);
 
@@ -469,6 +517,7 @@ function activateTerminalWindow(windowId, windowName) {
   }
 
   const escapedName = (windowName || '').replace(/"/g, '\\"');
+  const anim = buildActivateAnimation(animation || 'pop', 'w', 'Terminal');
   const script = `
 set targetWindowName to ""
 tell application "Terminal"
@@ -496,29 +545,13 @@ if targetWindowName is not "" then
       repeat with w in windows
         if name of w is targetWindowName then
           perform action "AXRaise" of w
-          -- ポップエフェクト: 引っ込んで→飛び出す→戻る
-          try
-            set origPos to position of w
-            set origSize to size of w
-            set {x0, y0} to origPos
-            set {w0, h0} to origSize
-            -- 引っ込む
-            set position of w to {x0 + 30, y0 + 30}
-            set size of w to {w0 - 60, h0 - 60}
-            delay 0.04
-            -- 少し大きく飛び出す
-            set position of w to {x0 - 6, y0 - 6}
-            set size of w to {w0 + 12, h0 + 12}
-            delay 0.04
-            -- 元に戻る
-            set position of w to origPos
-            set size of w to origSize
-          end try
+${anim.inner}
           exit repeat
         end if
       end repeat
     end tell
   end tell
+${anim.outer}
 end if
 return targetWindowName is not ""
 `;
@@ -541,7 +574,7 @@ return targetWindowName is not ""
  * @param {string} windowId - ウィンドウID
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  */
-function activateFinderWindow(windowId, windowName) {
+function activateFinderWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
 
@@ -579,6 +612,7 @@ tell application "Finder"
 end tell`;
   }
 
+  const anim = buildActivateAnimation(animation || 'pop', 'w', 'Finder');
   const script = `
 set targetWindowName to ""
 ${findBlock}
@@ -588,29 +622,13 @@ if targetWindowName is not "" then
       repeat with w in windows
         if name of w is targetWindowName then
           perform action "AXRaise" of w
-          -- ポップエフェクト: 引っ込んで→飛び出す→戻る
-          try
-            set origPos to position of w
-            set origSize to size of w
-            set {x0, y0} to origPos
-            set {w0, h0} to origSize
-            -- 引っ込む
-            set position of w to {x0 + 30, y0 + 30}
-            set size of w to {w0 - 60, h0 - 60}
-            delay 0.04
-            -- 少し大きく飛び出す
-            set position of w to {x0 - 6, y0 - 6}
-            set size of w to {w0 + 12, h0 + 12}
-            delay 0.04
-            -- 元に戻る
-            set position of w to origPos
-            set size of w to origSize
-          end try
+${anim.inner}
           exit repeat
         end if
       end repeat
     end tell
   end tell
+${anim.outer}
 end if
 return targetWindowName is not ""
 `;
@@ -635,17 +653,18 @@ return targetWindowName is not ""
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  * @returns {Promise<boolean>}
  */
-function activateWindow(appName, windowId, windowName) {
+function activateWindow(appName, windowId, windowName, animation) {
+  const anim = animation || 'pop';
   return new Promise((resolve) => {
     if (appName === 'Terminal') {
-      activateTerminalWindow(windowId, windowName || windowId);
+      activateTerminalWindow(windowId, windowName || windowId, anim);
       resolve(true);
     } else if (appName === 'Finder') {
-      activateFinderWindow(windowId, windowName || windowId);
+      activateFinderWindow(windowId, windowName || windowId, anim);
       resolve(true);
     } else {
       // 汎用アプリ: タイトルベースIDから名前で検索
-      activateGenericWindow(appName, windowName || '', 1);
+      activateGenericWindow(appName, windowName || '', 1, anim);
       resolve(true);
     }
   });

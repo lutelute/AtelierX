@@ -109,8 +109,8 @@ app.whenReady().then(() => {
   });
 
   // IPC: ウィンドウをアクティブにする
-  ipcMain.handle('activate-window', async (_, appName, windowId, windowName) => {
-    return await activateWindow(appName, windowId, windowName);
+  ipcMain.handle('activate-window', async (_, appName, windowId, windowName, animation) => {
+    return await activateWindow(appName, windowId, windowName, animation);
   });
 
   // IPC: 新しいTerminalウィンドウを開く

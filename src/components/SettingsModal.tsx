@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, CardClickBehavior, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, InstalledAppInfo, shortenAppName } from '../types';
+import { Settings, CardClickBehavior, ActivateAnimation, CustomSubtag, DefaultSubtagSettings, SUBTAG_LABELS, SUBTAG_COLORS, SubTagType, InstalledPlugin, UpdateStatus, UpdateProgress, AppTabConfig, BUILTIN_APPS, InstalledAppInfo, shortenAppName } from '../types';
 
 export { type CardClickBehavior };
 export { type Settings };
@@ -787,6 +787,33 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
                 </label>
               </div>
               <span className="form-hint">カードをクリックした時のデフォルト動作を選択</span>
+            </div>
+
+            <div className="form-group">
+              <label>ウィンドウ活性化アニメーション</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="activateAnimation"
+                    value="pop"
+                    checked={(settings.activateAnimation || 'pop') === 'pop'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
+                  />
+                  <span>ポップ（引っ込んで飛び出す）</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="activateAnimation"
+                    value="minimize"
+                    checked={settings.activateAnimation === 'minimize'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
+                  />
+                  <span>最小化復帰（Dockに吸い込まれて戻る）</span>
+                </label>
+              </div>
+              <span className="form-hint">ウィンドウジャンプ時のアニメーション効果</span>
             </div>
           </div>
 

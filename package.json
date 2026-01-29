@@ -2,7 +2,7 @@
   "name": "atelierx",
   "productName": "AtelierX",
   "private": true,
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプリ - あなたの創作空間",
   "type": "module",
   "main": "electron/main.cjs",

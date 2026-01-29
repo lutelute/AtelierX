@@ -1137,11 +1137,13 @@ export function Board() {
     if (!card.windowApp || !card.windowId) return;
     if (!window.electronAPI?.activateWindow) return;
 
+    const anim = settings.activateAnimation || 'pop';
+
     // キャッシュから即時検索（AppleScript再取得をスキップして即応答）
     const cached = findWindowInCache(card);
     if (cached) {
       addToWindowHistory(card);
-      window.electronAPI.activateWindow(cached.app, cached.id, cached.name);
+      window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim);
       return;
     }
 
@@ -1149,7 +1151,7 @@ export function Board() {
     const matchedWindow = await findMatchingWindow(card);
     if (matchedWindow) {
       addToWindowHistory(card);
-      window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name);
+      window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name, anim);
     } else {
       setRelinkingCard(card);
     }
@@ -1360,7 +1362,7 @@ export function Board() {
 
     // 新しいウィンドウをアクティブ化
     if (window.electronAPI?.activateWindow) {
-      window.electronAPI.activateWindow(appWindow.app, appWindow.id, appWindow.name);
+      window.electronAPI.activateWindow(appWindow.app, appWindow.id, appWindow.name, settings.activateAnimation || 'pop');
     }
   };
 
@@ -1390,7 +1392,7 @@ export function Board() {
         setRelinkingCard(null);
 
         if (window.electronAPI?.activateWindow) {
-          window.electronAPI.activateWindow(existingWindow.app, existingWindow.id, existingWindow.name);
+          window.electronAPI.activateWindow(existingWindow.app, existingWindow.id, existingWindow.name, settings.activateAnimation || 'pop');
         }
       } else {
         alert('このウィンドウは現在存在しません');

@@ -181,6 +181,8 @@ export type CardClickBehavior = 'edit' | 'jump';
 
 export type ThemeType = 'dark' | 'light';
 
+export type ActivateAnimation = 'pop' | 'minimize';
+
 export interface Settings {
   obsidianVaultPath: string;
   dailyNotePath: string;
@@ -190,6 +192,7 @@ export interface Settings {
   defaultSubtagSettings?: DefaultSubtagSettings;
   theme?: ThemeType;
   enabledAppTabs?: AppTabConfig[];  // 有効なアプリタブ一覧
+  activateAnimation?: ActivateAnimation;  // ウィンドウ活性化アニメーション
 }
 
 // ノート情報
@@ -364,7 +367,7 @@ declare global {
     electronAPI?: {
       platform: string;
       getAppWindows: (appNames?: string[]) => Promise<AppWindow[]>;
-      activateWindow: (app: string, windowId: string, windowName?: string) => Promise<boolean>;
+      activateWindow: (app: string, windowId: string, windowName?: string, animation?: string) => Promise<boolean>;
       openNewTerminal: (initialPath?: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
       openNewFinder: (targetPath?: string) => Promise<{ success: boolean; windowName?: string; path?: string; error?: string }>;
       openNewGenericWindow: (appName: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
