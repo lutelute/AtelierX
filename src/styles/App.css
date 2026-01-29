@@ -3204,6 +3204,107 @@ body {
   padding: 8px;
 }
 
+/* Archive Search & Filter */
+.archive-search-bar {
+  padding: 8px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.archive-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.archive-search-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.archive-search-input::placeholder {
+  color: #71717a;
+}
+
+.archive-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.archive-filter-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.archive-filter-tag:hover {
+  opacity: 0.85;
+}
+
+.archive-empty {
+  padding: 16px;
+  text-align: center;
+  color: #71717a;
+  font-size: 13px;
+}
+
+.archive-flat-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archive-results-count {
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #71717a;
+}
+
+/* Archive Year Group */
+.archive-year-group {
+  margin-bottom: 4px;
+}
+
+.archive-year-group:last-child {
+  margin-bottom: 0;
+}
+
+.archive-year-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.archive-year-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.archive-year-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a1a1aa;
+}
+
+.archive-year-content {
+  padding-left: 12px;
+}
+
 .archive-group {
   margin-bottom: 4px;
 }
@@ -3420,6 +3521,32 @@ body {
 }
 
 .theme-light .archive-viewer-meta-label {
+  color: #64748b;
+}
+
+.theme-light .archive-search-input {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-light .archive-search-input:focus {
+  border-color: #94a3b8;
+}
+
+.theme-light .archive-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.theme-light .archive-year-label {
+  color: #475569;
+}
+
+.theme-light .archive-empty {
+  color: #94a3b8;
+}
+
+.theme-light .archive-results-count {
   color: #64748b;
 }
 /* バックアップセクション */
