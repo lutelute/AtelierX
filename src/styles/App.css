@@ -6412,3 +6412,301 @@ body.theme-light {
   color: rgba(0, 0, 0, 0.35);
   background: rgba(0, 0, 0, 0.06);
 }
+
+/* ============================================
+   カラム追加ボタン
+   ============================================ */
+.add-column-button {
+  min-width: 320px;
+  max-width: 320px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.add-column-button:hover {
+  border-color: rgba(167, 139, 250, 0.4);
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.05);
+}
+
+/* ============================================
+   カラムヘッダー拡張 (リネーム・削除)
+   ============================================ */
+.column-title-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.column-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.column-header:hover .column-edit-btn {
+  opacity: 1;
+}
+
+.column-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.column-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.column-title-input {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  color: #e4e4e7;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 6px;
+  padding: 2px 8px;
+  outline: none;
+  width: 100%;
+  max-width: 180px;
+}
+
+.column-title-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.column-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.column-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* カラム削除確認UI */
+.column-delete-confirm {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(239, 68, 68, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.column-delete-confirm-text {
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.column-delete-confirm-select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  outline: none;
+}
+
+.column-delete-confirm-select:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.column-delete-confirm-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* カラムカラーピッカー */
+.column-color-wrapper {
+  position: relative;
+}
+
+.column-color-btn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.column-color-btn:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.15);
+}
+
+.column-color-picker {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.column-color-option {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.column-color-option:hover {
+  transform: scale(1.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.column-color-option.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.btn-sm {
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+}
+
+.btn-danger {
+  background: #ef4444 !important;
+}
+
+.btn-danger:hover {
+  background: #dc2626 !important;
+}
+
+/* ============================================
+   カラム追加・管理: ライトテーマ
+   ============================================ */
+.theme-light .add-column-button {
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
+
+.theme-light .add-column-button:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.theme-light .column-title-input {
+  color: #1e293b;
+  background: #fff;
+  border-color: #6366f1;
+}
+
+.theme-light .column-title-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.theme-light .column-edit-btn {
+  color: rgba(0, 0, 0, 0.2);
+}
+
+.theme-light .column-edit-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.theme-light .column-delete-btn {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.theme-light .column-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.theme-light .column-delete-confirm {
+  border-color: #e2e8f0;
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.theme-light .column-delete-confirm-text {
+  color: #64748b;
+}
+
+.theme-light .column-delete-confirm-select {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.theme-light .column-delete-confirm-select:focus {
+  border-color: #6366f1;
+}
+
+.theme-light .column-color-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .column-color-btn:hover {
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+.theme-light .column-color-picker {
+  background: #fff;
+  border-color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .column-color-option:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.theme-light .column-color-option.active {
+  border-color: #1e293b;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
+}

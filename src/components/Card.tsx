@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo, } from 'react';
 import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -491,7 +491,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
+export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
   const {
     attributes,
     listeners,
@@ -842,4 +842,4 @@ export function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUpdateDe
       )}
     </div>
   );
-}
+});

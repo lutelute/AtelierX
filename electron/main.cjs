@@ -298,7 +298,7 @@ function getDefaultBackupPath() {
   return path.join(userDataPath, filename);
 }
 
-// IPC: バックアップ保存（自動保存用）
+// IPC: バックアップ保存（自動保存用 — 非同期書き込み、インデントなし）
 ipcMain.handle('save-backup', async (_, data) => {
   try {
     const backupPath = getDefaultBackupPath();
@@ -307,7 +307,7 @@ ipcMain.handle('save-backup', async (_, data) => {
       backupAt: Date.now(),
       version: 1,
     };
-    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
+    await fs.promises.writeFile(backupPath, JSON.stringify(backupData), 'utf-8');
     console.log('Backup saved:', backupPath);
     return { success: true, path: backupPath, timestamp: backupData.backupAt };
   } catch (error) {

@@ -83,6 +83,13 @@ export function Board() {
   const lastCheckTimeRef = useRef<number>(0);
   // 連続ミスカウント（一時的な失敗でリンク切れ表示を防止）
   const missCountRef = useRef<Record<string, number>>({});
+  // useRef化: コールバック内でstateの最新値を参照するため（依存配列から除外可能に）
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const activityLogsRef = useRef(activityLogs);
+  activityLogsRef.current = activityLogs;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   // 有効なアプリタブ一覧 (後方互換: 未設定ならビルトインのみ)
   const enabledTabs: AppTabConfig[] = useMemo(() => {
@@ -112,24 +119,30 @@ export function Board() {
     document.body.classList.add(`theme-${theme}`);
   }, [settings.theme]);
 
-  // アクティビティログを追加
+  // アクティビティログを追加（最新5000件に制限）
+  const MAX_ACTIVITY_LOGS = 5000;
   const addLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
     const newLog: ActivityLog = {
       ...log,
       id: `log-${Date.now()}`,
       timestamp: Date.now(),
     };
-    setActivityLogs((prev) => [...prev, newLog]);
+    setActivityLogs((prev) => {
+      const updated = [...prev, newLog];
+      return updated.length > MAX_ACTIVITY_LOGS
+        ? updated.slice(updated.length - MAX_ACTIVITY_LOGS)
+        : updated;
+    });
   }, [setActivityLogs]);
 
-  // 自動バックアップ
+  // 自動バックアップ（useRef経由で最新値を参照 → 依存配列を最小化しintervalリセットを防止）
   const saveBackup = useCallback(async () => {
     if (!window.electronAPI?.saveBackup) return;
     try {
       const result = await window.electronAPI.saveBackup({
-        boardData: data,
-        activityLogs,
-        settings,
+        boardData: dataRef.current,
+        activityLogs: activityLogsRef.current,
+        settings: settingsRef.current,
       });
       if (result.success && result.timestamp) {
         setLastBackupTime(result.timestamp);
@@ -138,7 +151,7 @@ export function Board() {
     } catch (error) {
       console.error('Backup failed:', error);
     }
-  }, [data, activityLogs, settings, setLastBackupTime]);
+  }, [setLastBackupTime]);
 
   // 起動時にバックアップを確認（データが空の場合）
   useEffect(() => {
@@ -436,6 +449,7 @@ export function Board() {
 
   // ウィンドウの状態をチェック（未追加ウィンドウ＆リンク切れカード）
   // 差分チェック付き: 変更がない場合はsetStateをスキップして再レンダリングを防止
+  // dataRef経由で最新のcardsを参照 → 依存配列からdata.cardsを除外しintervalリセットを防止
   const checkWindowStatus = useCallback(async () => {
     if (!window.electronAPI?.getAppWindows) return;
 
@@ -457,9 +471,11 @@ export function Board() {
       lastCheckTimeRef.current = Date.now();
       const currentWindowIds = new Set(currentWindows.map((w: AppWindow) => w.id));
 
+      const cards = dataRef.current.cards;
+
       // ボードに登録されているウィンドウIDを取得
       const registeredWindowIds = new Set(
-        Object.values(data.cards)
+        Object.values(cards)
           .filter((card) => card.windowId && !card.archived)
           .map((card) => card.windowId)
       );
@@ -471,7 +487,7 @@ export function Board() {
       });
 
       // リンク切れカードをチェック（連続ミスカウントで一時的な失敗を許容）
-      const potentiallyBroken = Object.values(data.cards).filter((card) => {
+      const potentiallyBroken = Object.values(cards).filter((card) => {
         if (!card.windowApp || card.archived) return false;
         const matchesActiveBoard =
           card.windowApp === activeTab.appName || card.tag === activeBoard;
@@ -531,7 +547,7 @@ export function Board() {
     } catch (error) {
       console.error('Failed to check window status:', error);
     }
-  }, [data.cards, activeBoard, enabledTabs, setData]);
+  }, [activeBoard, enabledTabs, setData]);
 
   // 定期的にチェック + アプリフォーカス時にデバウンス付きチェック
   useEffect(() => {
@@ -767,9 +783,9 @@ export function Board() {
     }
   };
 
-  const handleAddCard = (columnId: string) => {
+  const handleAddCard = useCallback((columnId: string) => {
     setModalColumnId(columnId);
-  };
+  }, []);
 
   const handleCreateCard = (title: string, description: string, tag: TagType, subtags?: SubTagType[]) => {
     if (!modalColumnId) return;
@@ -862,7 +878,7 @@ export function Board() {
     }));
   };
 
-  const handleDeleteCard = (cardId: string) => {
+  const handleDeleteCard = useCallback((cardId: string) => {
     setData((prev) => {
       const { [cardId]: _, ...remainingCards } = prev.cards;
       return {
@@ -874,10 +890,10 @@ export function Board() {
         })),
       };
     });
-  };
+  }, [setData]);
 
   // カードをアーカイブ
-  const handleArchiveCard = (cardId: string) => {
+  const handleArchiveCard = useCallback((cardId: string) => {
     setData((prev) => ({
       ...prev,
       cards: {
@@ -893,7 +909,7 @@ export function Board() {
         cardIds: col.cardIds.filter((id) => id !== cardId),
       })),
     }));
-  };
+  }, [setData]);
 
   // アーカイブからカードを復元
   const handleRestoreCard = (cardId: string) => {
@@ -1021,22 +1037,22 @@ export function Board() {
     });
   };
 
-  // アーカイブされたカードを取得
-  const getArchivedCards = () => {
+  // アーカイブされたカードを取得 — useMemo化
+  const archivedCards = useMemo(() => {
     const activeTab = enabledTabs.find(t => t.id === activeBoard);
     return Object.values(data.cards).filter((card) => {
       if (!card.archived) return false;
       if (!activeTab) return false;
       return card.tag === activeBoard || card.windowApp === activeTab.appName;
     });
-  };
+  }, [data.cards, activeBoard, enabledTabs]);
 
-  const handleEditCard = (cardId: string) => {
+  const handleEditCard = useCallback((cardId: string) => {
     const card = data.cards[cardId];
     if (card) {
       setEditingCard(card);
     }
-  };
+  }, [data.cards]);
 
   const handleSaveCard = (updatedCard: CardType) => {
     setData((prev) => ({
@@ -1420,7 +1436,7 @@ export function Board() {
   };
 
   // カードの説明を更新（タスクチェック用）
-  const handleUpdateDescription = (cardId: string, description: string) => {
+  const handleUpdateDescription = useCallback((cardId: string, description: string) => {
     setData((prev) => ({
       ...prev,
       cards: {
@@ -1431,10 +1447,10 @@ export function Board() {
         },
       },
     }));
-  };
+  }, [setData]);
 
   // カードのステータスマーカーを更新
-  const handleUpdateStatusMarker = (cardId: string, marker: CardStatusMarker) => {
+  const handleUpdateStatusMarker = useCallback((cardId: string, marker: CardStatusMarker) => {
     setData((prev) => ({
       ...prev,
       cards: {
@@ -1445,11 +1461,11 @@ export function Board() {
         },
       },
     }));
-  };
+  }, [setData]);
 
-  const handleDropWindow = (columnId: string) => {
+  const handleDropWindow = useCallback((columnId: string) => {
     setWindowSelectColumnId(columnId);
-  };
+  }, []);
 
   const handleSelectWindow = (appWindow: AppWindow) => {
     if (!windowSelectColumnId) return;
@@ -1489,22 +1505,82 @@ export function Board() {
     setWindowSelectColumnId(null);
   };
 
-  // アクティブなボードに応じてカードをフィルタリング（アーカイブ済みを除外）
-  const getFilteredCards = (cardIds: string[]) => {
+  // アクティブなボードに応じてカードをフィルタリング（アーカイブ済みを除外）— useMemo化
+  const filteredCardsByColumn = useMemo(() => {
     const activeTab = enabledTabs.find(t => t.id === activeBoard);
-    return cardIds
-      .map((id) => data.cards[id])
-      .filter((card) => {
-        if (!card || card.archived) return false;
-        if (!activeTab) return false;
-        return card.tag === activeBoard || card.windowApp === activeTab.appName;
-      });
-  };
+    const result: Record<string, CardType[]> = {};
+    for (const column of data.columns) {
+      result[column.id] = column.cardIds
+        .map((id) => data.cards[id])
+        .filter((card): card is CardType => {
+          if (!card || card.archived) return false;
+          if (!activeTab) return false;
+          return card.tag === activeBoard || card.windowApp === activeTab.appName;
+        });
+    }
+    return result;
+  }, [data.columns, data.cards, activeBoard, enabledTabs]);
 
   // リンク切れカードのIDセット
   const brokenLinkCardIds = useMemo(() => {
     return new Set(brokenLinkCards.map((card) => card.id));
   }, [brokenLinkCards]);
+
+  // カラム追加
+  const handleAddColumn = () => {
+    const id = `col-${Date.now()}`;
+    setData(prev => ({
+      ...prev,
+      columns: [...prev.columns, { id, title: '新規カラム', cardIds: [] }],
+      columnOrder: [...prev.columnOrder, id],
+    }));
+  };
+
+  // 基本カラム（削除不可）
+  const DEFAULT_COLUMN_IDS = new Set(['todo', 'in-progress', 'done']);
+
+  // カラム削除（基本3カラムは削除不可、カードは必ず移動先へ退避）
+  const handleDeleteColumn = (columnId: string, moveToColumnId?: string) => {
+    if (DEFAULT_COLUMN_IDS.has(columnId)) return; // 基本カラムは削除不可
+    setData(prev => {
+      const col = prev.columns.find(c => c.id === columnId);
+      let newColumns = prev.columns.filter(c => c.id !== columnId);
+      if (col && col.cardIds.length > 0) {
+        // 移動先が指定されていなければ最初のカラム（未着手）にフォールバック
+        const targetId = moveToColumnId || prev.columns.find(c => c.id !== columnId)?.id;
+        if (targetId) {
+          newColumns = newColumns.map(c =>
+            c.id === targetId ? { ...c, cardIds: [...c.cardIds, ...col.cardIds] } : c
+          );
+        }
+      }
+      return {
+        ...prev,
+        columns: newColumns,
+        columnOrder: prev.columnOrder.filter(id => id !== columnId),
+      };
+    });
+  };
+
+  // カラム色変更
+  const handleChangeColumnColor = useCallback((columnId: string, color: string) => {
+    setData(prev => ({
+      ...prev,
+      columns: prev.columns.map(col =>
+        col.id === columnId ? { ...col, color } : col
+      ),
+    }));
+  }, [setData]);
+
+  // カラムリネーム
+  const handleRenameColumn = useCallback((columnId: string, newTitle: string) => {
+    setData(prev => ({
+      ...prev,
+      columns: prev.columns.map(col =>
+        col.id === columnId ? { ...col, title: newTitle } : col
+      ),
+    }));
+  }, [setData]);
 
   const toggleTheme = () => {
     const newTheme = (settings.theme || 'dark') === 'dark' ? 'light' : 'dark';
@@ -1735,7 +1811,7 @@ export function Board() {
                 <Column
                   key={column.id}
                   column={column}
-                  cards={getFilteredCards(column.cardIds)}
+                  cards={filteredCardsByColumn[column.id] || []}
                   onAddCard={handleAddCard}
                   onDeleteCard={handleDeleteCard}
                   onEditCard={handleEditCard}
@@ -1752,8 +1828,16 @@ export function Board() {
                   cardActions={cardActions}
                   onCardAction={handleCardAction}
                   onTimerAction={handleTimerAction}
+                  onRenameColumn={handleRenameColumn}
+                  onDeleteColumn={handleDeleteColumn}
+                  onChangeColumnColor={handleChangeColumnColor}
+                  allColumns={data.columns}
+                  canDelete={!DEFAULT_COLUMN_IDS.has(column.id)}
                 />
               ))}
+              <button className="add-column-button" onClick={handleAddColumn}>
+                + カラム追加
+              </button>
             </div>
             <DragOverlay>
               {activeCard ? (
@@ -1762,7 +1846,7 @@ export function Board() {
             </DragOverlay>
           </DndContext>
           <ArchiveSection
-            cards={getArchivedCards()}
+            cards={archivedCards}
             onRestore={handleRestoreCard}
             onDelete={handleDeleteCard}
             customSubtags={settings.customSubtags}
