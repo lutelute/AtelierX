@@ -3024,6 +3024,22 @@ body {
   background: rgba(239, 68, 68, 0.25);
 }
 
+/* ウィンドウジャンプ中のパルスアニメーション */
+.card.card-jumping {
+  animation: card-jump-pulse 0.6s ease-out;
+}
+
+@keyframes card-jump-pulse {
+  0% {
+    border-color: rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+  }
+  100% {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
 /* Settings Section Spacing */
 .settings-section {
   margin-bottom: 24px;
@@ -6718,6 +6734,51 @@ body.theme-light {
 /* ============================================
    カラムヘッダー拡張 (リネーム・削除)
    ============================================ */
+/* カラムドラッグハンドル */
+.column-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 24px;
+  cursor: grab;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  margin-right: 4px;
+}
+
+.column-header:hover .column-drag-handle {
+  opacity: 1;
+}
+
+.column-drag-handle:active {
+  cursor: grabbing;
+}
+
+.column-dragging {
+  opacity: 0.5;
+}
+
+/* カラムドラッグオーバーレイ */
+.column-drag-overlay {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(99, 102, 241, 0.5);
+  border-radius: 12px;
+  min-width: 320px;
+  max-width: 320px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.column-drag-overlay-title {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #a1a1aa;
+}
+
 .column-title-group {
   display: flex;
   align-items: center;

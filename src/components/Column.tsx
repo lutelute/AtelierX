@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction } from '../types';
 import { Card } from './Card';
 
@@ -45,9 +46,27 @@ interface ColumnProps {
 }
 
 export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false }: ColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: column.id,
   });
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `column-${column.id}`,
+    data: { type: 'column', columnId: column.id },
+  });
+
+  const columnStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(column.title);
@@ -127,8 +146,18 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
   } : undefined;
 
   return (
-    <div className={`column column-${column.id} ${isOver ? 'column-over' : ''}`}>
+    <div ref={setSortableRef} style={columnStyle} className={`column column-${column.id} ${isOver ? 'column-over' : ''} ${isDragging ? 'column-dragging' : ''}`} {...attributes}>
       <div className="column-header" style={headerStyle}>
+        <div className="column-drag-handle" {...listeners} title="ドラッグして列を移動">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity="0.3">
+            <circle cx="5" cy="3" r="1.5" />
+            <circle cx="11" cy="3" r="1.5" />
+            <circle cx="5" cy="8" r="1.5" />
+            <circle cx="11" cy="8" r="1.5" />
+            <circle cx="5" cy="13" r="1.5" />
+            <circle cx="11" cy="13" r="1.5" />
+          </svg>
+        </div>
         {isEditing ? (
           <input
             ref={inputRef}
@@ -214,7 +243,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
           </div>
         </div>
       )}
-      <div ref={setNodeRef} className="column-content">
+      <div ref={setDroppableRef} className="column-content">
         <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
             <Card

@@ -613,6 +613,7 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
       ref={setNodeRef}
       style={style}
       className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnId ? `card-status-${columnId}` : ''}`}
+      data-card-id={card.id}
       onClick={handleCardClick}
       onContextMenu={handleCardContextMenu}
       {...attributes}

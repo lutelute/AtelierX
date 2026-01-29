@@ -540,69 +540,79 @@ function activateTerminalWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
 
   // 対象ウィンドウだけを前面に表示（他のウィンドウは移動しない）
-  // 1. Terminal.appで対象ウィンドウの名前を取得
-  // 2. System Eventsで名前マッチしたウィンドウだけAXRaise（frontmostは使わない）
+  // 1. Terminal.appで対象ウィンドウのインデックス位置を取得（tty/IDで一意特定）
+  // 2. System Eventsで同じインデックスのウィンドウをAXRaise
+  // ※ 名前マッチだと同名ウィンドウで誤爆するためインデックスベースに変更
   const escapedName = (windowName || '').replace(/"/g, '\\"');
   const anim = animation || 'pop';
-  const innerSnippet = anim === 'pop' ? popAnimationSnippet('w') : '';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Terminal', 'Terminal') : '';
 
-  // ウィンドウ名取得: IDで直接アクセス（反復不要）、ttyは反復必須
+  // ウィンドウ名＋インデックスを取得（反復で一意特定）
   let findBlock;
-  if (isNumericId) {
-    findBlock = `
-tell application "Terminal"
-  try
-    set targetWindowName to name of window id ${windowId}
-  end try
-end tell`;
-  } else if (isTtyPath) {
+  if (isTtyPath) {
     const escapedTty = windowId.replace(/"/g, '\\"');
     findBlock = `
 tell application "Terminal"
+  set windowIdx to 0
   repeat with w in windows
+    set windowIdx to windowIdx + 1
     try
       if tty of selected tab of w is equal to "${escapedTty}" then
         set targetWindowName to name of w
+        set targetWindowIndex to windowIdx
         exit repeat
       end if
     end try
   end repeat
 end tell`;
+  } else if (isNumericId) {
+    findBlock = `
+tell application "Terminal"
+  set windowIdx to 0
+  repeat with w in windows
+    set windowIdx to windowIdx + 1
+    if id of w is ${windowId} then
+      set targetWindowName to name of w
+      set targetWindowIndex to windowIdx
+      exit repeat
+    end if
+  end repeat
+end tell`;
   } else {
     findBlock = `
 tell application "Terminal"
-  try
-    set targetWindowName to name of window "${escapedName}"
-  on error
-    repeat with w in windows
-      if name of w starts with "${escapedName}" then
+  set windowIdx to 0
+  repeat with w in windows
+    set windowIdx to windowIdx + 1
+    try
+      if name of w is "${escapedName}" or name of w starts with "${escapedName}" then
         set targetWindowName to name of w
+        set targetWindowIndex to windowIdx
         exit repeat
       end if
-    end repeat
-  end try
+    end try
+  end repeat
 end tell`;
   }
 
   const script = `
 set targetWindowName to ""
+set targetWindowIndex to 0
 ${findBlock}
-if targetWindowName is not "" then
+if targetWindowIndex > 0 then
   tell application "System Events"
     tell process "Terminal"
-      repeat with w in windows
-        if name of w is targetWindowName then
-          perform action "AXRaise" of w
+      if (count of windows) >= targetWindowIndex then
+        set targetW to window targetWindowIndex
+        perform action "AXRaise" of targetW
 ${innerSnippet}
-          exit repeat
-        end if
-      end repeat
+      end if
     end tell
   end tell
 ${outerSnippet}
 end if
-return targetWindowName is not ""
+return targetWindowIndex > 0
 `;
 
   const tmpFile = path.join(os.tmpdir(), `atelierx-activate-term-${Date.now()}.scpt`);
@@ -627,45 +637,56 @@ function activateFinderWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
 
-  // Finder.appで対象ウィンドウ名を取得（反復なし、直接アクセス）
+  // Finder.appで対象ウィンドウのインデックス位置を取得（同名フォルダ対策）
   let findBlock;
   if (isNumericId) {
     findBlock = `
 tell application "Finder"
-  try
-    set targetWindowName to name of Finder window id ${windowId}
-  end try
+  set windowIdx to 0
+  repeat with w in Finder windows
+    set windowIdx to windowIdx + 1
+    if id of w is ${windowId} then
+      set targetWindowName to name of w
+      set targetWindowIndex to windowIdx
+      exit repeat
+    end if
+  end repeat
 end tell`;
   } else {
     findBlock = `
 tell application "Finder"
-  try
-    set targetWindowName to name of Finder window "${escapedName}"
-  end try
+  set windowIdx to 0
+  repeat with w in Finder windows
+    set windowIdx to windowIdx + 1
+    if name of w is "${escapedName}" then
+      set targetWindowName to name of w
+      set targetWindowIndex to windowIdx
+      exit repeat
+    end if
+  end repeat
 end tell`;
   }
 
   const anim = animation || 'pop';
-  const innerSnippet = anim === 'pop' ? popAnimationSnippet('w') : '';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
   const script = `
 set targetWindowName to ""
+set targetWindowIndex to 0
 ${findBlock}
-if targetWindowName is not "" then
+if targetWindowIndex > 0 then
   tell application "System Events"
     tell process "Finder"
-      repeat with w in windows
-        if name of w is targetWindowName then
-          perform action "AXRaise" of w
+      if (count of windows) >= targetWindowIndex then
+        set targetW to window targetWindowIndex
+        perform action "AXRaise" of targetW
 ${innerSnippet}
-          exit repeat
-        end if
-      end repeat
+      end if
     end tell
   end tell
 ${outerSnippet}
 end if
-return targetWindowName is not ""
+return targetWindowIndex > 0
 `;
 
   const tmpFile = path.join(os.tmpdir(), `atelierx-activate-finder-${Date.now()}.scpt`);
@@ -867,59 +888,56 @@ function closeTerminalWindow(windowId, windowName) {
 function closeFinderWindow(windowId, windowName) {
   return new Promise((resolve) => {
     const isNumericId = /^\d+$/.test(windowId);
+    const escapedName = (windowName || windowId).replace(/"/g, '\\"');
 
+    // activateFinderWindowと同様に直接アクセス方式を使用
     let script;
     if (isNumericId) {
       script = `
-        set targetId to ${windowId}
-        set found to false
-        tell application "Finder"
-          repeat with w in (get every Finder window)
-            if id of w is targetId then
-              close w
-              set found to true
-              exit repeat
-            end if
-          end repeat
-        end tell
-        return found
-      `;
+tell application "Finder"
+  try
+    close Finder window id ${windowId}
+    return true
+  on error
+    -- ID で見つからない場合、名前でフォールバック
+    try
+      close Finder window "${escapedName}"
+      return true
+    end try
+  end try
+end tell
+return false
+`;
     } else {
-      const escapedName = (windowName || windowId).replace(/"/g, '\\"');
       script = `
-        set targetName to "${escapedName}"
-        set found to false
-        tell application "Finder"
-          repeat with w in (get every Finder window)
-            if name of w is equal to targetName then
-              close w
-              set found to true
-              exit repeat
-            end if
-          end repeat
-          if not found then
-            repeat with w in (get every Finder window)
-              if name of w starts with targetName then
-                close w
-                set found to true
-                exit repeat
-              end if
-            end repeat
-          end if
-        end tell
-        return found
-      `;
+tell application "Finder"
+  try
+    close Finder window "${escapedName}"
+    return true
+  end try
+end tell
+return false
+`;
     }
 
-    exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error, stdout) => {
-      if (error) {
-        console.error('closeFinderWindow error:', error);
-        resolve({ success: false, error: error.message });
-        return;
-      }
-      const found = stdout.trim() === 'true';
-      resolve({ success: found, error: found ? undefined : 'Window not found' });
-    });
+    const tmpFile = path.join(os.tmpdir(), `atelierx-close-finder-${Date.now()}.scpt`);
+    try {
+      fs.writeFileSync(tmpFile, script, 'utf-8');
+      exec(`osascript "${tmpFile}"`, { timeout: 10000 }, (error, stdout) => {
+        try { fs.unlinkSync(tmpFile); } catch (_) {}
+        if (error) {
+          console.error('closeFinderWindow error:', error);
+          resolve({ success: false, error: error.message });
+          return;
+        }
+        const found = stdout.trim() === 'true';
+        resolve({ success: found, error: found ? undefined : 'Window not found' });
+      });
+    } catch (error) {
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+      console.error('closeFinderWindow error:', error.message);
+      resolve({ success: false, error: error.message });
+    }
   });
 }
 

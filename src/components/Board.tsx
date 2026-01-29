@@ -8,8 +8,11 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  closestCorners,
+  rectIntersection,
+  CollisionDetection,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, getTabIdForApp } from '../types';
 import { Column } from './Column';
@@ -38,13 +41,13 @@ const initialData: BoardData = {
   columnOrder: ['todo', 'in-progress', 'done'],
 };
 
-const WINDOW_CHECK_INTERVAL = 10000; // 10秒ごとにウィンドウ状態をチェック
 const BACKUP_INTERVAL = 60000; // 1分ごとに自動バックアップ
 
 export function Board() {
   const [data, setData] = useLocalStorage<BoardData>('kanban-data', initialData);
   const [activityLogs, setActivityLogs] = useLocalStorage<ActivityLog[]>('activity-logs', []);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
+  const [activeColumnDrag, setActiveColumnDrag] = useState<string | null>(null);
   const [modalColumnId, setModalColumnId] = useState<string | null>(null);
   const [windowSelectColumnId, setWindowSelectColumnId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<CardType | null>(null);
@@ -76,6 +79,8 @@ export function Board() {
   const cachedWindowsRef = useRef<AppWindow[]>([]);
   // 最後のチェック時刻（デバウンス用）
   const lastCheckTimeRef = useRef<number>(0);
+  // checkWindowStatus の同時実行防止
+  const isCheckingRef = useRef(false);
   // 連続ミスカウント（一時的な失敗でリンク切れ表示を防止）
   const missCountRef = useRef<Record<string, number>>({});
   // useRef化: コールバック内でstateの最新値を参照するため（依存配列から除外可能に）
@@ -89,28 +94,22 @@ export function Board() {
   // Undo スタック（最大30件の BoardData スナップショット）
   const MAX_UNDO = 30;
   const undoStackRef = useRef<BoardData[]>([]);
-  // 直前のデータ状態を保持（変更検出用）
-  const prevDataJsonRef = useRef<string>('');
+  // 直前のデータ状態を保持（変更検出用 — 参照比較で高速化）
+  const prevDataRef = useRef<BoardData | null>(null);
 
   // data が変更されたらスナップショットを自動保存
   useEffect(() => {
-    const json = JSON.stringify(data);
-    if (prevDataJsonRef.current && prevDataJsonRef.current !== json) {
-      // 前の状態をスタックに積む
-      try {
-        const prevData = JSON.parse(prevDataJsonRef.current) as BoardData;
-        undoStackRef.current = [...undoStackRef.current.slice(-(MAX_UNDO - 1)), prevData];
-      } catch { /* ignore */ }
+    if (prevDataRef.current && prevDataRef.current !== data) {
+      undoStackRef.current = [...undoStackRef.current.slice(-(MAX_UNDO - 1)), prevDataRef.current];
     }
-    prevDataJsonRef.current = json;
+    prevDataRef.current = data;
   }, [data]);
 
   // Undo 実行
   const handleUndo = useCallback(() => {
     if (undoStackRef.current.length === 0) return;
     const prev = undoStackRef.current.pop()!;
-    // prevDataJsonRef をリセットして、この setData が再度スタックに積まれないようにする
-    prevDataJsonRef.current = JSON.stringify(prev);
+    prevDataRef.current = prev;
     setData(prev);
   }, [setData]);
 
@@ -451,6 +450,8 @@ export function Board() {
   // dataRef経由で最新のcardsを参照 → 依存配列からdata.cardsを除外しintervalリセットを防止
   const checkWindowStatus = useCallback(async () => {
     if (!window.electronAPI?.getAppWindows) return;
+    if (isCheckingRef.current) return; // 同時実行防止
+    isCheckingRef.current = true;
 
     try {
       // アクティブタブのアプリ名を取得
@@ -525,10 +526,10 @@ export function Board() {
         return true;
       });
 
-      // 2回以上連続でミスしたカードのみリンク切れ表示
+      // 3回以上連続でミスしたカードのみリンク切れ表示（点滅緩和）
       const broken = potentiallyBroken.filter((card) => {
         if (!card.windowId) return true; // windowId未設定は即表示
-        return (missCountRef.current[card.id] || 0) >= 2;
+        return (missCountRef.current[card.id] || 0) >= 3;
       });
 
       // 差分チェック: 前回と同じならsetStateをスキップ
@@ -545,32 +546,51 @@ export function Board() {
       }
     } catch (error) {
       console.error('Failed to check window status:', error);
+    } finally {
+      isCheckingRef.current = false;
     }
   }, [activeBoard, enabledTabs, setData]);
 
-  // 定期的にチェック + アプリフォーカス時にデバウンス付きチェック
-  useEffect(() => {
-    checkWindowStatus();
-    const interval = setInterval(checkWindowStatus, WINDOW_CHECK_INTERVAL);
+  // タブ切替時のデバウンス用タイマー
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-    // フォーカス復帰時は最後のチェックから3秒以上経過していれば実行
-    const debouncedCheck = () => {
-      if (Date.now() - lastCheckTimeRef.current > 3000) {
-        checkWindowStatus();
+  const debouncedCheckWindowStatus = useCallback(() => {
+    if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+    checkTimerRef.current = setTimeout(() => {
+      checkWindowStatus();
+    }, 300);
+  }, [checkWindowStatus]);
+
+  // 定期的にチェック（10秒間隔、非表示時はスキップ）+ フォーカス復帰時にデバウンス付きチェック
+  useEffect(() => {
+    checkWindowStatus(); // 初回は即時実行（キャッシュ確保のため）
+
+    const interval = setInterval(() => {
+      if (document.hidden) return; // 非表示時はスキップ
+      checkWindowStatus();
+    }, 10000);
+
+    // フォーカス復帰時は3秒以上経過していればデバウンス付きチェック
+    const handleVisibilityChange = () => {
+      if (!document.hidden && Date.now() - lastCheckTimeRef.current > 3000) {
+        debouncedCheckWindowStatus();
       }
     };
-    const handleVisibilityChange = () => {
-      if (!document.hidden) debouncedCheck();
+    const handleFocus = () => {
+      if (Date.now() - lastCheckTimeRef.current > 3000) {
+        debouncedCheckWindowStatus();
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', debouncedCheck);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       clearInterval(interval);
+      if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', debouncedCheck);
+      window.removeEventListener('focus', handleFocus);
     };
-  }, [checkWindowStatus]);
+  }, [checkWindowStatus, debouncedCheckWindowStatus]);
 
   // リマインダから直接ウィンドウを追加
   const handleAddFromReminder = (appWindow: AppWindow) => {
@@ -662,13 +682,41 @@ export function Board() {
     })
   );
 
+  // カラムドラッグ時はカラムターゲットのみ、カードドラッグ時はカードターゲットのみに衝突判定を限定
+  const customCollisionDetection: CollisionDetection = useCallback((args) => {
+    const activeId = args.active.id as string;
+    const isColumnDrag = activeId.startsWith('column-');
+
+    // ドラッグ対象に応じてドロップ先を絞り込む
+    const filteredContainers = args.droppableContainers.filter((container) => {
+      const containerId = container.id as string;
+      if (isColumnDrag) {
+        return containerId.startsWith('column-');
+      }
+      return !containerId.startsWith('column-');
+    });
+
+    if (isColumnDrag) {
+      return closestCorners({ ...args, droppableContainers: filteredContainers });
+    }
+    return rectIntersection({ ...args, droppableContainers: filteredContainers });
+  }, []);
+
   const findColumnByCardId = (cardId: string): string | undefined => {
     return data.columns.find((col) => col.cardIds.includes(cardId))?.id;
   };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const card = data.cards[active.id as string];
+    const activeId = active.id as string;
+
+    // カラムのドラッグか判定
+    if (activeId.startsWith('column-')) {
+      setActiveColumnDrag(activeId.replace('column-', ''));
+      return;
+    }
+
+    const card = data.cards[activeId];
     if (card) {
       setActiveCard(card);
     }
@@ -680,6 +728,9 @@ export function Board() {
 
     const activeId = active.id as string;
     const overId = over.id as string;
+
+    // カラムドラッグ中はカード移動ロジックをスキップ
+    if (activeId.startsWith('column-') || overId.startsWith('column-')) return;
 
     const activeColumnId = findColumnByCardId(activeId);
     let overColumnId = findColumnByCardId(overId);
@@ -747,12 +798,34 @@ export function Board() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCard(null);
+    setActiveColumnDrag(null);
 
     if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // カラムの並べ替え
+    if (activeId.startsWith('column-') && overId.startsWith('column-')) {
+      const activeColId = activeId.replace('column-', '');
+      const overColId = overId.replace('column-', '');
+      if (activeColId !== overColId) {
+        setData((prev) => {
+          const oldIndex = prev.columns.findIndex((col) => col.id === activeColId);
+          const newIndex = prev.columns.findIndex((col) => col.id === overColId);
+          if (oldIndex === -1 || newIndex === -1) return prev;
+          const newColumns = arrayMove(prev.columns, oldIndex, newIndex);
+          return {
+            ...prev,
+            columns: newColumns,
+            columnOrder: newColumns.map((col) => col.id),
+          };
+        });
+      }
+      return;
+    }
+
+    // カードの並べ替え
     const activeColumnId = findColumnByCardId(activeId);
     const overColumnId = findColumnByCardId(overId) || overId;
 
@@ -1133,9 +1206,26 @@ export function Board() {
     return null;
   };
 
+  // ジャンプ中のカードに視覚フィードバック（DOM直接操作でmemo無効化を回避）
+  const flashJumpingCard = (cardId: string) => {
+    const el = document.querySelector(`[data-card-id="${cardId}"]`);
+    if (el) {
+      el.classList.add('card-jumping');
+      setTimeout(() => el.classList.remove('card-jumping'), 600);
+    }
+  };
+
+  // ジャンプの連続クリック防止（AppleScriptプロセス積み重なり防止）
+  const lastJumpTimeRef = useRef(0);
+
   const handleJumpToWindow = async (card: CardType) => {
     if (!card.windowApp || !card.windowId) return;
     if (!window.electronAPI?.activateWindow) return;
+
+    // 300msクールダウン（前回のAppleScriptと競合しないように）
+    const now = Date.now();
+    if (now - lastJumpTimeRef.current < 300) return;
+    lastJumpTimeRef.current = now;
 
     const anim = settings.activateAnimation || 'pop';
 
@@ -1143,11 +1233,13 @@ export function Board() {
     const cached = findWindowInCache(card);
     if (cached) {
       addToWindowHistory(card);
+      flashJumpingCard(card.id);
       window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim, (cached as any).windowIndex);
       return;
     }
 
     // キャッシュに無い場合のみフル検索（再リンクモーダル表示判定のため）
+    flashJumpingCard(card.id);
     const matchedWindow = await findMatchingWindow(card);
     if (matchedWindow) {
       addToWindowHistory(card);
@@ -1728,11 +1820,13 @@ export function Board() {
         <>
           <DndContext
             sensors={sensors}
+            collisionDetection={customCollisionDetection}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
             <div className="board">
+              <SortableContext items={data.columns.map(col => `column-${col.id}`)} strategy={horizontalListSortingStrategy}>
               {data.columns.map((column) => (
                 <Column
                   key={column.id}
@@ -1765,10 +1859,17 @@ export function Board() {
               <button className="add-column-button" onClick={handleAddColumn}>
                 + カラム追加
               </button>
+              </SortableContext>
             </div>
             <DragOverlay>
               {activeCard ? (
                 <Card card={activeCard} onDelete={() => {}} onEdit={() => {}} />
+              ) : activeColumnDrag ? (
+                <div className="column-drag-overlay">
+                  <div className="column-drag-overlay-title">
+                    {data.columns.find(col => col.id === activeColumnDrag)?.title || ''}
+                  </div>
+                </div>
               ) : null}
             </DragOverlay>
           </DndContext>
