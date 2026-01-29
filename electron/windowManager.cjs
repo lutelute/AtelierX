@@ -93,11 +93,13 @@ return windowList
             }
 
             const tty = parts[5]?.trim();
-            const stableId = (app === 'Terminal' && tty) ? tty : (parts[1] || String(index + 1));
+            const numericId = parts[1]?.trim();
+            const stableId = (app === 'Terminal' && tty) ? tty : (numericId || String(index + 1));
 
             windows.push({
               app,
               id: stableId,
+              numericId: numericId || undefined,
               name: parts[2] || 'Window',
               preview: preview || undefined,
               windowIndex: parseInt(parts[4]) || (index + 1),
