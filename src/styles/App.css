@@ -364,6 +364,7 @@ body {
   left: 2px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(12px);
 }
 
 .theme-light .theme-track {
@@ -371,7 +372,7 @@ body {
 }
 
 .theme-light .theme-thumb {
-  transform: translateX(12px);
+  transform: translateX(0);
 }
 
 /* ドラッグ領域 - ナビバーの左右と上部 */
@@ -6375,14 +6376,16 @@ body.theme-light {
   overflow-y: auto;
 }
 
-.popover-app-loading {
+.popover-app-loading,
+.popover-app-hint {
   padding: 12px 10px;
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
   font-size: 12px;
 }
 
-.theme-light .popover-app-loading {
+.theme-light .popover-app-loading,
+.theme-light .popover-app-hint {
   color: rgba(0, 0, 0, 0.4);
 }
 
