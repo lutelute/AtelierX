@@ -685,6 +685,28 @@ body {
   margin-top: 0;
 }
 
+.card-unlink-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: auto;
+  padding: 8px;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 6px;
+  color: rgba(234, 179, 8, 0.9);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.card-unlink-button:hover {
+  background: rgba(234, 179, 8, 0.3);
+  border-color: rgba(234, 179, 8, 0.5);
+}
+
 .card-close-window-button {
   display: flex;
   align-items: center;
@@ -3287,6 +3309,119 @@ body {
   background: rgba(239, 68, 68, 0.1);
 }
 
+
+.archive-card-clickable {
+  cursor: pointer;
+}
+
+/* アーカイブ詳細ビューア */
+.archive-viewer-modal {
+  max-width: 480px;
+  width: 90%;
+}
+
+.archive-viewer-body {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.archive-viewer-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #f4f4f5;
+  line-height: 1.4;
+}
+
+.archive-viewer-subtags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.archive-viewer-subtag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.archive-viewer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archive-viewer-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.archive-viewer-text {
+  font-size: 13px;
+  color: #d4d4d8;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.archive-viewer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.archive-viewer-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.archive-viewer-meta-label {
+  font-weight: 600;
+  color: #71717a;
+  min-width: 70px;
+}
+
+/* ライトテーマ: アーカイブビューア */
+.theme-light .archive-viewer-title {
+  color: #0f172a;
+}
+
+.theme-light .archive-viewer-label {
+  color: #64748b;
+}
+
+.theme-light .archive-viewer-text {
+  color: #334155;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.theme-light .archive-viewer-meta {
+  border-top-color: #e2e8f0;
+}
+
+.theme-light .archive-viewer-meta-row {
+  color: #475569;
+}
+
+.theme-light .archive-viewer-meta-label {
+  color: #64748b;
+}
 /* バックアップセクション */
 .backup-info {
   color: #a1a1aa;
@@ -4847,6 +4982,17 @@ body.theme-light {
 .theme-light .card-jump-button:hover {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.theme-light .card-unlink-button {
+  background: rgba(234, 179, 8, 0.1);
+  border-color: rgba(234, 179, 8, 0.2);
+  color: #b45309;
+}
+
+.theme-light .card-unlink-button:hover {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: rgba(234, 179, 8, 0.4);
 }
 
 .theme-light .card-close-window-button {
