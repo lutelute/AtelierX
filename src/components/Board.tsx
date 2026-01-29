@@ -1085,28 +1085,10 @@ export function Board() {
     });
   }, [setWindowHistory]);
 
-  // ウィンドウが存在するかチェック（キャッシュ優先、古い場合のみ再取得）
-  const findMatchingWindow = async (card: CardType): Promise<AppWindow | null> => {
+  // キャッシュからウィンドウを検索（ネットワーク取得なし、即時応答）
+  const findWindowInCache = (card: CardType): AppWindow | null => {
     if (!card.windowApp || !card.windowId) return null;
-
-    // キャッシュが5秒以内ならそのまま使用
-    let windows = cachedWindowsRef.current;
-    const cacheAge = Date.now() - lastCheckTimeRef.current;
-    if (cacheAge > 5000 && window.electronAPI?.getAppWindows) {
-      try {
-        const genericAppNames = enabledTabs
-          .filter(t => t.appName !== 'Terminal' && t.appName !== 'Finder')
-          .map(t => t.appName);
-        windows = await window.electronAPI.getAppWindows(
-          genericAppNames.length > 0 ? genericAppNames : undefined
-        );
-        cachedWindowsRef.current = windows;
-        lastCheckTimeRef.current = Date.now();
-      } catch {
-        // キャッシュをフォールバックとして使用
-      }
-    }
-
+    const windows = cachedWindowsRef.current;
     const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
     // ID完全一致
     const idMatch = appWindows.find((w: AppWindow) => w.id === card.windowId);
@@ -1119,20 +1101,56 @@ export function Board() {
     return null;
   };
 
+  // ウィンドウが存在するかチェック（キャッシュ優先、古い場合のみ再取得）
+  const findMatchingWindow = async (card: CardType): Promise<AppWindow | null> => {
+    // まずキャッシュで即時検索
+    const cached = findWindowInCache(card);
+    if (cached) return cached;
+
+    // キャッシュにない場合のみ、新規取得を試みる
+    if (window.electronAPI?.getAppWindows) {
+      try {
+        const genericAppNames = enabledTabs
+          .filter(t => t.appName !== 'Terminal' && t.appName !== 'Finder')
+          .map(t => t.appName);
+        const windows = await window.electronAPI.getAppWindows(
+          genericAppNames.length > 0 ? genericAppNames : undefined
+        );
+        cachedWindowsRef.current = windows;
+        lastCheckTimeRef.current = Date.now();
+
+        const appWindows = windows.filter((w: AppWindow) => w.app === card.windowApp);
+        const idMatch = appWindows.find((w: AppWindow) => w.id === card.windowId);
+        if (idMatch) return idMatch;
+        if (card.windowName) {
+          const nameMatch = appWindows.find((w: AppWindow) => w.name === card.windowName);
+          if (nameMatch) return nameMatch;
+        }
+      } catch {
+        // キャッシュをフォールバックとして使用
+      }
+    }
+    return null;
+  };
+
   const handleJumpToWindow = async (card: CardType) => {
     if (!card.windowApp || !card.windowId) return;
     if (!window.electronAPI?.activateWindow) return;
 
-    // ウィンドウをIDで検索
-    const matchedWindow = await findMatchingWindow(card);
-
-    if (matchedWindow) {
-      // 履歴に追加
+    // キャッシュから即時検索（AppleScript再取得をスキップして即応答）
+    const cached = findWindowInCache(card);
+    if (cached) {
       addToWindowHistory(card);
-      // ウィンドウをアクティブ化
+      window.electronAPI.activateWindow(cached.app, cached.id, cached.name);
+      return;
+    }
+
+    // キャッシュに無い場合のみフル検索（再リンクモーダル表示判定のため）
+    const matchedWindow = await findMatchingWindow(card);
+    if (matchedWindow) {
+      addToWindowHistory(card);
       window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name);
     } else {
-      // ウィンドウが見つからない場合は再リンクモーダルを表示
       setRelinkingCard(card);
     }
   };

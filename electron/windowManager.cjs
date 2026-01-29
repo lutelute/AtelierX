@@ -296,21 +296,21 @@ tell application "System Events"
       repeat with w in windows
         if name of w is "${escapedName}" then
           perform action "AXRaise" of w
-          -- バウンスエフェクト: 縮小→戻す→少し縮小→戻す
+          -- ポップエフェクト: 引っ込んで→飛び出す→戻る
           try
             set origPos to position of w
             set origSize to size of w
             set {x0, y0} to origPos
             set {w0, h0} to origSize
-            set position of w to {x0 + 35, y0 + 35}
-            set size of w to {w0 - 70, h0 - 70}
-            delay 0.07
-            set position of w to origPos
-            set size of w to origSize
-            delay 0.06
-            set position of w to {x0 + 15, y0 + 15}
-            set size of w to {w0 - 30, h0 - 30}
-            delay 0.05
+            -- 引っ込む
+            set position of w to {x0 + 30, y0 + 30}
+            set size of w to {w0 - 60, h0 - 60}
+            delay 0.04
+            -- 少し大きく飛び出す
+            set position of w to {x0 - 6, y0 - 6}
+            set size of w to {w0 + 12, h0 + 12}
+            delay 0.04
+            -- 元に戻る
             set position of w to origPos
             set size of w to origSize
           end try
@@ -496,21 +496,21 @@ if targetWindowName is not "" then
       repeat with w in windows
         if name of w is targetWindowName then
           perform action "AXRaise" of w
-          -- バウンスエフェクト: 縮小→戻す→少し縮小→戻す
+          -- ポップエフェクト: 引っ込んで→飛び出す→戻る
           try
             set origPos to position of w
             set origSize to size of w
             set {x0, y0} to origPos
             set {w0, h0} to origSize
-            set position of w to {x0 + 35, y0 + 35}
-            set size of w to {w0 - 70, h0 - 70}
-            delay 0.07
-            set position of w to origPos
-            set size of w to origSize
-            delay 0.06
-            set position of w to {x0 + 15, y0 + 15}
-            set size of w to {w0 - 30, h0 - 30}
-            delay 0.05
+            -- 引っ込む
+            set position of w to {x0 + 30, y0 + 30}
+            set size of w to {w0 - 60, h0 - 60}
+            delay 0.04
+            -- 少し大きく飛び出す
+            set position of w to {x0 - 6, y0 - 6}
+            set size of w to {w0 + 12, h0 + 12}
+            delay 0.04
+            -- 元に戻る
             set position of w to origPos
             set size of w to origSize
           end try
@@ -588,21 +588,21 @@ if targetWindowName is not "" then
       repeat with w in windows
         if name of w is targetWindowName then
           perform action "AXRaise" of w
-          -- バウンスエフェクト: 縮小→戻す→少し縮小→戻す
+          -- ポップエフェクト: 引っ込んで→飛び出す→戻る
           try
             set origPos to position of w
             set origSize to size of w
             set {x0, y0} to origPos
             set {w0, h0} to origSize
-            set position of w to {x0 + 35, y0 + 35}
-            set size of w to {w0 - 70, h0 - 70}
-            delay 0.07
-            set position of w to origPos
-            set size of w to origSize
-            delay 0.06
-            set position of w to {x0 + 15, y0 + 15}
-            set size of w to {w0 - 30, h0 - 30}
-            delay 0.05
+            -- 引っ込む
+            set position of w to {x0 + 30, y0 + 30}
+            set size of w to {w0 - 60, h0 - 60}
+            delay 0.04
+            -- 少し大きく飛び出す
+            set position of w to {x0 - 6, y0 - 6}
+            set size of w to {w0 + 12, h0 + 12}
+            delay 0.04
+            -- 元に戻る
             set position of w to origPos
             set size of w to origSize
           end try
