@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { BoardData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, getTabIdForApp } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, Settings, WindowHistory, Idea, IdeaCategory, PluginCardActionInfo, TimerAction, AppTabConfig, BUILTIN_APPS, getTabIdForApp } from '../types';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -31,21 +31,83 @@ import { IdeasPanel } from './IdeasPanel';
 import { AddIdeaModal } from './AddIdeaModal';
 import { TabAddPopover } from './TabAddPopover';
 
-const initialData: BoardData = {
-  columns: [
-    { id: 'todo', title: '未着手', cardIds: [] },
-    { id: 'in-progress', title: '実行中', cardIds: [] },
-    { id: 'done', title: '完了', cardIds: [] },
-  ],
-  cards: {},
-  columnOrder: ['todo', 'in-progress', 'done'],
+function createDefaultBoard(): BoardData {
+  return {
+    columns: [
+      { id: 'todo', title: '未着手', cardIds: [] },
+      { id: 'in-progress', title: '実行中', cardIds: [] },
+      { id: 'done', title: '完了', cardIds: [] },
+    ],
+    cards: {},
+    columnOrder: ['todo', 'in-progress', 'done'],
+  };
+}
+
+const initialAllBoardsData: AllBoardsData = {
+  boards: {
+    terminal: createDefaultBoard(),
+    finder: createDefaultBoard(),
+  },
+  ideas: [],
 };
+
+// AllBoardsData かどうかを判定（旧形式BoardDataと区別）
+function isAllBoardsData(data: unknown): data is AllBoardsData {
+  return data !== null && typeof data === 'object' && 'boards' in (data as Record<string, unknown>);
+}
+
+// 旧形式 BoardData → AllBoardsData へのマイグレーション
+function migrateBoardDataToAllBoards(oldData: BoardData): AllBoardsData {
+  // 全タブのIDを収集（カードのtagから）
+  const tabIds = new Set<string>();
+  Object.values(oldData.cards).forEach(card => {
+    if (card.tag) tabIds.add(card.tag);
+  });
+  // 最低限 terminal, finder を含める
+  tabIds.add('terminal');
+  tabIds.add('finder');
+
+  const boards: Record<string, BoardData> = {};
+
+  for (const tabId of tabIds) {
+    // そのタブに属するカードのIDを収集
+    const tabCardIds = new Set(
+      Object.values(oldData.cards)
+        .filter(card => card.tag === tabId)
+        .map(card => card.id)
+    );
+
+    // タブ専用のカードオブジェクト
+    const tabCards: Record<string, CardType> = {};
+    for (const cardId of tabCardIds) {
+      tabCards[cardId] = oldData.cards[cardId];
+    }
+
+    // カラム構成を複製し、cardIdsをこのタブのカードのみに絞る
+    const tabColumns = oldData.columns.map(col => ({
+      ...col,
+      cardIds: col.cardIds.filter(id => tabCardIds.has(id)),
+    }));
+
+    boards[tabId] = {
+      columns: tabColumns,
+      cards: tabCards,
+      columnOrder: [...oldData.columnOrder],
+    };
+  }
+
+  return {
+    boards,
+    ideas: oldData.ideas || [],
+  };
+}
 
 const BACKUP_INTERVAL = 60000; // 1分ごとに自動バックアップ
 
 export function Board() {
-  const [data, setData] = useLocalStorage<BoardData>('kanban-data', initialData);
+  const [allData, setAllData] = useLocalStorage<AllBoardsData>('kanban-all-boards', initialAllBoardsData);
   const [activityLogs, setActivityLogs] = useLocalStorage<ActivityLog[]>('activity-logs', []);
+  const hasMigrated = useRef(false);
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
   const [activeColumnDrag, setActiveColumnDrag] = useState<string | null>(null);
   const [modalColumnId, setModalColumnId] = useState<string | null>(null);
@@ -54,6 +116,32 @@ export function Board() {
   const [unaddedWindows, setUnaddedWindows] = useState<AppWindow[]>([]);
   const [reminderDismissed, setReminderDismissed] = useState(false);
   const [activeBoard, setActiveBoard] = useState<BoardType | 'ideas'>('terminal');
+
+  // 旧形式 kanban-data → kanban-all-boards マイグレーション（起動時1回）
+  useEffect(() => {
+    if (hasMigrated.current) return;
+    hasMigrated.current = true;
+
+    try {
+      const oldRaw = localStorage.getItem('kanban-data');
+      if (!oldRaw) return;
+
+      const oldData = JSON.parse(oldRaw) as BoardData;
+      // 旧形式の場合のみマイグレーション（columnsフィールドの有無で判定）
+      if (!oldData.columns) return;
+
+      const migrated = migrateBoardDataToAllBoards(oldData);
+      setAllData(migrated);
+
+      // 旧キーをバックアップとしてリネーム
+      localStorage.setItem('kanban-data-backup', oldRaw);
+      localStorage.removeItem('kanban-data');
+      console.log('Migration: kanban-data → kanban-all-boards completed');
+    } catch (error) {
+      console.error('Migration failed:', error);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [showExportModal, setShowExportModal] = useState(false);
   const [showAddIdeaModal, setShowAddIdeaModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -62,13 +150,48 @@ export function Board() {
   const [settings, setSettings] = useLocalStorage<Settings>('app-settings', defaultSettings);
   const [lastBackupTime, setLastBackupTime] = useLocalStorage<number>('last-backup-time', 0);
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
-  const [backupToRestore, setBackupToRestore] = useState<{ boardData: BoardData; activityLogs: ActivityLog[]; settings: Settings } | null>(null);
+  const [backupToRestore, setBackupToRestore] = useState<{ boardData: AllBoardsData; activityLogs: ActivityLog[]; settings: Settings } | null>(null);
   const hasCheckedBackup = useRef(false);
   const [showGridModal, setShowGridModal] = useState(false);
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [relinkingCard, setRelinkingCard] = useState<CardType | null>(null);
   const [brokenLinkCards, setBrokenLinkCards] = useState<CardType[]>([]);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
+  // アクティブボードのデータを取得するヘルパー
+  const currentBoard: BoardData = useMemo(() => {
+    if (activeBoard === 'ideas') return allData.boards['terminal'] || createDefaultBoard();
+    return allData.boards[activeBoard] || createDefaultBoard();
+  }, [allData, activeBoard]);
+
+  // アクティブボードのデータを更新するヘルパー
+  const updateCurrentBoard = useCallback((updater: (prev: BoardData) => BoardData) => {
+    setAllData(prev => {
+      const boardId = activeBoard === 'ideas' ? 'terminal' : activeBoard;
+      const board = prev.boards[boardId] || createDefaultBoard();
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updater(board),
+        },
+      };
+    });
+  }, [setAllData, activeBoard]);
+
+  // 特定のボードを更新するヘルパー（タブ間でカードを移動する場合に使用）
+  const updateBoard = useCallback((boardId: string, updater: (prev: BoardData) => BoardData) => {
+    setAllData(prev => {
+      const board = prev.boards[boardId] || createDefaultBoard();
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [boardId]: updater(board),
+        },
+      };
+    });
+  }, [setAllData]);
+
   // TabAddPopover関連のstate/refは TabAddPopover コンポーネントに分離済み
   const navTabsRef = useRef<HTMLDivElement>(null);
   const [tabsScrollState, setTabsScrollState] = useState<'none' | 'left' | 'right' | 'both'>('none');
@@ -84,34 +207,34 @@ export function Board() {
   // 連続ミスカウント（一時的な失敗でリンク切れ表示を防止）
   const missCountRef = useRef<Record<string, number>>({});
   // useRef化: コールバック内でstateの最新値を参照するため（依存配列から除外可能に）
-  const dataRef = useRef(data);
-  dataRef.current = data;
+  const allDataRef = useRef(allData);
+  allDataRef.current = allData;
   const activityLogsRef = useRef(activityLogs);
   activityLogsRef.current = activityLogs;
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  // Undo スタック（最大30件の BoardData スナップショット）
+  // Undo スタック（最大30件の AllBoardsData スナップショット）
   const MAX_UNDO = 30;
-  const undoStackRef = useRef<BoardData[]>([]);
+  const undoStackRef = useRef<AllBoardsData[]>([]);
   // 直前のデータ状態を保持（変更検出用 — 参照比較で高速化）
-  const prevDataRef = useRef<BoardData | null>(null);
+  const prevDataRef = useRef<AllBoardsData | null>(null);
 
-  // data が変更されたらスナップショットを自動保存
+  // allData が変更されたらスナップショットを自動保存
   useEffect(() => {
-    if (prevDataRef.current && prevDataRef.current !== data) {
+    if (prevDataRef.current && prevDataRef.current !== allData) {
       undoStackRef.current = [...undoStackRef.current.slice(-(MAX_UNDO - 1)), prevDataRef.current];
     }
-    prevDataRef.current = data;
-  }, [data]);
+    prevDataRef.current = allData;
+  }, [allData]);
 
   // Undo 実行
   const handleUndo = useCallback(() => {
     if (undoStackRef.current.length === 0) return;
     const prev = undoStackRef.current.pop()!;
     prevDataRef.current = prev;
-    setData(prev);
-  }, [setData]);
+    setAllData(prev);
+  }, [setAllData]);
 
   // 有効なアプリタブ一覧 (後方互換: 未設定ならビルトインのみ)
   const enabledTabs: AppTabConfig[] = useMemo(() => {
@@ -193,7 +316,7 @@ export function Board() {
     if (!window.electronAPI?.saveBackup) return;
     try {
       const result = await window.electronAPI.saveBackup({
-        boardData: dataRef.current,
+        boardData: allDataRef.current,
         activityLogs: activityLogsRef.current,
         settings: settingsRef.current,
       });
@@ -214,17 +337,29 @@ export function Board() {
     const checkBackup = async () => {
       if (!window.electronAPI?.loadBackup) return;
 
-      // ローカルストレージにカードがない場合のみ復元を提案
-      const hasCards = Object.keys(data.cards).length > 0;
-      if (hasCards) return;
+      // 全ボードのカード数を確認
+      const totalCards = Object.values(allData.boards).reduce(
+        (sum, board) => sum + Object.keys(board.cards).length, 0
+      );
+      if (totalCards > 0) return;
 
       try {
         const result = await window.electronAPI.loadBackup();
         if (result.success && result.data && result.data.boardData) {
-          const backupHasCards = Object.keys(result.data.boardData.cards).length > 0;
-          if (backupHasCards) {
+          // バックアップデータを AllBoardsData に変換
+          let backupAllData: AllBoardsData;
+          if (isAllBoardsData(result.data.boardData)) {
+            backupAllData = result.data.boardData;
+          } else {
+            backupAllData = migrateBoardDataToAllBoards(result.data.boardData as BoardData);
+          }
+
+          const backupTotalCards = Object.values(backupAllData.boards).reduce(
+            (sum, board) => sum + Object.keys(board.cards).length, 0
+          );
+          if (backupTotalCards > 0) {
             setBackupToRestore({
-              boardData: result.data.boardData,
+              boardData: backupAllData,
               activityLogs: result.data.activityLogs || [],
               settings: result.data.settings || defaultSettings,
             });
@@ -237,7 +372,7 @@ export function Board() {
     };
 
     checkBackup();
-  }, [data.cards]);
+  }, [allData.boards]);
 
   // 定期的な自動バックアップ
   useEffect(() => {
@@ -317,7 +452,18 @@ export function Board() {
       if (current.find(t => t.id === tab.id)) return prev;
       return { ...prev, enabledAppTabs: [...current, tab] };
     });
-  }, [setSettings]);
+    // 新しいタブにデフォルトボードを作成（まだ存在しない場合）
+    setAllData(prev => {
+      if (prev.boards[tab.id]) return prev;
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [tab.id]: createDefaultBoard(),
+        },
+      };
+    });
+  }, [setSettings, setAllData]);
 
   // タブを削除
   const handleRemoveTab = useCallback((tabId: string) => {
@@ -339,7 +485,7 @@ export function Board() {
   // バックアップから復元
   const handleRestoreFromBackup = () => {
     if (backupToRestore) {
-      setData(backupToRestore.boardData);
+      setAllData(backupToRestore.boardData);
       setActivityLogs(backupToRestore.activityLogs);
       setSettings(backupToRestore.settings);
       setShowRestorePrompt(false);
@@ -358,7 +504,7 @@ export function Board() {
     if (!window.electronAPI?.exportBackup) return;
     try {
       const result = await window.electronAPI.exportBackup({
-        boardData: data,
+        boardData: allData,
         activityLogs,
         settings,
       });
@@ -381,7 +527,12 @@ export function Board() {
           `バックアップを復元しますか？\n現在のデータは上書きされます。\n\nバックアップ日時: ${new Date(result.data.backupAt).toLocaleString()}`
         );
         if (confirmRestore) {
-          setData(result.data.boardData);
+          // 旧形式のバックアップもサポート
+          if (isAllBoardsData(result.data.boardData)) {
+            setAllData(result.data.boardData);
+          } else {
+            setAllData(migrateBoardDataToAllBoards(result.data.boardData as BoardData));
+          }
           setActivityLogs(result.data.activityLogs || []);
           if (result.data.settings) {
             setSettings(result.data.settings);
@@ -471,7 +622,9 @@ export function Board() {
       lastCheckTimeRef.current = Date.now();
       const currentWindowIds = new Set(currentWindows.map((w: AppWindow) => w.id));
 
-      const cards = dataRef.current.cards;
+      const boardId = activeBoard === 'ideas' ? 'terminal' : activeBoard;
+      const board = allDataRef.current.boards[boardId] || createDefaultBoard();
+      const cards = board.cards;
 
       // ボードに登録されているウィンドウIDを取得
       const registeredWindowIds = new Set(
@@ -510,7 +663,7 @@ export function Board() {
           if (nameMatch) {
             // 見つかった → ミスカウントリセット & カードのwindowIdを自動更新
             missCountRef.current[card.id] = 0;
-            setData((prev) => ({
+            updateCurrentBoard((prev) => ({
               ...prev,
               cards: {
                 ...prev.cards,
@@ -549,7 +702,7 @@ export function Board() {
     } finally {
       isCheckingRef.current = false;
     }
-  }, [activeBoard, enabledTabs, setData]);
+  }, [activeBoard, enabledTabs, updateCurrentBoard]);
 
   // タブ切替時のデバウンス用タイマー
   const checkTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -609,7 +762,7 @@ export function Board() {
     };
 
     // デフォルトで「未着手」カラムに追加
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -654,7 +807,7 @@ export function Board() {
       newCardIds.push(cardId);
     });
 
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -703,7 +856,7 @@ export function Board() {
   }, []);
 
   const findColumnByCardId = (cardId: string): string | undefined => {
-    return data.columns.find((col) => col.cardIds.includes(cardId))?.id;
+    return currentBoard.columns.find((col) => col.cardIds.includes(cardId))?.id;
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -716,7 +869,7 @@ export function Board() {
       return;
     }
 
-    const card = data.cards[activeId];
+    const card = currentBoard.cards[activeId];
     if (card) {
       setActiveCard(card);
     }
@@ -744,7 +897,7 @@ export function Board() {
     }
 
     // カード移動をログに記録
-    const card = data.cards[activeId];
+    const card = currentBoard.cards[activeId];
     if (card) {
       addLog({
         type: overColumnId === 'done' ? 'complete' : 'move',
@@ -756,7 +909,7 @@ export function Board() {
       });
     }
 
-    setData((prev) => {
+    updateCurrentBoard((prev) => {
       const activeColumn = prev.columns.find((col) => col.id === activeColumnId)!;
       const overColumn = prev.columns.find((col) => col.id === overColumnId)!;
 
@@ -810,7 +963,7 @@ export function Board() {
       const activeColId = activeId.replace('column-', '');
       const overColId = overId.replace('column-', '');
       if (activeColId !== overColId) {
-        setData((prev) => {
+        updateCurrentBoard((prev) => {
           const oldIndex = prev.columns.findIndex((col) => col.id === activeColId);
           const newIndex = prev.columns.findIndex((col) => col.id === overColId);
           if (oldIndex === -1 || newIndex === -1) return prev;
@@ -832,14 +985,14 @@ export function Board() {
     if (!activeColumnId) return;
 
     if (activeColumnId === overColumnId) {
-      const column = data.columns.find((col) => col.id === activeColumnId);
+      const column = currentBoard.columns.find((col) => col.id === activeColumnId);
       if (!column) return;
 
       const oldIndex = column.cardIds.indexOf(activeId);
       const newIndex = column.cardIds.indexOf(overId);
 
       if (oldIndex !== newIndex && newIndex >= 0) {
-        setData((prev) => ({
+        updateCurrentBoard((prev) => ({
           ...prev,
           columns: prev.columns.map((col) => {
             if (col.id === activeColumnId) {
@@ -881,7 +1034,9 @@ export function Board() {
       toColumn: modalColumnId,
     });
 
-    setData((prev) => ({
+    // tagが現在のタブと異なる場合は、そのタブのボードに追加
+    const targetBoardId = tag || activeBoard;
+    updateBoard(targetBoardId === 'ideas' ? 'terminal' : targetBoardId, (prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -932,7 +1087,7 @@ export function Board() {
       toColumn: modalColumnId,
     });
 
-    setData((prev) => ({
+    updateBoard('terminal', (prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -951,7 +1106,7 @@ export function Board() {
   };
 
   const handleDeleteCard = useCallback((cardId: string) => {
-    setData((prev) => {
+    updateCurrentBoard((prev) => {
       const { [cardId]: _, ...remainingCards } = prev.cards;
       return {
         ...prev,
@@ -962,11 +1117,11 @@ export function Board() {
         })),
       };
     });
-  }, [setData]);
+  }, [updateCurrentBoard]);
 
   // カードをアーカイブ
   const handleArchiveCard = useCallback((cardId: string) => {
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -981,11 +1136,11 @@ export function Board() {
         cardIds: col.cardIds.filter((id) => id !== cardId),
       })),
     }));
-  }, [setData]);
+  }, [updateCurrentBoard]);
 
   // アーカイブからカードを復元
   const handleRestoreCard = (cardId: string) => {
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1018,7 +1173,7 @@ export function Board() {
       createdAt: Date.now(),
     };
 
-    setData((prev) => ({
+    setAllData((prev) => ({
       ...prev,
       ideas: [...(prev.ideas || []), newIdea],
     }));
@@ -1026,7 +1181,7 @@ export function Board() {
 
   // アイデアをボードに復元
   const handleRestoreIdeaToBoard = (ideaId: string, targetBoard: BoardType) => {
-    const idea = data.ideas?.find((i) => i.id === ideaId);
+    const idea = allData.ideas?.find((i) => i.id === ideaId);
     if (!idea) return;
 
     // カードを作成
@@ -1049,23 +1204,30 @@ export function Board() {
       toColumn: 'todo',
     });
 
-    setData((prev) => ({
-      ...prev,
-      cards: {
-        ...prev.cards,
-        [cardId]: newCard,
-      },
-      columns: prev.columns.map((col) => {
-        if (col.id === 'todo') {
-          return {
-            ...col,
-            cardIds: [...col.cardIds, cardId],
-          };
-        }
-        return col;
-      }),
-      ideas: (prev.ideas || []).filter((i) => i.id !== ideaId),
-    }));
+    // ターゲットボードにカードを追加 & ideasから削除
+    setAllData((prev) => {
+      const board = prev.boards[targetBoard] || createDefaultBoard();
+      return {
+        ...prev,
+        boards: {
+          ...prev.boards,
+          [targetBoard]: {
+            ...board,
+            cards: {
+              ...board.cards,
+              [cardId]: newCard,
+            },
+            columns: board.columns.map((col) => {
+              if (col.id === 'todo') {
+                return { ...col, cardIds: [...col.cardIds, cardId] };
+              }
+              return col;
+            }),
+          },
+        },
+        ideas: (prev.ideas || []).filter((i) => i.id !== ideaId),
+      };
+    });
 
     // ボードを切り替え
     setActiveBoard(targetBoard);
@@ -1073,7 +1235,7 @@ export function Board() {
 
   // アイデアを削除
   const handleDeleteIdea = (ideaId: string) => {
-    setData((prev) => ({
+    setAllData((prev) => ({
       ...prev,
       ideas: (prev.ideas || []).filter((i) => i.id !== ideaId),
     }));
@@ -1081,7 +1243,7 @@ export function Board() {
 
   // カードをIdeasに送る（今じゃない）
   const handleSendToIdeas = (cardId: string) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (!card) return;
 
     // カードからアイデアを作成
@@ -1095,15 +1257,23 @@ export function Board() {
     };
 
     // カードを削除してアイデアを追加
-    setData((prev) => {
-      const { [cardId]: _, ...remainingCards } = prev.cards;
+    setAllData((prev) => {
+      const boardId = activeBoard === 'ideas' ? 'terminal' : activeBoard;
+      const board = prev.boards[boardId] || createDefaultBoard();
+      const { [cardId]: _, ...remainingCards } = board.cards;
       return {
         ...prev,
-        cards: remainingCards,
-        columns: prev.columns.map((col) => ({
-          ...col,
-          cardIds: col.cardIds.filter((id) => id !== cardId),
-        })),
+        boards: {
+          ...prev.boards,
+          [boardId]: {
+            ...board,
+            cards: remainingCards,
+            columns: board.columns.map((col) => ({
+              ...col,
+              cardIds: col.cardIds.filter((id) => id !== cardId),
+            })),
+          },
+        },
         ideas: [...(prev.ideas || []), newIdea],
       };
     });
@@ -1111,23 +1281,18 @@ export function Board() {
 
   // アーカイブされたカードを取得 — useMemo化
   const archivedCards = useMemo(() => {
-    const activeTab = enabledTabs.find(t => t.id === activeBoard);
-    return Object.values(data.cards).filter((card) => {
-      if (!card.archived) return false;
-      if (!activeTab) return false;
-      return card.tag === activeBoard || card.windowApp === activeTab.appName;
-    });
-  }, [data.cards, activeBoard, enabledTabs]);
+    return Object.values(currentBoard.cards).filter((card) => card.archived);
+  }, [currentBoard.cards]);
 
   const handleEditCard = useCallback((cardId: string) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (card) {
       setEditingCard(card);
     }
-  }, [data.cards]);
+  }, [currentBoard.cards]);
 
   const handleSaveCard = (updatedCard: CardType) => {
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1250,14 +1415,14 @@ export function Board() {
   };
 
   const handleJumpCard = async (cardId: string) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (card) {
       await handleJumpToWindow(card);
     }
   };
 
   const handleCloseWindowCard = async (cardId: string) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (!card?.windowApp || !card?.windowId) return;
     if (!window.electronAPI?.closeWindow) return;
 
@@ -1276,7 +1441,7 @@ export function Board() {
 
   // カードクリック時のハンドラ（設定に応じて動作を変更）
   const handleCardClick = async (cardId: string) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (!card) return;
 
     if (settings.cardClickBehavior === 'jump' && card.windowApp && card.windowName) {
@@ -1326,7 +1491,7 @@ export function Board() {
 
   // プラグインカードアクションを実行
   const handleCardAction = async (cardId: string, actionId: string, taskIndex?: number) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (!card || !window.electronAPI?.plugins?.executeCardAction) return;
 
     try {
@@ -1343,7 +1508,7 @@ export function Board() {
   const handleTimerAction = useCallback((cardId: string, taskIndex: number, action: TimerAction) => {
     const now = Date.now();
 
-    setData((prev) => {
+    updateCurrentBoard((prev) => {
       const card = prev.cards[cardId];
       if (!card || !card.description) return prev;
 
@@ -1428,7 +1593,7 @@ export function Board() {
         },
       };
     });
-  }, [setData, formatDateTime, parseTimerStartTime, formatDuration, CHECKBOX_PATTERN]);
+  }, [updateCurrentBoard, formatDateTime, parseTimerStartTime, formatDuration, CHECKBOX_PATTERN]);
 
   // 再リンク: 現在のウィンドウを選択
   const handleRelinkSelectCurrent = (appWindow: AppWindow) => {
@@ -1438,7 +1603,7 @@ export function Board() {
     addToWindowHistory(relinkingCard);
 
     // カードを更新
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1469,7 +1634,7 @@ export function Board() {
 
       if (existingWindow) {
         // ウィンドウが存在する場合はリンク
-        setData((prev) => ({
+        updateCurrentBoard((prev) => ({
           ...prev,
           cards: {
             ...prev.cards,
@@ -1506,7 +1671,7 @@ export function Board() {
       );
 
       if (newWindow) {
-        setData((prev) => ({
+        updateCurrentBoard((prev) => ({
           ...prev,
           cards: {
             ...prev.cards,
@@ -1530,7 +1695,7 @@ export function Board() {
     // 履歴に古いウィンドウ情報を追加
     addToWindowHistory(relinkingCard);
 
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1548,13 +1713,13 @@ export function Board() {
 
   // ウィンドウリンクを解除（カードからリンク情報をクリア）
   const handleUnlinkWindow = useCallback((cardId: string) => {
-    const card = data.cards[cardId];
+    const card = currentBoard.cards[cardId];
     if (!card) return;
 
     // 履歴に古いウィンドウ情報を追加
     addToWindowHistory(card);
 
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1566,11 +1731,11 @@ export function Board() {
         },
       },
     }));
-  }, [data.cards, addToWindowHistory, setData]);
+  }, [currentBoard.cards, addToWindowHistory, updateCurrentBoard]);
 
   // カードの説明を更新（タスクチェック用）
   const handleUpdateDescription = useCallback((cardId: string, description: string) => {
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1580,11 +1745,11 @@ export function Board() {
         },
       },
     }));
-  }, [setData]);
+  }, [updateCurrentBoard]);
 
   // カードのステータスマーカーを更新
   const handleUpdateStatusMarker = useCallback((cardId: string, marker: CardStatusMarker) => {
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1594,7 +1759,7 @@ export function Board() {
         },
       },
     }));
-  }, [setData]);
+  }, [updateCurrentBoard]);
 
   const handleDropWindow = useCallback((columnId: string) => {
     setWindowSelectColumnId(columnId);
@@ -1618,7 +1783,7 @@ export function Board() {
       windowName: appWindow.name, // 検索用にフルネームを保持
     };
 
-    setData((prev) => ({
+    updateCurrentBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -1638,21 +1803,19 @@ export function Board() {
     setWindowSelectColumnId(null);
   };
 
-  // アクティブなボードに応じてカードをフィルタリング（アーカイブ済みを除外）— useMemo化
+  // カラムごとのカード（アーカイブ済みを除外）— フィルタリング不要（各ボードに自分のカードのみ存在）
   const filteredCardsByColumn = useMemo(() => {
-    const activeTab = enabledTabs.find(t => t.id === activeBoard);
     const result: Record<string, CardType[]> = {};
-    for (const column of data.columns) {
+    for (const column of currentBoard.columns) {
       result[column.id] = column.cardIds
-        .map((id) => data.cards[id])
+        .map((id) => currentBoard.cards[id])
         .filter((card): card is CardType => {
           if (!card || card.archived) return false;
-          if (!activeTab) return false;
-          return card.tag === activeBoard || card.windowApp === activeTab.appName;
+          return true;
         });
     }
     return result;
-  }, [data.columns, data.cards, activeBoard, enabledTabs]);
+  }, [currentBoard.columns, currentBoard.cards]);
 
   // リンク切れカードのIDセット
   const brokenLinkCardIds = useMemo(() => {
@@ -1662,7 +1825,7 @@ export function Board() {
   // カラム追加
   const handleAddColumn = () => {
     const id = `col-${Date.now()}`;
-    setData(prev => ({
+    updateCurrentBoard(prev => ({
       ...prev,
       columns: [...prev.columns, { id, title: '新規カラム', cardIds: [] }],
       columnOrder: [...prev.columnOrder, id],
@@ -1675,7 +1838,7 @@ export function Board() {
   // カラム削除（基本3カラムは削除不可、カードは必ず移動先へ退避）
   const handleDeleteColumn = (columnId: string, moveToColumnId?: string) => {
     if (DEFAULT_COLUMN_IDS.has(columnId)) return; // 基本カラムは削除不可
-    setData(prev => {
+    updateCurrentBoard(prev => {
       const col = prev.columns.find(c => c.id === columnId);
       let newColumns = prev.columns.filter(c => c.id !== columnId);
       if (col && col.cardIds.length > 0) {
@@ -1697,23 +1860,23 @@ export function Board() {
 
   // カラム色変更
   const handleChangeColumnColor = useCallback((columnId: string, color: string) => {
-    setData(prev => ({
+    updateCurrentBoard(prev => ({
       ...prev,
       columns: prev.columns.map(col =>
         col.id === columnId ? { ...col, color } : col
       ),
     }));
-  }, [setData]);
+  }, [updateCurrentBoard]);
 
   // カラムリネーム
   const handleRenameColumn = useCallback((columnId: string, newTitle: string) => {
-    setData(prev => ({
+    updateCurrentBoard(prev => ({
       ...prev,
       columns: prev.columns.map(col =>
         col.id === columnId ? { ...col, title: newTitle } : col
       ),
     }));
-  }, [setData]);
+  }, [updateCurrentBoard]);
 
   const toggleTheme = () => {
     const newTheme = (settings.theme || 'dark') === 'dark' ? 'light' : 'dark';
@@ -1781,8 +1944,8 @@ export function Board() {
             >
               <span className="tab-icon">💡</span>
               <span className="tab-label">Ideas</span>
-              {(data.ideas?.length || 0) > 0 && (
-                <span className="tab-badge">{data.ideas?.length}</span>
+              {(allData.ideas?.length || 0) > 0 && (
+                <span className="tab-badge">{allData.ideas?.length}</span>
               )}
             </button>
           </div>
@@ -1826,8 +1989,8 @@ export function Board() {
             onDragEnd={handleDragEnd}
           >
             <div className="board">
-              <SortableContext items={data.columns.map(col => `column-${col.id}`)} strategy={horizontalListSortingStrategy}>
-              {data.columns.map((column) => (
+              <SortableContext items={currentBoard.columns.map(col => `column-${col.id}`)} strategy={horizontalListSortingStrategy}>
+              {currentBoard.columns.map((column) => (
                 <Column
                   key={column.id}
                   column={column}
@@ -1852,7 +2015,7 @@ export function Board() {
                   onRenameColumn={handleRenameColumn}
                   onDeleteColumn={handleDeleteColumn}
                   onChangeColumnColor={handleChangeColumnColor}
-                  allColumns={data.columns}
+                  allColumns={currentBoard.columns}
                   canDelete={!DEFAULT_COLUMN_IDS.has(column.id)}
                 />
               ))}
@@ -1867,7 +2030,7 @@ export function Board() {
               ) : activeColumnDrag ? (
                 <div className="column-drag-overlay">
                   <div className="column-drag-overlay-title">
-                    {data.columns.find(col => col.id === activeColumnDrag)?.title || ''}
+                    {currentBoard.columns.find(col => col.id === activeColumnDrag)?.title || ''}
                   </div>
                 </div>
               ) : null}
@@ -1883,7 +2046,7 @@ export function Board() {
         </>
       ) : (
         <IdeasPanel
-          ideas={data.ideas || []}
+          ideas={allData.ideas || []}
           onAddIdea={() => setShowAddIdeaModal(true)}
           onRestoreToBoard={handleRestoreIdeaToBoard}
           onDeleteIdea={handleDeleteIdea}
@@ -1973,7 +2136,7 @@ export function Board() {
       {showExportModal && (
         <ExportModal
           logs={activityLogs}
-          boardData={data}
+          allBoardsData={allData}
           onClose={() => setShowExportModal(false)}
           onSave={handleSaveExport}
           onObsidian={handleObsidianExport}
@@ -1997,7 +2160,7 @@ export function Board() {
             </div>
             <div className="restore-prompt-content">
               <p>前回のバックアップが見つかりました。</p>
-              <p>カード数: {Object.keys(backupToRestore.boardData.cards).length}</p>
+              <p>カード数: {Object.values(backupToRestore.boardData.boards).reduce((sum, board) => sum + Object.keys(board.cards).length, 0)}</p>
               <p className="restore-warning">現在のデータは空です。バックアップから復元しますか？</p>
             </div>
             <div className="form-actions">

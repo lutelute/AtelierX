@@ -205,7 +205,7 @@ export interface NoteInfo {
 
 // バックアップデータの型
 export interface BackupData {
-  boardData: BoardData;
+  boardData: BoardData | AllBoardsData;  // 旧形式(BoardData)または新形式(AllBoardsData)
   activityLogs: ActivityLog[];
   settings: Settings;
   backupAt: number;
@@ -472,7 +472,13 @@ export interface BoardData {
   columns: Column[];
   cards: Record<string, Card>;
   columnOrder: string[];
-  ideas?: Idea[];  // アイデアバックログ
+  ideas?: Idea[];  // アイデアバックログ（後方互換用、AllBoardsData.ideasに移行）
+}
+
+// 全ボードデータ（タブごとに独立したBoardData）
+export interface AllBoardsData {
+  boards: Record<string, BoardData>;  // タブIDごとのBoardData
+  ideas?: Idea[];                     // 全タブ共通のアイデアバックログ
 }
 
 // 後方互換性: ビルトインのタグ色・ラベル

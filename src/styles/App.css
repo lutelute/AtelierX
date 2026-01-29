@@ -4119,6 +4119,35 @@ body {
   border-bottom-color: #a78bfa;
 }
 
+/* 設定サブタブ */
+.settings-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 24px 0;
+  margin-bottom: 8px;
+}
+
+.settings-subtab {
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #71717a;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-subtab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #a1a1aa;
+}
+
+.settings-subtab.active {
+  background: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+
 /* プラグインインストールフォーム */
 .plugin-install-form {
   display: flex;
@@ -5255,6 +5284,10 @@ body.theme-light {
   color: #6366f1;
   border-color: #6366f1;
 }
+
+.theme-light .settings-subtab { color: #64748b; }
+.theme-light .settings-subtab:hover { background: #f1f5f9; color: #334155; }
+.theme-light .settings-subtab.active { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
 
 .theme-light .settings-section h3 {
   color: #0f172a;

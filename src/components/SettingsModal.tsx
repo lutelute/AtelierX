@@ -5,6 +5,7 @@ export { type CardClickBehavior };
 export { type Settings };
 
 type SettingsTab = 'general' | 'plugins';
+type GeneralSubTab = 'basic' | 'content' | 'integration';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -52,6 +53,7 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
 
   // タブ管理
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTab>('basic');
 
   // アプリタブ管理
   const [customAppName, setCustomAppName] = useState('');
@@ -569,6 +571,105 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
         <div className="settings-content">
           {activeTab === 'general' && (
             <>
+          {/* サブタブナビゲーション */}
+          <div className="settings-subtabs">
+            <button className={`settings-subtab ${generalSubTab === 'basic' ? 'active' : ''}`}
+                    onClick={() => setGeneralSubTab('basic')}>基本設定</button>
+            <button className={`settings-subtab ${generalSubTab === 'content' ? 'active' : ''}`}
+                    onClick={() => setGeneralSubTab('content')}>コンテンツ管理</button>
+            <button className={`settings-subtab ${generalSubTab === 'integration' ? 'active' : ''}`}
+                    onClick={() => setGeneralSubTab('integration')}>連携・データ</button>
+          </div>
+
+          {/* 基本設定サブタブ: 外観 + 動作設定 */}
+          {generalSubTab === 'basic' && (
+          <>
+          <div className="settings-section">
+            <h3>外観</h3>
+            <div className="form-group">
+              <label>テーマ</label>
+              <div className="theme-selector">
+                <button
+                  type="button"
+                  className={`theme-option ${(settings.theme || 'dark') === 'dark' ? 'active' : ''}`}
+                  onClick={() => setSettings((prev) => ({ ...prev, theme: 'dark' }))}
+                >
+                  🌙 ダーク
+                </button>
+                <button
+                  type="button"
+                  className={`theme-option ${settings.theme === 'light' ? 'active' : ''}`}
+                  onClick={() => setSettings((prev) => ({ ...prev, theme: 'light' }))}
+                >
+                  ☀️ ライト
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>動作設定</h3>
+
+            <div className="form-group">
+              <label>カードクリック時の動作</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="cardClickBehavior"
+                    value="edit"
+                    checked={settings.cardClickBehavior === 'edit'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
+                  />
+                  <span>カード編集を開く</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="cardClickBehavior"
+                    value="jump"
+                    checked={settings.cardClickBehavior === 'jump'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
+                  />
+                  <span>ウィンドウにジャンプ</span>
+                </label>
+              </div>
+              <span className="form-hint">カードをクリックした時のデフォルト動作を選択</span>
+            </div>
+
+            <div className="form-group">
+              <label>ウィンドウ活性化アニメーション</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="activateAnimation"
+                    value="pop"
+                    checked={(settings.activateAnimation || 'pop') === 'pop'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
+                  />
+                  <span>ポップ（引っ込んで飛び出す）</span>
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="activateAnimation"
+                    value="minimize"
+                    checked={settings.activateAnimation === 'minimize'}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
+                  />
+                  <span>最小化復帰（Dockに吸い込まれて戻る）</span>
+                </label>
+              </div>
+              <span className="form-hint">ウィンドウジャンプ時のアニメーション効果</span>
+            </div>
+          </div>
+          </>
+          )}
+
+          {/* コンテンツ管理サブタブ: アプリタブ管理 + サブタグ管理 */}
+          {generalSubTab === 'content' && (
+          <>
           {/* アプリタブ管理セクション */}
           <div className="settings-section">
             <h3>アプリタブ</h3>
@@ -682,138 +783,6 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
                 </button>
               </div>
               <span className="form-hint">macOSのアプリ名を正確に入力してください（例: Google Chrome, Microsoft Word）</span>
-            </div>
-          </div>
-
-          <div className="settings-section">
-            <h3>外観</h3>
-            <div className="form-group">
-              <label>テーマ</label>
-              <div className="theme-selector">
-                <button
-                  type="button"
-                  className={`theme-option ${(settings.theme || 'dark') === 'dark' ? 'active' : ''}`}
-                  onClick={() => setSettings((prev) => ({ ...prev, theme: 'dark' }))}
-                >
-                  🌙 ダーク
-                </button>
-                <button
-                  type="button"
-                  className={`theme-option ${settings.theme === 'light' ? 'active' : ''}`}
-                  onClick={() => setSettings((prev) => ({ ...prev, theme: 'light' }))}
-                >
-                  ☀️ ライト
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="settings-section">
-            <h3>Obsidian連携</h3>
-
-            <div className="form-group">
-              <label>Vault パス</label>
-              <div className="path-input-container">
-                <div className="path-input-wrapper">
-                  <span className="path-prefix">$</span>
-                  <input
-                    type="text"
-                    className="path-input"
-                    value={settings.obsidianVaultPath}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, obsidianVaultPath: e.target.value }))}
-                    placeholder="パスを入力 または 参照ボタンで選択"
-                  />
-                </div>
-                <button type="button" className="btn-browse" onClick={handleBrowseVault}>
-                  フォルダ参照
-                </button>
-              </div>
-              <span className="form-hint">直接パスを入力するか、参照ボタンでフォルダを選択</span>
-            </div>
-
-            <div className="form-group">
-              <label>デイリーノートパス</label>
-              <div className="path-input-container">
-                <input
-                  type="text"
-                  value={settings.dailyNotePath}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, dailyNotePath: e.target.value }))}
-                  placeholder="Daily Notes/{{date}}.md"
-                />
-                <button type="button" className="btn-browse" onClick={handleBrowseDailyNote}>
-                  フォルダ参照
-                </button>
-              </div>
-              <span className="form-hint">{'{{date}}'} は YYYY-MM-DD に置換。フォルダ選択時は自動で /{'{{date}}'}.md を追加</span>
-            </div>
-
-            <div className="form-group">
-              <label>差し込みマーカー</label>
-              <input
-                type="text"
-                value={settings.insertMarker}
-                onChange={(e) => setSettings((prev) => ({ ...prev, insertMarker: e.target.value }))}
-                placeholder="## AtelierX"
-              />
-              <span className="form-hint">この見出しの下に差し込みます（なければ末尾に追加）</span>
-            </div>
-          </div>
-
-          <div className="settings-section">
-            <h3>動作設定</h3>
-
-            <div className="form-group">
-              <label>カードクリック時の動作</label>
-              <div className="radio-group">
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="cardClickBehavior"
-                    value="edit"
-                    checked={settings.cardClickBehavior === 'edit'}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
-                  />
-                  <span>カード編集を開く</span>
-                </label>
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="cardClickBehavior"
-                    value="jump"
-                    checked={settings.cardClickBehavior === 'jump'}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
-                  />
-                  <span>ウィンドウにジャンプ</span>
-                </label>
-              </div>
-              <span className="form-hint">カードをクリックした時のデフォルト動作を選択</span>
-            </div>
-
-            <div className="form-group">
-              <label>ウィンドウ活性化アニメーション</label>
-              <div className="radio-group">
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="activateAnimation"
-                    value="pop"
-                    checked={(settings.activateAnimation || 'pop') === 'pop'}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
-                  />
-                  <span>ポップ（引っ込んで飛び出す）</span>
-                </label>
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    name="activateAnimation"
-                    value="minimize"
-                    checked={settings.activateAnimation === 'minimize'}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
-                  />
-                  <span>最小化復帰（Dockに吸い込まれて戻る）</span>
-                </label>
-              </div>
-              <span className="form-hint">ウィンドウジャンプ時のアニメーション効果</span>
             </div>
           </div>
 
@@ -1006,6 +975,62 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
               </div>
             </div>
           </div>
+          </>
+          )}
+
+          {/* 連携・データサブタブ: Obsidian連携 + データバックアップ */}
+          {generalSubTab === 'integration' && (
+          <>
+          <div className="settings-section">
+            <h3>Obsidian連携</h3>
+
+            <div className="form-group">
+              <label>Vault パス</label>
+              <div className="path-input-container">
+                <div className="path-input-wrapper">
+                  <span className="path-prefix">$</span>
+                  <input
+                    type="text"
+                    className="path-input"
+                    value={settings.obsidianVaultPath}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, obsidianVaultPath: e.target.value }))}
+                    placeholder="パスを入力 または 参照ボタンで選択"
+                  />
+                </div>
+                <button type="button" className="btn-browse" onClick={handleBrowseVault}>
+                  フォルダ参照
+                </button>
+              </div>
+              <span className="form-hint">直接パスを入力するか、参照ボタンでフォルダを選択</span>
+            </div>
+
+            <div className="form-group">
+              <label>デイリーノートパス</label>
+              <div className="path-input-container">
+                <input
+                  type="text"
+                  value={settings.dailyNotePath}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, dailyNotePath: e.target.value }))}
+                  placeholder="Daily Notes/{{date}}.md"
+                />
+                <button type="button" className="btn-browse" onClick={handleBrowseDailyNote}>
+                  フォルダ参照
+                </button>
+              </div>
+              <span className="form-hint">{'{{date}}'} は YYYY-MM-DD に置換。フォルダ選択時は自動で /{'{{date}}'}.md を追加</span>
+            </div>
+
+            <div className="form-group">
+              <label>差し込みマーカー</label>
+              <input
+                type="text"
+                value={settings.insertMarker}
+                onChange={(e) => setSettings((prev) => ({ ...prev, insertMarker: e.target.value }))}
+                placeholder="## AtelierX"
+              />
+              <span className="form-hint">この見出しの下に差し込みます（なければ末尾に追加）</span>
+            </div>
+          </div>
 
           <div className="settings-section">
             <h3>データバックアップ</h3>
@@ -1043,6 +1068,8 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
               <span className="form-hint">バックアップファイルを保存・復元できます</span>
             </div>
           </div>
+          </>
+          )}
             </>
           )}
 

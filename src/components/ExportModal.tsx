@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ActivityLog, BoardData, PluginExportFormatInfo, TagType } from '../types';
+import { ActivityLog, BoardData, AllBoardsData, PluginExportFormatInfo, TagType, Card } from '../types';
 
 type BuiltInFormat = 'md' | 'json' | 'text';
 type ExportFormat = BuiltInFormat | string; // string for plugin format IDs
@@ -14,13 +14,43 @@ type ColumnFilter = 'todo' | 'in-progress' | 'done';
 
 interface ExportModalProps {
   logs: ActivityLog[];
-  boardData: BoardData;
+  allBoardsData: AllBoardsData;
   onClose: () => void;
   onSave: (content: string, filename: string) => void;
   onObsidian?: (content: string) => void;
 }
 
-export function ExportModal({ logs, boardData, onClose, onSave, onObsidian }: ExportModalProps) {
+// AllBoardsData から全ボードを統合した BoardData を生成（エクスポート用）
+function mergeAllBoards(allBoardsData: AllBoardsData): BoardData {
+  const allCards: Record<string, Card> = {};
+  // 最初のボードのカラム構成をベースにする
+  const firstBoard = Object.values(allBoardsData.boards)[0];
+  if (!firstBoard) {
+    return { columns: [], cards: {}, columnOrder: [] };
+  }
+
+  // 全ボードのカードを統合
+  for (const board of Object.values(allBoardsData.boards)) {
+    Object.assign(allCards, board.cards);
+  }
+
+  // 全ボードのカラムからcardIdsを統合（同名カラムをマージ）
+  const mergedColumns = firstBoard.columns.map(col => ({
+    ...col,
+    cardIds: Object.values(allBoardsData.boards).flatMap(
+      board => board.columns.find(c => c.id === col.id)?.cardIds || []
+    ),
+  }));
+
+  return {
+    columns: mergedColumns,
+    cards: allCards,
+    columnOrder: firstBoard.columnOrder,
+  };
+}
+
+export function ExportModal({ logs, allBoardsData, onClose, onSave, onObsidian }: ExportModalProps) {
+  const boardData = useMemo(() => mergeAllBoards(allBoardsData), [allBoardsData]);
   const [format, setFormat] = useState<ExportFormat>('md');
   const [copied, setCopied] = useState(false);
   const [pluginFormats, setPluginFormats] = useState<PluginExportFormatInfo[]>([]);

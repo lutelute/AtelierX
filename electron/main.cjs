@@ -51,6 +51,9 @@ const { scanInstalledApps, getAppIcon } = require('./appScanner.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// App Nap を無効化（本番環境でのAppleScript実行遅延防止）
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -76,6 +79,10 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // powerSaveBlocker でシステムスリープを防止（App Nap対策）
+  const { powerSaveBlocker } = require('electron');
+  powerSaveBlocker.start('prevent-app-suspension');
 
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
