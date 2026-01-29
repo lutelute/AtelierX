@@ -107,6 +107,37 @@ export function Board() {
     loadCardActions();
   }, []);
 
+  // ビルトインタブにmacOSネイティブアイコンを非同期ロード
+  useEffect(() => {
+    const loadBuiltinIcons = async () => {
+      if (!window.electronAPI?.getAppIcon) return;
+      const currentTabs = settings.enabledAppTabs && settings.enabledAppTabs.length > 0
+        ? settings.enabledAppTabs
+        : [...BUILTIN_APPS];
+
+      let updated = false;
+      const updatedTabs = await Promise.all(currentTabs.map(async (tab) => {
+        if (tab.type === 'builtin' && !tab.iconDataUri) {
+          try {
+            const iconDataUri = await window.electronAPI!.getAppIcon(tab.appName);
+            if (iconDataUri) {
+              updated = true;
+              return { ...tab, iconDataUri };
+            }
+          } catch {
+            // ignore
+          }
+        }
+        return tab;
+      }));
+
+      if (updated) {
+        setSettings(prev => ({ ...prev, enabledAppTabs: updatedTabs }));
+      }
+    };
+    loadBuiltinIcons();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // テーマを適用
   useEffect(() => {
     const theme = settings.theme || 'dark';
@@ -114,8 +145,8 @@ export function Board() {
     document.body.classList.add(`theme-${theme}`);
   }, [settings.theme]);
 
-  // アクティビティログを追加（最新5000件に制限）
-  const MAX_ACTIVITY_LOGS = 5000;
+  // アクティビティログを追加（最新2000件に制限）
+  const MAX_ACTIVITY_LOGS = 2000;
   const addLog = useCallback((log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
     const newLog: ActivityLog = {
       ...log,
@@ -1352,6 +1383,28 @@ export function Board() {
     setRelinkingCard(null);
   };
 
+  // ウィンドウリンクを解除（カードからリンク情報をクリア）
+  const handleUnlinkWindow = useCallback((cardId: string) => {
+    const card = data.cards[cardId];
+    if (!card) return;
+
+    // 履歴に古いウィンドウ情報を追加
+    addToWindowHistory(card);
+
+    setData((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [cardId]: {
+          ...prev.cards[cardId],
+          windowApp: undefined,
+          windowId: undefined,
+          windowName: undefined,
+        },
+      },
+    }));
+  }, [data.cards, addToWindowHistory, setData]);
+
   // カードの説明を更新（タスクチェック用）
   const handleUpdateDescription = useCallback((cardId: string, description: string) => {
     setData((prev) => ({
@@ -1619,6 +1672,7 @@ export function Board() {
                   onEditCard={handleEditCard}
                   onJumpCard={handleJumpCard}
                   onCloseWindowCard={handleCloseWindowCard}
+                  onUnlinkWindowCard={handleUnlinkWindow}
                   onDropWindow={handleDropWindow}
                   onUpdateDescription={handleUpdateDescription}
                   onUpdateStatusMarker={handleUpdateStatusMarker}

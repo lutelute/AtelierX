@@ -3,7 +3,7 @@
  * Terminal/Finder は専用API、その他は System Events 経由の汎用APIを使用
  */
 
-const { exec, execSync, spawn } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -233,34 +233,41 @@ end tell
 return ""
 `;
 
-    // 一時ファイル経由で実行（シングルクォートエスケープ問題を回避）
+    // 一時ファイル経由で非同期実行
     const tmpFile = path.join(os.tmpdir(), `atelierx-generic-${Date.now()}.scpt`);
     try {
       fs.writeFileSync(tmpFile, script, 'utf-8');
-      const stdout = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 });
-      fs.unlinkSync(tmpFile);
+      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
+        try { fs.unlinkSync(tmpFile); } catch (_) {}
 
-      const lines = stdout.trim().split('\n');
-      // タイトル出現回数を追跡（同名ウィンドウの区別用）
-      const titleCounts = {};
-      const windows = lines
-        .filter(line => line.length > 0 && line.includes('|'))
-        .map((line) => {
-          const parts = line.split('|');
-          const name = parts[0] || 'Window';
-          const windowIndex = parseInt(parts[1]) || 1;
-          // タイトルベースの安定ID（同名は連番で区別）
-          titleCounts[name] = (titleCounts[name] || 0) + 1;
-          const titleSuffix = titleCounts[name] > 1 ? `-${titleCounts[name]}` : '';
-          return {
-            app: appName,
-            id: `${appName}:${name}${titleSuffix}`,
-            name,
-            windowIndex,
-          };
-        });
+        if (error) {
+          console.error(`getGenericAppWindows error for ${appName}:`, error.message);
+          resolve([]);
+          return;
+        }
 
-      resolve(windows);
+        const lines = (stdout || '').trim().split('\n');
+        // タイトル出現回数を追跡（同名ウィンドウの区別用）
+        const titleCounts = {};
+        const windows = lines
+          .filter(line => line.length > 0 && line.includes('|'))
+          .map((line) => {
+            const parts = line.split('|');
+            const name = parts[0] || 'Window';
+            const windowIndex = parseInt(parts[1]) || 1;
+            // タイトルベースの安定ID（同名は連番で区別）
+            titleCounts[name] = (titleCounts[name] || 0) + 1;
+            const titleSuffix = titleCounts[name] > 1 ? `-${titleCounts[name]}` : '';
+            return {
+              app: appName,
+              id: `${appName}:${name}${titleSuffix}`,
+              name,
+              windowIndex,
+            };
+          });
+
+        resolve(windows);
+      });
     } catch (error) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
       console.error(`getGenericAppWindows error for ${appName}:`, error.message);
@@ -326,8 +333,8 @@ end tell
     fs.writeFileSync(tmpFile, script, 'utf-8');
     const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
     child.unref();
-    // 少し遅延してクリーンアップ
-    setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} }, 5000);
+    child.on('close', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
+    child.on('error', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
   } catch (error) {
     try { fs.unlinkSync(tmpFile); } catch (_) {}
     console.error('activateGenericWindow error:', error.message);
@@ -374,10 +381,15 @@ return found
     const tmpFile = path.join(os.tmpdir(), `atelierx-close-${Date.now()}.scpt`);
     try {
       fs.writeFileSync(tmpFile, script, 'utf-8');
-      const stdout = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 });
-      fs.unlinkSync(tmpFile);
-      const found = stdout.trim() === 'true';
-      resolve({ success: found, error: found ? undefined : 'Window not found' });
+      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
+        try { fs.unlinkSync(tmpFile); } catch (_) {}
+        if (error) {
+          resolve({ success: false, error: error.message });
+          return;
+        }
+        const found = (stdout || '').trim() === 'true';
+        resolve({ success: found, error: found ? undefined : 'Window not found' });
+      });
     } catch (error) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
       resolve({ success: false, error: error.message });
@@ -417,10 +429,15 @@ return windowName
     const tmpFile = path.join(os.tmpdir(), `atelierx-open-${Date.now()}.scpt`);
     try {
       fs.writeFileSync(tmpFile, script, 'utf-8');
-      const stdout = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 15000 });
-      fs.unlinkSync(tmpFile);
-      const windowName = stdout.trim();
-      resolve({ success: true, windowName: windowName || appName });
+      exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout: 15000 }, (error, stdout) => {
+        try { fs.unlinkSync(tmpFile); } catch (_) {}
+        if (error) {
+          resolve({ success: false, error: error.message });
+          return;
+        }
+        const windowName = (stdout || '').trim();
+        resolve({ success: true, windowName: windowName || appName });
+      });
     } catch (error) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
       resolve({ success: false, error: error.message });
@@ -511,7 +528,8 @@ return targetWindowName is not ""
     fs.writeFileSync(tmpFile, script, 'utf-8');
     const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
     child.unref();
-    setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} }, 5000);
+    child.on('close', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
+    child.on('error', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
   } catch (error) {
     try { fs.unlinkSync(tmpFile); } catch (_) {}
     console.error('activateTerminalWindow error:', error.message);
@@ -602,7 +620,8 @@ return targetWindowName is not ""
     fs.writeFileSync(tmpFile, script, 'utf-8');
     const child = spawn('osascript', [tmpFile], { detached: true, stdio: 'ignore' });
     child.unref();
-    setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch (_) {} }, 5000);
+    child.on('close', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
+    child.on('error', () => { try { fs.unlinkSync(tmpFile); } catch (_) {} });
   } catch (error) {
     try { fs.unlinkSync(tmpFile); } catch (_) {}
     console.error('activateFinderWindow error:', error.message);

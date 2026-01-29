@@ -388,6 +388,7 @@ declare global {
       arrangeGenericGrid: (appName: string, options?: GridOptions) => Promise<GridResult>;
       // インストール済みアプリスキャン
       scanInstalledApps: () => Promise<InstalledAppInfo[]>;
+      getAppIcon: (appName: string) => Promise<string>;
       // プラグイン関連
       plugins: {
         list: () => Promise<{ success: boolean; data: InstalledPlugin[] }>;

@@ -47,7 +47,7 @@ const {
   cleanupOldFiles,
   startupCleanup,
 } = require('./updateManager.cjs');
-const { scanInstalledApps } = require('./appScanner.cjs');
+const { scanInstalledApps, getAppIcon } = require('./appScanner.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -79,6 +79,29 @@ app.whenReady().then(() => {
 
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
+
+  // 起動時に孤児AppleScript一時ファイルを掃除
+  try {
+    const os = require('os');
+    const tmpDir = os.tmpdir();
+    const files = fs.readdirSync(tmpDir);
+    let cleaned = 0;
+    const now = Date.now();
+    for (const f of files) {
+      if (f.startsWith('atelierx-') && f.endsWith('.scpt')) {
+        try {
+          const fullPath = path.join(tmpDir, f);
+          const stat = fs.statSync(fullPath);
+          // 10分以上前のファイルのみ削除（実行中のスクリプトを守る）
+          if (now - stat.mtimeMs > 600000) {
+            fs.unlinkSync(fullPath);
+            cleaned++;
+          }
+        } catch { /* ignore */ }
+      }
+    }
+    if (cleaned > 0) console.log(`Cleaned up ${cleaned} orphaned .scpt files`);
+  } catch { /* ignore */ }
 
   // IPC: ウィンドウ一覧を取得（引数で追加アプリ名を指定可能）
   ipcMain.handle('get-app-windows', async (_, appNames) => {
@@ -298,7 +321,8 @@ function getDefaultBackupPath() {
   return path.join(userDataPath, filename);
 }
 
-// IPC: バックアップ保存（自動保存用 — 非同期書き込み、インデントなし）
+// IPC: バックアップ保存（自動保存用 — 差分検知付き、非同期書き込み、インデントなし）
+let lastBackupHash = '';
 ipcMain.handle('save-backup', async (_, data) => {
   try {
     const backupPath = getDefaultBackupPath();
@@ -307,7 +331,14 @@ ipcMain.handle('save-backup', async (_, data) => {
       backupAt: Date.now(),
       version: 1,
     };
-    await fs.promises.writeFile(backupPath, JSON.stringify(backupData), 'utf-8');
+    const json = JSON.stringify(backupData);
+    // 簡易差分検知: データ部分のハッシュ（backupAt除外）で比較
+    const dataHash = JSON.stringify(data);
+    if (dataHash === lastBackupHash) {
+      return { success: true, path: backupPath, timestamp: backupData.backupAt };
+    }
+    lastBackupHash = dataHash;
+    await fs.promises.writeFile(backupPath, json, 'utf-8');
     console.log('Backup saved:', backupPath);
     return { success: true, path: backupPath, timestamp: backupData.backupAt };
   } catch (error) {
@@ -534,6 +565,11 @@ loadEnabledPlugins();
 // IPC: インストール済みアプリ一覧を取得
 ipcMain.handle('scan-installed-apps', async () => {
   return await scanInstalledApps();
+});
+
+// IPC: 単一アプリのアイコンを取得
+ipcMain.handle('get-app-icon', async (_, appName) => {
+  return await getAppIcon(appName);
 });
 
 // =====================================================

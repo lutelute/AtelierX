@@ -11,6 +11,7 @@ interface CardProps {
   onEdit: (id: string) => void;
   onJump?: (id: string) => void;
   onCloseWindow?: (id: string) => void;
+  onUnlinkWindow?: (id: string) => void;
   onUpdateDescription?: (id: string, description: string) => void;
   onUpdateStatusMarker?: (id: string, marker: CardStatusMarker) => void;
   onCardClick?: (id: string) => void;
@@ -491,7 +492,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
+export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
   const {
     attributes,
     listeners,
@@ -716,6 +717,18 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
       )}
       {card.windowApp && onJump && (
         <div className="card-window-actions">
+          {onUnlinkWindow && (
+            <button
+              className="card-unlink-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnlinkWindow(card.id);
+              }}
+              title="リンク解除"
+            >
+              🔗
+            </button>
+          )}
           <button
             className="card-jump-button"
             onClick={(e) => {

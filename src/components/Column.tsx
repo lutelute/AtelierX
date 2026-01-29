@@ -25,6 +25,7 @@ interface ColumnProps {
   onEditCard: (cardId: string) => void;
   onJumpCard: (cardId: string) => void;
   onCloseWindowCard?: (cardId: string) => void;
+  onUnlinkWindowCard?: (cardId: string) => void;
   onDropWindow: (columnId: string) => void;
   onUpdateDescription: (cardId: string, description: string) => void;
   onUpdateStatusMarker?: (cardId: string, marker: CardStatusMarker) => void;
@@ -43,7 +44,7 @@ interface ColumnProps {
   canDelete?: boolean;
 }
 
-export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false }: ColumnProps) {
+export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -223,6 +224,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
               onEdit={onEditCard}
               onJump={onJumpCard}
               onCloseWindow={onCloseWindowCard}
+              onUnlinkWindow={onUnlinkWindowCard}
               onUpdateDescription={onUpdateDescription}
               onUpdateStatusMarker={onUpdateStatusMarker}
               onCardClick={onCardClick}

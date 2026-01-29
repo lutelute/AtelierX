@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // インストール済みアプリスキャン
   scanInstalledApps: () => ipcRenderer.invoke('scan-installed-apps'),
+  getAppIcon: (appName) => ipcRenderer.invoke('get-app-icon', appName),
   // アップデート関連
   update: {
     check: () => ipcRenderer.invoke('update:check'),

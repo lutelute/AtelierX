@@ -182,7 +182,46 @@ function clearAppCache() {
   cachedApps = null;
 }
 
+/**
+ * 単一アプリのアイコンをbase64 data URIとして取得
+ * @param {string} appName - macOSアプリ名 (例: 'Terminal', 'Finder')
+ * @returns {Promise<string>} アイコンdata URI (取得失敗時は空文字)
+ */
+async function getAppIcon(appName) {
+  const appDirs = ['/Applications', '/Applications/Utilities', '/System/Applications', '/System/Applications/Utilities'];
+  const tmpDir = path.join(os.tmpdir(), 'atelierx-icons-single');
+
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+
+  for (const dir of appDirs) {
+    const appPath = path.join(dir, `${appName}.app`);
+    if (!fs.existsSync(appPath)) continue;
+
+    const plistPath = path.join(appPath, 'Contents', 'Info.plist');
+    if (!fs.existsSync(plistPath)) continue;
+
+    try {
+      const appInfo = parseAppInfo(plistPath, appPath);
+      if (!appInfo) continue;
+      const iconDataUri = extractIconDataUri(appPath, appInfo.iconFile, tmpDir);
+      if (iconDataUri) {
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        return iconDataUri;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // クリーンアップ
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  return '';
+}
+
 module.exports = {
   scanInstalledApps,
   clearAppCache,
+  getAppIcon,
 };

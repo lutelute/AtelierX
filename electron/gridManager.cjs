@@ -11,30 +11,31 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { execSync } = require('child_process');
+const { exec } = require('child_process');
 
 // =====================================================
 // AppleScript実行ヘルパー
 // =====================================================
 
 /**
- * AppleScriptを一時ファイル経由で実行
+ * AppleScriptを一時ファイル経由で実行（非同期）
  * @param {string} script - AppleScriptコード
- * @returns {string} 実行結果
+ * @param {number} timeout - タイムアウト(ms)
+ * @returns {Promise<string>} 実行結果
  */
 function runAppleScript(script, timeout = 15000) {
   const tmpFile = path.join(os.tmpdir(), `applescript-${Date.now()}.scpt`);
-  try {
-    fs.writeFileSync(tmpFile, script, 'utf-8');
-    const result = execSync(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout });
-    return result;
-  } finally {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch (e) {
-      // ignore cleanup errors
-    }
-  }
+  fs.writeFileSync(tmpFile, script, 'utf-8');
+  return new Promise((resolve, reject) => {
+    exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout }, (error, stdout) => {
+      try { fs.unlinkSync(tmpFile); } catch (_) { /* ignore cleanup errors */ }
+      if (error) {
+        reject(error);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
 }
 
 // =====================================================
@@ -83,9 +84,9 @@ return output
  * ディスプレイ情報を取得
  * @returns {Array<DisplayInfo>} ディスプレイ情報の配列
  */
-function getDisplayInfo() {
+async function getDisplayInfo() {
   try {
-    const result = runAppleScript(SCRIPT_GET_DISPLAYS);
+    const result = await runAppleScript(SCRIPT_GET_DISPLAYS);
     const displays = [];
     result.trim().split('\n').forEach(line => {
       const parts = line.split('|');
@@ -391,10 +392,10 @@ return totalArranged
  * @param {Object} options - 配置オプション
  * @returns {Object} { success: boolean, arranged: number, error?: string }
  */
-function arrangeTerminalGrid(options = {}) {
+async function arrangeTerminalGrid(options = {}) {
   try {
     const script = buildTerminalGridScript(options);
-    const result = runAppleScript(script);
+    const result = await runAppleScript(script);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeTerminalGrid error:', error);
@@ -561,10 +562,10 @@ end tell
  * @param {Object} options - 配置オプション
  * @returns {Object} { success: boolean, arranged: number, error?: string }
  */
-function arrangeFinderGrid(options = {}) {
+async function arrangeFinderGrid(options = {}) {
   try {
     const script = buildFinderGridScript(options);
-    const result = runAppleScript(script);
+    const result = await runAppleScript(script);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeFinderGrid error:', error);
@@ -721,10 +722,10 @@ return totalArranged
  * @param {Object} options - 配置オプション
  * @returns {Object} { success: boolean, arranged: number, error?: string }
  */
-function arrangeGenericGrid(appName, options = {}) {
+async function arrangeGenericGrid(appName, options = {}) {
   try {
     const script = buildGenericGridScript(appName, options);
-    const result = runAppleScript(script);
+    const result = await runAppleScript(script);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeGenericGrid error:', error);
