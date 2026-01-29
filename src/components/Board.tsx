@@ -652,16 +652,36 @@ export function Board() {
         if (currentWindowIds.has(card.windowId)) {
           // 見つかった → ミスカウントをリセット
           missCountRef.current[card.id] = 0;
+          // Finderはフォルダ移動でウィンドウ名・パスが変わるため、IDマッチ時に同期
+          if (card.windowApp === 'Finder') {
+            const matchedWin = currentWindows.find((w: AppWindow) => w.id === card.windowId);
+            if (matchedWin && (matchedWin.name !== card.windowName || matchedWin.path !== card.windowPath)) {
+              updateCurrentBoard((prev) => ({
+                ...prev,
+                cards: {
+                  ...prev.cards,
+                  [card.id]: {
+                    ...prev.cards[card.id],
+                    windowName: matchedWin.name,
+                    ...(matchedWin.path ? { windowPath: matchedWin.path } : {}),
+                  },
+                },
+              }));
+            }
+          }
           return false;
         }
 
         // 名前ベースでフォールバック検索
-        if (card.windowName) {
+        {
           const appWins = currentWindows.filter((w: AppWindow) => w.app === card.windowApp);
+          let nameMatch: AppWindow | undefined;
           // 完全一致
-          let nameMatch = appWins.find((w: AppWindow) => w.name === card.windowName);
+          if (card.windowName) {
+            nameMatch = appWins.find((w: AppWindow) => w.name === card.windowName);
+          }
           // 汎用アプリ: 部分一致フォールバック（ブラウザのタブ切替でタイトル変動）
-          if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder') {
+          if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && card.windowName) {
             nameMatch = appWins.find((w: AppWindow) =>
               w.name.includes(card.windowName!) || card.windowName!.includes(w.name)
             );
@@ -670,14 +690,27 @@ export function Board() {
           if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWins.length === 1) {
             nameMatch = appWins[0];
           }
+          // Finder: パスベースでマッチ（フォルダ移動で名前が変わっても同一ウィンドウを特定）
+          if (!nameMatch && card.windowApp === 'Finder' && card.windowPath) {
+            nameMatch = appWins.find((w: AppWindow) => w.path && w.path === card.windowPath);
+          }
+          // Finder: ウィンドウが1つだけならマッチ（最終フォールバック）
+          if (!nameMatch && card.windowApp === 'Finder' && appWins.length === 1) {
+            nameMatch = appWins[0];
+          }
           if (nameMatch) {
-            // 見つかった → ミスカウントリセット & カードのwindowIdを自動更新
+            // 見つかった → ミスカウントリセット & カードのwindowId + windowName + windowPathを自動更新
             missCountRef.current[card.id] = 0;
             updateCurrentBoard((prev) => ({
               ...prev,
               cards: {
                 ...prev.cards,
-                [card.id]: { ...prev.cards[card.id], windowId: nameMatch!.id },
+                [card.id]: {
+                  ...prev.cards[card.id],
+                  windowId: nameMatch!.id,
+                  windowName: nameMatch!.name,
+                  ...(nameMatch!.path ? { windowPath: nameMatch!.path } : {}),
+                },
               },
             }));
             return false;
@@ -769,6 +802,7 @@ export function Board() {
       windowApp: appWindow.app,
       windowId: appWindow.id,
       windowName: appWindow.name,
+      windowPath: appWindow.path,
     };
 
     // デフォルトで「未着手」カラムに追加
@@ -813,6 +847,7 @@ export function Board() {
         windowApp: appWindow.app,
         windowId: appWindow.id,
         windowName: appWindow.name,
+        windowPath: appWindow.path,
       };
       newCardIds.push(cardId);
     });
@@ -1358,6 +1393,15 @@ export function Board() {
     if (card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWindows.length === 1) {
       return appWindows[0];
     }
+    // Finder: パスベースでマッチ（フォルダ移動で名前が変わってもパスで特定）
+    if (card.windowApp === 'Finder' && card.windowPath) {
+      const pathMatch = appWindows.find((w: AppWindow) => w.path && w.path === card.windowPath);
+      if (pathMatch) return pathMatch;
+    }
+    // Finder: ウィンドウが1つだけならマッチ（最終フォールバック）
+    if (card.windowApp === 'Finder' && appWindows.length === 1) {
+      return appWindows[0];
+    }
     return null;
   };
 
@@ -1397,6 +1441,15 @@ export function Board() {
         if (card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWindows.length === 1) {
           return appWindows[0];
         }
+        // Finder: パスベースでマッチ
+        if (card.windowApp === 'Finder' && card.windowPath) {
+          const pathMatch = appWindows.find((w: AppWindow) => w.path && w.path === card.windowPath);
+          if (pathMatch) return pathMatch;
+        }
+        // Finder: ウィンドウが1つだけならマッチ（最終フォールバック）
+        if (card.windowApp === 'Finder' && appWindows.length === 1) {
+          return appWindows[0];
+        }
       } catch {
         // キャッシュをフォールバックとして使用
       }
@@ -1432,6 +1485,16 @@ export function Board() {
     if (cached) {
       addToWindowHistory(card);
       flashJumpingCard(card.id);
+      // Finder: IDや名前が変わっていたらカードを同期
+      if (card.windowApp === 'Finder' && (cached.id !== card.windowId || cached.name !== card.windowName)) {
+        updateCurrentBoard((prev) => ({
+          ...prev,
+          cards: {
+            ...prev.cards,
+            [card.id]: { ...prev.cards[card.id], windowId: cached.id, windowName: cached.name },
+          },
+        }));
+      }
       window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim, (cached as any).windowIndex);
       return;
     }
@@ -1441,6 +1504,16 @@ export function Board() {
     const matchedWindow = await findMatchingWindow(card);
     if (matchedWindow) {
       addToWindowHistory(card);
+      // Finder: IDや名前が変わっていたらカードを同期
+      if (card.windowApp === 'Finder' && (matchedWindow.id !== card.windowId || matchedWindow.name !== card.windowName)) {
+        updateCurrentBoard((prev) => ({
+          ...prev,
+          cards: {
+            ...prev.cards,
+            [card.id]: { ...prev.cards[card.id], windowId: matchedWindow.id, windowName: matchedWindow.name },
+          },
+        }));
+      }
       window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name, anim, (matchedWindow as any).windowIndex);
     } else {
       setRelinkingCard(card);
@@ -1644,6 +1717,7 @@ export function Board() {
           ...prev.cards[relinkingCard.id],
           windowId: appWindow.id,
           windowName: appWindow.name,
+          windowPath: appWindow.path,
         },
       },
     }));
@@ -1814,6 +1888,7 @@ export function Board() {
       windowApp: appWindow.app,
       windowId: appWindow.id, // ウィンドウID（一意識別用）
       windowName: appWindow.name, // 検索用にフルネームを保持
+      windowPath: appWindow.path, // Finderフォルダパス（安定識別用）
     };
 
     updateCurrentBoard((prev) => ({

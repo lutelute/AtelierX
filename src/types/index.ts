@@ -456,6 +456,7 @@ export interface Card {
   windowApp?: string;    // アプリ名 (string に拡張)
   windowId?: string;     // ウィンドウID（一意識別用）
   windowName?: string;
+  windowPath?: string;   // Finderのフォルダパス（安定識別用）
   // 時間記録
   timeRecords?: TimeRecord[];
   activeTimerId?: string; // 現在実行中のタイマーID

@@ -119,17 +119,22 @@ try
   end if
 end try
 
--- Finder
+-- Finder（最小化ウィンドウの幽霊エントリ問題を回避するため、countで取得してindexアクセス）
 try
   if application "Finder" is running then
     tell application "Finder"
+      set winCount to count of Finder windows
       set windowIndex to 1
-      set finderWindows to Finder windows
-      repeat with w in finderWindows
+      repeat with i from 1 to winCount
         try
+          set w to Finder window i
           set windowName to name of w
           set windowId to id of w
-          set end of windowList to "Finder|" & windowId & "|" & windowName & "||" & windowIndex
+          set folderPath to ""
+          try
+            set folderPath to POSIX path of (target of w as alias)
+          end try
+          set end of windowList to "Finder|" & windowId & "|" & windowName & "||" & windowIndex & "|" & folderPath
           set windowIndex to windowIndex + 1
         end try
       end repeat
@@ -156,11 +161,15 @@ return windowList
             preview = parts[3].trim();
           }
 
-          const tty = parts[5]?.trim();
+          const field5 = parts[5]?.trim();
           const numericId = parts[1]?.trim();
           // 常にnumeric window IDをプライマリIDとして使用
           // （ttyは取得失敗することがあり、複数ウィンドウが同一IDになる問題があった）
           const stableId = numericId || String(index + 1);
+
+          // Terminal: field5=tty, Finder: field5=folderPath
+          const tty = app === 'Terminal' ? (field5 || undefined) : undefined;
+          const path = app === 'Finder' ? (field5 || undefined) : undefined;
 
           windows.push({
             app,
@@ -168,7 +177,8 @@ return windowList
             name: parts[2] || 'Window',
             preview: preview || undefined,
             windowIndex: parseInt(parts[4]) || (index + 1),
-            tty: tty || undefined,
+            tty: tty,
+            path: path,
           });
         }
       }
@@ -681,9 +691,13 @@ return found
 /**
  * Finderウィンドウをポップして前面に表示
  *
- * 名前ベースマッチング方式（Terminalと同じ）:
- *   Step 1: Finder.appで対象ウィンドウのnameを取得（IDで安定特定）
+ * 直接アクセス方式:
+ *   Step 1: Finder.appで対象ウィンドウのnameを取得（IDで直接アクセス、イテレーション不要）
  *   Step 2: System Eventsでそのnameのウィンドウを検索してAXRaise
+ *
+ * ※ Finderはウィンドウが最小化されると `Finder windows` リストに
+ *   幽霊エントリが発生し、イテレーション中に `-1731` エラーになる。
+ *   そのため `Finder window id X` で直接アクセスする方式に変更。
  *
  * @param {string} windowId - ウィンドウID
  * @param {string} windowName - ウィンドウ名（フォールバック用）
@@ -694,41 +708,33 @@ function activateFinderWindow(windowId, windowName, animation) {
 
   let findWindow;
   if (isNumericId) {
+    // IDで直接アクセス（イテレーション回避で幽霊エントリ問題を解消）
     findWindow = `
 tell application "Finder"
-  repeat with w in Finder windows
-    if id of w is ${windowId} then
-      set targetWindowName to name of w
-      set targetWindowId to id of w
-      set index of w to 1
+  try
+    set targetWindowName to name of Finder window id ${windowId}
+    set targetWindowId to ${windowId}
+    set index of Finder window id ${windowId} to 1
+    set found to true
+  end try
+  if not found and "${escapedName}" is not "" then
+    try
+      set targetWindowName to name of Finder window "${escapedName}"
+      set targetWindowId to id of Finder window "${escapedName}"
+      set index of Finder window "${escapedName}" to 1
       set found to true
-      exit repeat
-    end if
-  end repeat
-  if not found then
-    repeat with w in Finder windows
-      if name of w is "${escapedName}" then
-        set targetWindowName to name of w
-        set targetWindowId to id of w
-        set index of w to 1
-        set found to true
-        exit repeat
-      end if
-    end repeat
+    end try
   end if
 end tell`;
   } else {
     findWindow = `
 tell application "Finder"
-  repeat with w in Finder windows
-    if name of w is "${escapedName}" then
-      set targetWindowName to name of w
-      set targetWindowId to id of w
-      set index of w to 1
-      set found to true
-      exit repeat
-    end if
-  end repeat
+  try
+    set targetWindowName to name of Finder window "${escapedName}"
+    set targetWindowId to id of Finder window "${escapedName}"
+    set index of Finder window "${escapedName}" to 1
+    set found to true
+  end try
 end tell`;
   }
 
