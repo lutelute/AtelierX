@@ -532,63 +532,76 @@ return windowName
 
 /**
  * Terminalウィンドウをポップして前面に表示
+ *
+ * 2段階方式:
+ *   Step 1: Terminal.appで対象ウィンドウを特定し、index 1に移動
+ *   Step 2: System Eventsでwindow 1をAXRaise
+ *
+ * ※ 旧方式（Terminal.appのインデックスをSystem Eventsに渡す）は
+ *   両者のウィンドウ順序が異なる場合があり、誤ったウィンドウが活性化される問題があった
+ *
  * @param {string} windowId - ウィンドウID（ttyパスまたは数値ID）
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  */
 function activateTerminalWindow(windowId, windowName, animation) {
   const isTtyPath = windowId.startsWith('/dev/');
   const isNumericId = /^\d+$/.test(windowId);
-
-  // 対象ウィンドウだけを前面に表示（他のウィンドウは移動しない）
-  // 1. Terminal.appで対象ウィンドウのインデックス位置を取得（tty/IDで一意特定）
-  // 2. System Eventsで同じインデックスのウィンドウをAXRaise
-  // ※ 名前マッチだと同名ウィンドウで誤爆するためインデックスベースに変更
   const escapedName = (windowName || '').replace(/"/g, '\\"');
   const anim = animation || 'pop';
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Terminal', 'Terminal') : '';
 
-  // ウィンドウ名＋インデックスを取得（反復で一意特定）
-  let findBlock;
+  // Step 1: Terminal.appで対象ウィンドウを見つけてindex 1に移動
+  let findAndBringToFront;
   if (isTtyPath) {
     const escapedTty = windowId.replace(/"/g, '\\"');
-    findBlock = `
+    findAndBringToFront = `
 tell application "Terminal"
-  set windowIdx to 0
   repeat with w in windows
-    set windowIdx to windowIdx + 1
     try
       if tty of selected tab of w is equal to "${escapedTty}" then
+        set index of w to 1
         set targetWindowName to name of w
-        set targetWindowIndex to windowIdx
+        set found to true
         exit repeat
       end if
     end try
   end repeat
+  -- ttyで見つからない場合、ウィンドウIDでフォールバック
+  if not found then
+    repeat with w in windows
+      try
+        if id of w is ${isNumericId ? windowId : '-1'} then
+          set index of w to 1
+          set targetWindowName to name of w
+          set found to true
+          exit repeat
+        end if
+      end try
+    end repeat
+  end if
 end tell`;
   } else if (isNumericId) {
-    findBlock = `
+    findAndBringToFront = `
 tell application "Terminal"
-  set windowIdx to 0
   repeat with w in windows
-    set windowIdx to windowIdx + 1
     if id of w is ${windowId} then
+      set index of w to 1
       set targetWindowName to name of w
-      set targetWindowIndex to windowIdx
+      set found to true
       exit repeat
     end if
   end repeat
 end tell`;
   } else {
-    findBlock = `
+    findAndBringToFront = `
 tell application "Terminal"
-  set windowIdx to 0
   repeat with w in windows
-    set windowIdx to windowIdx + 1
     try
       if name of w is "${escapedName}" or name of w starts with "${escapedName}" then
+        set index of w to 1
         set targetWindowName to name of w
-        set targetWindowIndex to windowIdx
+        set found to true
         exit repeat
       end if
     end try
@@ -596,15 +609,16 @@ tell application "Terminal"
 end tell`;
   }
 
+  // Step 2: index 1に移動済みなので、System Eventsのwindow 1を確実にAXRaise
   const script = `
 set targetWindowName to ""
-set targetWindowIndex to 0
-${findBlock}
-if targetWindowIndex > 0 then
+set found to false
+${findAndBringToFront}
+if found then
   tell application "System Events"
     tell process "Terminal"
-      if (count of windows) >= targetWindowIndex then
-        set targetW to window targetWindowIndex
+      if (count of windows) >= 1 then
+        set targetW to window 1
         perform action "AXRaise" of targetW
 ${innerSnippet}
       end if
@@ -612,7 +626,7 @@ ${innerSnippet}
   end tell
 ${outerSnippet}
 end if
-return targetWindowIndex > 0
+return found
 `;
 
   const tmpFile = path.join(os.tmpdir(), `atelierx-activate-term-${Date.now()}.scpt`);
@@ -630,6 +644,11 @@ return targetWindowIndex > 0
 
 /**
  * Finderウィンドウをポップして前面に表示
+ *
+ * 2段階方式（Terminalと同じ）:
+ *   Step 1: Finder.appで対象ウィンドウをindex 1に移動
+ *   Step 2: System Eventsでwindow 1をAXRaise
+ *
  * @param {string} windowId - ウィンドウID
  * @param {string} windowName - ウィンドウ名（フォールバック用）
  */
@@ -637,30 +656,38 @@ function activateFinderWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
 
-  // Finder.appで対象ウィンドウのインデックス位置を取得（同名フォルダ対策）
-  let findBlock;
+  let findAndBringToFront;
   if (isNumericId) {
-    findBlock = `
+    findAndBringToFront = `
 tell application "Finder"
-  set windowIdx to 0
   repeat with w in Finder windows
-    set windowIdx to windowIdx + 1
     if id of w is ${windowId} then
+      set index of w to 1
       set targetWindowName to name of w
-      set targetWindowIndex to windowIdx
+      set found to true
       exit repeat
     end if
   end repeat
+  -- IDで見つからない場合、名前でフォールバック
+  if not found then
+    repeat with w in Finder windows
+      if name of w is "${escapedName}" then
+        set index of w to 1
+        set targetWindowName to name of w
+        set found to true
+        exit repeat
+      end if
+    end repeat
+  end if
 end tell`;
   } else {
-    findBlock = `
+    findAndBringToFront = `
 tell application "Finder"
-  set windowIdx to 0
   repeat with w in Finder windows
-    set windowIdx to windowIdx + 1
     if name of w is "${escapedName}" then
+      set index of w to 1
       set targetWindowName to name of w
-      set targetWindowIndex to windowIdx
+      set found to true
       exit repeat
     end if
   end repeat
@@ -672,13 +699,13 @@ end tell`;
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
   const script = `
 set targetWindowName to ""
-set targetWindowIndex to 0
-${findBlock}
-if targetWindowIndex > 0 then
+set found to false
+${findAndBringToFront}
+if found then
   tell application "System Events"
     tell process "Finder"
-      if (count of windows) >= targetWindowIndex then
-        set targetW to window targetWindowIndex
+      if (count of windows) >= 1 then
+        set targetW to window 1
         perform action "AXRaise" of targetW
 ${innerSnippet}
       end if
@@ -686,7 +713,7 @@ ${innerSnippet}
   end tell
 ${outerSnippet}
 end if
-return targetWindowIndex > 0
+return found
 `;
 
   const tmpFile = path.join(os.tmpdir(), `atelierx-activate-finder-${Date.now()}.scpt`);
