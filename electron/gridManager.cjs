@@ -1,11 +1,17 @@
 /**
  * Grid Manager - ウィンドウグリッド配置モジュール
  *
- * terminal_grid.sh / finder_grid.sh と同等のロジックを実装
- * 元スクリプトの更新に追従しやすいよう、ロジックを分離
+ * 構成:
+ *   buildSystemEventsGridScript(processName, options)
+ *     → Terminal / 汎用アプリ共通（System Events の position/size で配置）
+ *     → padding=-5 で文字セルスナップ補償、3段階パスでディスプレイ間移動対応
  *
- * @see ../terminal_grid/terminal_grid.sh
- * @see ../terminal_grid/finder_grid.sh
+ *   buildFinderGridScript(options)
+ *     → Finder専用（ネイティブ bounds API、1パス、padding=0）
+ *
+ * ディスプレイ座標系:
+ *   NSScreen (原点=メイン画面左下) → AppleScript座標 (原点=メイン画面左上) に変換
+ *   外部ディスプレイで visibleFrame がメニューバーを含む場合 (vh==fh) は 25px 補正
  */
 
 const path = require('path');
@@ -13,77 +19,46 @@ const fs = require('fs');
 const os = require('os');
 const { exec } = require('child_process');
 
-// =====================================================
-// AppleScript実行ヘルパー
-// =====================================================
+// ----- AppleScript 実行 -----
 
-/**
- * AppleScriptを一時ファイル経由で実行（非同期）
- * @param {string} script - AppleScriptコード
- * @param {number} timeout - タイムアウト(ms)
- * @returns {Promise<string>} 実行結果
- */
-function runAppleScript(script, timeout = 15000) {
+function runAppleScript(script, timeout = 20000) {
   const tmpFile = path.join(os.tmpdir(), `applescript-${Date.now()}.scpt`);
   fs.writeFileSync(tmpFile, script, 'utf-8');
   return new Promise((resolve, reject) => {
     exec(`osascript "${tmpFile}"`, { encoding: 'utf-8', timeout }, (error, stdout) => {
-      try { fs.unlinkSync(tmpFile); } catch (_) { /* ignore cleanup errors */ }
-      if (error) {
-        reject(error);
-      } else {
-        resolve(stdout);
-      }
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+      if (error) reject(error);
+      else resolve(stdout);
     });
   });
 }
 
-// =====================================================
-// ディスプレイ情報取得
-// =====================================================
+// ----- ディスプレイ情報取得 (JS側で使用) -----
 
-/**
- * NSScreenを使用してディスプレイ情報を取得
- * terminal_grid.sh: get_screen_info() と同等
- */
 const SCRIPT_GET_DISPLAYS = `
 use framework "AppKit"
 use scripting additions
-
 set screenList to current application's NSScreen's screens()
-set mainScreen to item 1 of screenList
-set mainFrame to mainScreen's frame()
-set mainHeight to (current application's NSHeight(mainFrame)) as integer
+set mainFrame to (item 1 of screenList)'s frame()
+set mainH to (current application's NSHeight(mainFrame)) as integer
 set output to ""
-
 repeat with i from 1 to count of screenList
     set aScreen to item i of screenList
-    set frame to aScreen's frame()
-    set visibleFrame to aScreen's visibleFrame()
-
-    set fx to (current application's NSMinX(frame)) as integer
-    set fy to (current application's NSMinY(frame)) as integer
-    set fw to (current application's NSWidth(frame)) as integer
-    set fh to (current application's NSHeight(frame)) as integer
-
-    set vx to (current application's NSMinX(visibleFrame)) as integer
-    set vy to (current application's NSMinY(visibleFrame)) as integer
-    set vw to (current application's NSWidth(visibleFrame)) as integer
-    set vh to (current application's NSHeight(visibleFrame)) as integer
-
+    set frm to aScreen's frame()
+    set vf to aScreen's visibleFrame()
+    set fx to (current application's NSMinX(frm)) as integer
+    set fy to (current application's NSMinY(frm)) as integer
+    set fw to (current application's NSWidth(frm)) as integer
+    set fh to (current application's NSHeight(frm)) as integer
+    set vw to (current application's NSWidth(vf)) as integer
+    set vh to (current application's NSHeight(vf)) as integer
     set asX to fx
-    set asY to mainHeight - (fy + fh)
-
+    set asY to mainH - (fy + fh)
     set output to output & i & "|" & fx & "|" & fy & "|" & fw & "|" & fh & "|" & asX & "|" & asY & "|" & vw & "|" & vh & linefeed
 end repeat
-
 return output
 `;
 
-/**
- * ディスプレイ情報を取得
- * @returns {Array<DisplayInfo>} ディスプレイ情報の配列
- */
 async function getDisplayInfo() {
   try {
     const result = await runAppleScript(SCRIPT_GET_DISPLAYS);
@@ -93,14 +68,10 @@ async function getDisplayInfo() {
       if (parts.length >= 9) {
         displays.push({
           index: parseInt(parts[0]),
-          frameX: parseInt(parts[1]),
-          frameY: parseInt(parts[2]),
-          frameW: parseInt(parts[3]),
-          frameH: parseInt(parts[4]),
-          asX: parseInt(parts[5]),
-          asY: parseInt(parts[6]),
-          visibleW: parseInt(parts[7]),
-          visibleH: parseInt(parts[8]),
+          frameX: parseInt(parts[1]),  frameY: parseInt(parts[2]),
+          frameW: parseInt(parts[3]),  frameH: parseInt(parts[4]),
+          asX:    parseInt(parts[5]),  asY:    parseInt(parts[6]),
+          visibleW: parseInt(parts[7]), visibleH: parseInt(parts[8]),
           isMain: parts[1] === '0' && parts[2] === '0',
         });
       }
@@ -112,341 +83,215 @@ async function getDisplayInfo() {
   }
 }
 
-// =====================================================
-// Terminal.app グリッド配置
-// =====================================================
+// ----- AppleScript テンプレート部品 -----
 
-/**
- * Terminal.app ウィンドウをグリッド配置
- * terminal_grid.sh と同等のロジック
- *
- * 特殊対応:
- * - globalTop: 外部ディスプレイの座標系調整
- * - screenW > 2048: 幅広ディスプレイの制限
- * - menuOffset: メニューバー/ツールバー分のオフセット
- * - ハイブリッドアプローチ: Terminal APIでメインに移動後、System Eventsで配置
- *   （外部ディスプレイでTerminal APIのboundsが正しく動作しないため）
- *
- * 制限事項:
- * - System Eventsが認識できるウィンドウ数に制限がある場合があります
- *   （macOS/Terminal.appの制限により、一部ウィンドウが配置されない可能性）
- *
- * @param {Object} options
- * @param {number} options.cols - 列数（0=自動）
- * @param {number} options.rows - 行数（0=自動）
- * @param {number} options.displayIndex - ターゲットディスプレイ（0=各ディスプレイ内で自動）
- * @param {number} options.padding - パディング（デフォルト: 5）
- */
-function buildTerminalGridScript(options = {}) {
-  const { cols = 0, rows = 0, displayIndex = 0, padding = 5 } = options;
-
+/** ディスプレイ一覧を {x, y, w, h} のリストとして取得する AppleScript */
+function asDisplayInfo() {
   return `
-use framework "AppKit"
-
--- ディスプレイ情報を取得
 set screenList to current application's NSScreen's screens()
 set screenCount to count of screenList
-set mainFrame to (item 1 of screenList)'s frame()
-set mainH to (current application's NSHeight(mainFrame)) as integer
-
--- グローバルデスクトップの上端を計算（Terminal.appはこれをy=0として使用）
-set globalTop to 0
-repeat with i from 1 to screenCount
-    set aScreen to item i of screenList
-    set frm to aScreen's frame()
-    set fy to (current application's NSMinY(frm)) as integer
-    set fh to (current application's NSHeight(frm)) as integer
-    set screenTop to mainH - (fy + fh)
-    if screenTop < globalTop then
-        set globalTop to screenTop
-    end if
-end repeat
-
--- 各ディスプレイの座標情報を収集
+set mainH to (current application's NSHeight((item 1 of screenList)'s frame())) as integer
 set displayInfo to {}
 repeat with i from 1 to screenCount
     set aScreen to item i of screenList
     set vf to aScreen's visibleFrame()
-
-    set vx to (current application's NSMinX(vf)) as integer
-    set vy to (current application's NSMinY(vf)) as integer
+    set frm to aScreen's frame()
     set vw to (current application's NSWidth(vf)) as integer
     set vh to (current application's NSHeight(vf)) as integer
+    set fh to (current application's NSHeight(frm)) as integer
+    set asX to (current application's NSMinX(vf)) as integer
+    set asY to (mainH - (current application's NSMinY(vf)) as integer - vh)
+    if vh = fh then
+        set asY to asY + 25
+        set vh to vh - 25
+    end if
+    set end of displayInfo to {x:asX, y:asY, w:vw, h:vh}
+end repeat`;
+}
 
-    set asX to vx
-    set asY to (mainH - vy - vh)
+/**
+ * ウィンドウ数と画面幅からグリッド列数・行数を決定する AppleScript
+ * - cntVar: ウィンドウ数の変数名 (例: "cnt")
+ * - cols/rows: ユーザー指定値 (0=自動)
+ */
+function asGridCalc(cntVar, cols, rows) {
+  const colsPart = cols > 0
+    ? `set gridC to ${cols}`
+    : `if ${cntVar} ≤ 1 then
+    set gridC to 1
+else if ${cntVar} ≤ 2 then
+    set gridC to 2
+else if ${cntVar} ≤ 3 then
+    set gridC to 3
+else if ${cntVar} ≤ 6 then
+    set gridC to 3
+else if ${cntVar} ≤ 8 then
+    set gridC to 4
+else if ${cntVar} ≤ 12 then
+    set gridC to 4
+else if ${cntVar} ≤ 20 then
+    set gridC to 5
+else
+    set gridC to 6
+end if
+if screenW > 3000 and gridC < 5 then set gridC to 5
+if screenW > 2560 and gridC < 4 then set gridC to 4
+if screenW > 1920 and gridC < 3 then set gridC to 3`;
 
-    set end of displayInfo to {x:asX, y:asY, w:vw, h:vh, globalTop:globalTop}
-end repeat
+  const rowsPart = rows > 0
+    ? `set gridR to ${rows}`
+    : `set gridR to (${cntVar} + gridC - 1) div gridC`;
+
+  return colsPart + '\n' + rowsPart;
+}
+
+// =========================================================
+// System Events グリッド配置 (Terminal / 汎用アプリ共通)
+// =========================================================
+//
+// Terminal.app の bounds API は外部ディスプレイで全ウィンドウが同一位置にスナップ
+// するバグがあるため、System Events の position/size を使用する。
+//
+// Terminal はウィンドウサイズを文字セル境界(横7-8px, 縦14-16px)に丸めるため、
+// padding=-5 で各ウィンドウを10px大きく要求し、スナップ後もオーバーラップを確保。
+//
+// 指定ディスプレイモードでは3段階パスで配置:
+//   Pass 1: position のみ → ディスプレイ間移動を確実に
+//   Pass 2: position + size → 正確な配置
+//   Pass 3: position + size → 最終補正
+
+function buildSystemEventsGridScript(processName, options = {}) {
+  const { cols = 0, rows = 0, displayIndex = 0, padding = -5 } = options;
+  const escaped = processName.replace(/"/g, '\\"');
+
+  return `use framework "AppKit"
+${asDisplayInfo()}
 
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
-set menuOffset to 0
 
--- Terminal.appからウィンドウ数を取得 & 前面に配置
-tell application "Terminal"
-    activate
-    set wl to every window whose visible is true
-    set cnt to count of wl
-    if cnt = 0 then return 0
-end tell
+tell application "${escaped}" to activate
+delay 0.3
 
--- ターゲットディスプレイが指定されている場合
-if targetDisplay > 0 and targetDisplay ≤ screenCount then
-    set dInfo to item targetDisplay of displayInfo
-    set screenX to x of dInfo
-    set screenY to y of dInfo
-    set screenW to w of dInfo
-    set screenH to h of dInfo
-    set gTop to globalTop of dInfo
+tell application "System Events"
+    tell process "${escaped}"
+        -- ウィンドウ収集 (小さすぎるUIパネル等を除外)
+        set allWindows to every window
+        set wl to {}
+        repeat with wRef in allWindows
+            try
+                set s to size of wRef
+                if (item 1 of s) > 50 and (item 2 of s) > 50 then
+                    set end of wl to wRef
+                end if
+            end try
+        end repeat
+        set cnt to count of wl
+        if cnt = 0 then return 0
 
-    -- グリッドサイズを決定
-    if ${cols} > 0 then
-        set gridCols to ${cols}
-    else if cnt ≤ 2 then
-        set gridCols to 2
-    else if cnt ≤ 4 then
-        set gridCols to 2
-    else if cnt ≤ 6 then
-        set gridCols to 3
-    else
-        set gridCols to 4
-    end if
-    if ${rows} > 0 then
-        set gridRows to ${rows}
-    else
-        set gridRows to (cnt + gridCols - 1) div gridCols
-    end if
+        if targetDisplay > 0 and targetDisplay ≤ screenCount then
+            -- ===== 指定ディスプレイモード: 全ウィンドウをターゲットに配置 =====
+            set dInfo to item targetDisplay of displayInfo
+            set screenX to x of dInfo
+            set screenY to y of dInfo
+            set screenW to w of dInfo
+            set screenH to h of dInfo
+            ${asGridCalc('cnt', cols, rows)}
 
-    -- 幅広ディスプレイでは右端で配置が崩れるため制限
-    if screenW > 2048 then
-        set screenW to 2048
-    end if
-
-    -- 外部ディスプレイの場合: ハイブリッドアプローチ
-    -- 1. Terminal APIで全ウィンドウをメインディスプレイに移動
-    -- 2. System Eventsで正確に位置設定
-    if gTop < 0 then
-        tell application "Terminal"
-            repeat with w in (every window whose visible is true)
-                set bounds of w to {100, 100, 600, 500}
-            end repeat
-        end tell
-        delay 0.5
-
-        -- System Eventsで配置（比例分割）
-        tell application "System Events"
-            tell process "Terminal"
-                set windowList to every window
-                set seCnt to count of windowList
-
-                repeat with i from 1 to seCnt
+            -- Pass 1: position のみ (ディスプレイ間移動)
+            repeat with i from 1 to cnt
+                try
                     set idx to i - 1
-                    set gridCol to idx mod gridCols
-                    set gridRow to idx div gridCols
-                    set x1 to screenX + (screenW * gridCol div gridCols) + pad
-                    set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
-                    set y1 to screenY + (screenH * gridRow div gridRows) + pad
-                    set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
-
-                    set position of window i to {x1, y1}
-                    set size of window i to {x2 - x1, y2 - y1}
-                    set totalArranged to totalArranged + 1
-                end repeat
-            end tell
-        end tell
-    else
-        -- メインディスプレイの場合: Terminal APIで直接配置（比例分割）
-        tell application "Terminal"
-            set wl to every window whose visible is true
-            repeat with i from 1 to cnt
-                set idx to i - 1
-                set gridCol to idx mod gridCols
-                set gridRow to idx div gridCols
-                set x1 to screenX + (screenW * gridCol div gridCols) + pad
-                set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
-                set y1 to screenY + (screenH * gridRow div gridRows) + pad
-                set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
-                set bounds of item i of wl to {x1, y1, x2, y2}
-                set totalArranged to totalArranged + 1
+                    set x1 to screenX + (screenW * (idx mod gridC) div gridC) + pad
+                    set y1 to screenY + (screenH * (idx div gridC) div gridR) + pad
+                    set position of item i of wl to {x1, y1}
+                end try
             end repeat
-        end tell
-    end if
-else
-    -- 自動モード: 各ディスプレイ内で配置
-    tell application "Terminal"
-        set wl to every window whose visible is true
-    end tell
+            delay 0.4
 
-    repeat with dispIdx from 1 to screenCount
-        set dInfo to item dispIdx of displayInfo
-        set screenX to x of dInfo
-        set screenY to y of dInfo
-        set screenW to w of dInfo
-        set screenH to h of dInfo
+            -- Pass 2-3: position + size で正確に配置
+            repeat with pass from 1 to 2
+                repeat with i from 1 to cnt
+                    try
+                        set idx to i - 1
+                        set gC to idx mod gridC
+                        set gR to idx div gridC
+                        set x1 to screenX + (screenW * gC div gridC) + pad
+                        set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                        set y1 to screenY + (screenH * gR div gridR) + pad
+                        set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                        set position of item i of wl to {x1, y1}
+                        set size of item i of wl to {x2 - x1, y2 - y1}
+                    end try
+                end repeat
+                if pass = 1 then delay 0.2
+            end repeat
+            set totalArranged to cnt
 
-        set dispX1 to screenX
-        set dispY1 to screenY
-        set dispX2 to screenX + screenW
-        set dispY2 to screenY + screenH
+        else
+            -- ===== 自動モード: 各ディスプレイ内のウィンドウを個別に配置 =====
+            repeat with dispIdx from 1 to screenCount
+                set dInfo to item dispIdx of displayInfo
+                set screenX to x of dInfo
+                set screenY to y of dInfo
+                set screenW to w of dInfo
+                set screenH to h of dInfo
 
-        -- このディスプレイのウィンドウを収集
-        set dispWindows to {}
-        tell application "Terminal"
-            repeat with i from 1 to cnt
-                set b to bounds of item i of wl
-                set wx to item 1 of b
-                set wy to item 2 of b
-                set winCenterX to wx + ((item 3 of b) - wx) / 2
-                set winCenterY to wy + ((item 4 of b) - wy) / 2
+                -- このディスプレイに属するウィンドウを中心座標で判定
+                set dw to {}
+                repeat with i from 1 to cnt
+                    try
+                        set p to position of item i of wl
+                        set s to size of item i of wl
+                        set cx to (item 1 of p) + (item 1 of s) / 2
+                        set cy to (item 2 of p) + (item 2 of s) / 2
+                        if cx ≥ screenX and cx < (screenX + screenW) and cy ≥ screenY and cy < (screenY + screenH) then
+                            set end of dw to (item i of wl)
+                        end if
+                    end try
+                end repeat
 
-                if winCenterX ≥ dispX1 and winCenterX < dispX2 and winCenterY ≥ dispY1 and winCenterY < dispY2 then
-                    set end of dispWindows to i
+                set dc to count of dw
+                if dc > 0 then
+                    ${asGridCalc('dc', cols, rows)}
+                    repeat with pass from 1 to 2
+                        repeat with j from 1 to dc
+                            try
+                                set idx to j - 1
+                                set gC to idx mod gridC
+                                set gR to idx div gridC
+                                set x1 to screenX + (screenW * gC div gridC) + pad
+                                set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                                set y1 to screenY + (screenH * gR div gridR) + pad
+                                set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                                set position of (item j of dw) to {x1, y1}
+                                set size of (item j of dw) to {x2 - x1, y2 - y1}
+                            end try
+                        end repeat
+                        if pass = 1 then delay 0.15
+                    end repeat
+                    set totalArranged to totalArranged + dc
                 end if
             end repeat
-        end tell
-
-        set dispCnt to count of dispWindows
-        if dispCnt > 0 then
-            -- グリッドサイズを決定
-            if ${cols} > 0 then
-                set gridCols to ${cols}
-            else if dispCnt ≤ 2 then
-                set gridCols to 2
-            else if dispCnt ≤ 4 then
-                set gridCols to 2
-            else if dispCnt ≤ 6 then
-                set gridCols to 3
-            else
-                set gridCols to 4
-            end if
-            set gridRows to (dispCnt + gridCols - 1) div gridCols
-
-            -- 幅制限
-            if screenW > 2048 then
-                set screenW to 2048
-            end if
-
-            -- 外部ディスプレイ判定
-            set isExternal to (screenY < 0)
-
-            if isExternal then
-                -- 外部ディスプレイ: まずメインに移動してからSystem Eventsで配置
-                tell application "Terminal"
-                    repeat with winIdx in dispWindows
-                        set bounds of item winIdx of wl to {100, 100, 600, 500}
-                    end repeat
-                end tell
-                delay 0.3
-
-                tell application "System Events"
-                    tell process "Terminal"
-                        set windowList to every window
-                        set seCnt to count of windowList
-
-                        repeat with j from 1 to dispCnt
-                            if j ≤ seCnt then
-                                set idx to j - 1
-                                set gridCol to idx mod gridCols
-                                set gridRow to idx div gridCols
-                                set x1 to screenX + (screenW * gridCol div gridCols) + pad
-                                set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
-                                set y1 to screenY + (screenH * gridRow div gridRows) + pad
-                                set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
-
-                                set position of window j to {x1, y1}
-                                set size of window j to {x2 - x1, y2 - y1}
-                                set totalArranged to totalArranged + 1
-                            end if
-                        end repeat
-                    end tell
-                end tell
-            else
-                -- メインディスプレイ: Terminal APIで直接配置（比例分割）
-                tell application "Terminal"
-                    repeat with j from 1 to dispCnt
-                        set winIdx to item j of dispWindows
-                        set idx to j - 1
-                        set gridCol to idx mod gridCols
-                        set gridRow to idx div gridCols
-                        set x1 to screenX + (screenW * gridCol div gridCols) + pad
-                        set x2 to screenX + (screenW * (gridCol + 1) div gridCols)
-                        set y1 to screenY + (screenH * gridRow div gridRows) + pad
-                        set y2 to screenY + (screenH * (gridRow + 1) div gridRows)
-                        set bounds of item winIdx of wl to {x1, y1, x2, y2}
-                        set totalArranged to totalArranged + 1
-                    end repeat
-                end tell
-            end if
         end if
-    end repeat
-end if
-
-return totalArranged
-`;
+    end tell
+end tell
+return totalArranged`;
 }
 
-/**
- * Terminalウィンドウをグリッド配置
- * @param {Object} options - 配置オプション
- * @returns {Object} { success: boolean, arranged: number, error?: string }
- */
-async function arrangeTerminalGrid(options = {}) {
-  try {
-    const script = buildTerminalGridScript(options);
-    const result = await runAppleScript(script);
-    return { success: true, arranged: parseInt(result.trim()) || 0 };
-  } catch (error) {
-    console.error('arrangeTerminalGrid error:', error);
-    return { success: false, error: error.message, arranged: 0 };
-  }
-}
+// =========================================================
+// Finder グリッド配置 (ネイティブ bounds API)
+// =========================================================
+//
+// Finder は bounds {left, top, right, bottom} を直接設定でき、
+// 全ディスプレイで正確に動作するため、1パス・padding=0 で配置。
 
-// =====================================================
-// Finder グリッド配置
-// =====================================================
-
-/**
- * Finder ウィンドウをグリッド配置
- * finder_grid.sh と同等のロジック
- *
- * Finderは Terminal.app と異なり、座標系の制限がないため
- * 特殊な回避策は不要
- *
- * @param {Object} options
- * @param {number} options.cols - 列数（0=自動）
- * @param {number} options.rows - 行数（0=自動）
- * @param {number} options.displayIndex - ターゲットディスプレイ（0=各ディスプレイ内で自動）
- * @param {number} options.padding - パディング（デフォルト: 5）
- */
 function buildFinderGridScript(options = {}) {
-  const { cols = 0, rows = 0, displayIndex = 0, padding = 5 } = options;
+  const { cols = 0, rows = 0, displayIndex = 0, padding = 0 } = options;
 
-  return `
-use framework "AppKit"
-
-set screenList to current application's NSScreen's screens()
-set screenCount to count of screenList
-set mainFrame to (item 1 of screenList)'s frame()
-set mainH to (current application's NSHeight(mainFrame)) as integer
-
-set displayInfo to {}
-repeat with i from 1 to screenCount
-    set aScreen to item i of screenList
-    set frm to aScreen's frame()
-    set vf to aScreen's visibleFrame()
-
-    set vx to (current application's NSMinX(vf)) as integer
-    set vy to (current application's NSMinY(vf)) as integer
-    set vw to (current application's NSWidth(vf)) as integer
-    set vh to (current application's NSHeight(vf)) as integer
-
-    set asX to vx
-    set asY to (mainH - vy - vh)
-
-    set end of displayInfo to {x:asX, y:asY, w:vw, h:vh}
-end repeat
+  return `use framework "AppKit"
+${asDisplayInfo()}
 
 set pad to ${padding}
 set totalArranged to 0
@@ -459,43 +304,27 @@ tell application "Finder"
     if cnt = 0 then return 0
 
     if targetDisplay > 0 and targetDisplay ≤ screenCount then
+        -- ===== 指定ディスプレイモード =====
         set dInfo to item targetDisplay of displayInfo
         set screenX to x of dInfo
         set screenY to y of dInfo
         set screenW to w of dInfo
         set screenH to h of dInfo
-
-        if ${cols} > 0 then
-            set c to ${cols}
-        else if cnt ≤ 2 then
-            set c to 2
-        else if cnt ≤ 4 then
-            set c to 2
-        else if cnt ≤ 6 then
-            set c to 3
-        else
-            set c to 4
-        end if
-
-        if ${rows} > 0 then
-            set r to ${rows}
-        else
-            set r to (cnt + c - 1) div c
-        end if
+        ${asGridCalc('cnt', cols, rows)}
 
         repeat with i from 1 to cnt
             set idx to i - 1
-            set gCol to idx mod c
-            set gRow to idx div c
-            set x1 to screenX + (screenW * gCol div c) + pad
-            set x2 to screenX + (screenW * (gCol + 1) div c)
-            set y1 to screenY + (screenH * gRow div r) + pad
-            set y2 to screenY + (screenH * (gRow + 1) div r)
+            set gC to idx mod gridC
+            set gR to idx div gridC
+            set x1 to screenX + (screenW * gC div gridC) + pad
+            set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+            set y1 to screenY + (screenH * gR div gridR) + pad
+            set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
             set bounds of item i of wl to {x1, y1, x2, y2}
             set totalArranged to totalArranged + 1
         end repeat
     else
-        -- 自動モード: 各ディスプレイ内で配置
+        -- ===== 自動モード =====
         repeat with dispIdx from 1 to screenCount
             set dInfo to item dispIdx of displayInfo
             set screenX to x of dInfo
@@ -503,69 +332,54 @@ tell application "Finder"
             set screenW to w of dInfo
             set screenH to h of dInfo
 
-            set dispX1 to screenX
-            set dispY1 to screenY
-            set dispX2 to screenX + screenW
-            set dispY2 to screenY + screenH
-
-            set dispWindows to {}
+            set dw to {}
             repeat with i from 1 to cnt
                 set b to bounds of item i of wl
-                set wx to item 1 of b
-                set wy to item 2 of b
-                set winCenterX to wx + ((item 3 of b) - wx) / 2
-                set winCenterY to wy + ((item 4 of b) - wy) / 2
-
-                if winCenterX ≥ dispX1 and winCenterX < dispX2 and winCenterY ≥ dispY1 and winCenterY < dispY2 then
-                    set end of dispWindows to i
+                set cx to (item 1 of b) + ((item 3 of b) - (item 1 of b)) / 2
+                set cy to (item 2 of b) + ((item 4 of b) - (item 2 of b)) / 2
+                if cx ≥ screenX and cx < (screenX + screenW) and cy ≥ screenY and cy < (screenY + screenH) then
+                    set end of dw to i
                 end if
             end repeat
 
-            set dispCnt to count of dispWindows
-            if dispCnt > 0 then
-                if ${cols} > 0 then
-                    set c to ${cols}
-                else if dispCnt ≤ 2 then
-                    set c to 2
-                else if dispCnt ≤ 4 then
-                    set c to 2
-                else if dispCnt ≤ 6 then
-                    set c to 3
-                else
-                    set c to 4
-                end if
-                set r to (dispCnt + c - 1) div c
-
-                repeat with j from 1 to dispCnt
-                    set winIdx to item j of dispWindows
+            set dc to count of dw
+            if dc > 0 then
+                ${asGridCalc('dc', cols, rows)}
+                repeat with j from 1 to dc
                     set idx to j - 1
-                    set gCol to idx mod c
-                    set gRow to idx div c
-                    set x1 to screenX + (screenW * gCol div c) + pad
-                    set x2 to screenX + (screenW * (gCol + 1) div c)
-                    set y1 to screenY + (screenH * gRow div r) + pad
-                    set y2 to screenY + (screenH * (gRow + 1) div r)
-                    set bounds of item winIdx of wl to {x1, y1, x2, y2}
+                    set gC to idx mod gridC
+                    set gR to idx div gridC
+                    set x1 to screenX + (screenW * gC div gridC) + pad
+                    set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                    set y1 to screenY + (screenH * gR div gridR) + pad
+                    set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                    set bounds of item (item j of dw) of wl to {x1, y1, x2, y2}
                     set totalArranged to totalArranged + 1
                 end repeat
             end if
         end repeat
     end if
-
     return totalArranged
-end tell
-`;
+end tell`;
 }
 
-/**
- * Finderウィンドウをグリッド配置
- * @param {Object} options - 配置オプション
- * @returns {Object} { success: boolean, arranged: number, error?: string }
- */
+// =========================================================
+// 公開 API
+// =========================================================
+
+async function arrangeTerminalGrid(options = {}) {
+  try {
+    const result = await runAppleScript(buildSystemEventsGridScript('Terminal', options), 30000);
+    return { success: true, arranged: parseInt(result.trim()) || 0 };
+  } catch (error) {
+    console.error('arrangeTerminalGrid error:', error);
+    return { success: false, error: error.message, arranged: 0 };
+  }
+}
+
 async function arrangeFinderGrid(options = {}) {
   try {
-    const script = buildFinderGridScript(options);
-    const result = await runAppleScript(script);
+    const result = await runAppleScript(buildFinderGridScript(options), 20000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeFinderGrid error:', error);
@@ -573,159 +387,9 @@ async function arrangeFinderGrid(options = {}) {
   }
 }
 
-// =====================================================
-// 汎用アプリ グリッド配置 (System Events経由)
-// =====================================================
-
-/**
- * 任意のアプリウィンドウをSystem Events経由でグリッド配置
- *
- * Terminal/Finderは専用APIを持つが、それ以外のアプリは
- * System Eventsでposition/sizeを設定して配置する
- *
- * @param {string} appName - macOSアプリ名 (例: 'Vivaldi', 'Obsidian')
- * @param {Object} options
- * @param {number} options.cols - 列数（0=自動）
- * @param {number} options.rows - 行数（0=自動）
- * @param {number} options.displayIndex - ターゲットディスプレイ（0=自動）
- * @param {number} options.padding - パディング（デフォルト: 5）
- */
-function buildGenericGridScript(appName, options = {}) {
-  const { cols = 0, rows = 0, displayIndex = 0, padding = 5 } = options;
-  const escapedAppName = appName.replace(/"/g, '\\"');
-
-  // 注意: AppleScript変数名に row/col/column 等を使うと
-  // Excel等のアプリでスプレッドシート用語と衝突するため
-  // gridCol/gridRow/gridC/gridR を使用する
-  return `
-use framework "AppKit"
-
-set screenList to current application's NSScreen's screens()
-set screenCount to count of screenList
-set mainFrame to (item 1 of screenList)'s frame()
-set mainH to (current application's NSHeight(mainFrame)) as integer
-
-set displayInfo to {}
-repeat with i from 1 to screenCount
-    set aScreen to item i of screenList
-    set vf to aScreen's visibleFrame()
-    set vx to (current application's NSMinX(vf)) as integer
-    set vy to (current application's NSMinY(vf)) as integer
-    set vw to (current application's NSWidth(vf)) as integer
-    set vh to (current application's NSHeight(vf)) as integer
-    set asX to vx
-    set asY to (mainH - vy - vh)
-    set end of displayInfo to {x:asX, y:asY, w:vw, h:vh}
-end repeat
-
-set pad to ${padding}
-set totalArranged to 0
-set targetDisplay to ${displayIndex}
-set menuOffset to 0
-
--- アプリを前面に配置
-tell application "${escapedAppName}" to activate
-delay 0.3
-
-tell application "System Events"
-    if not (exists process "${escapedAppName}") then return 0
-    tell process "${escapedAppName}"
-        set wl to every window
-        set cnt to count of wl
-        if cnt = 0 then return 0
-
-        if targetDisplay > 0 and targetDisplay ≤ screenCount then
-            set dInfo to item targetDisplay of displayInfo
-            set screenX to x of dInfo
-            set screenY to y of dInfo
-            set screenW to w of dInfo
-            set screenH to h of dInfo
-
-            if ${cols} > 0 then
-                set gridC to ${cols}
-            else if cnt ≤ 2 then
-                set gridC to 2
-            else if cnt ≤ 4 then
-                set gridC to 2
-            else if cnt ≤ 6 then
-                set gridC to 3
-            else
-                set gridC to 4
-            end if
-
-            if ${rows} > 0 then
-                set gridR to ${rows}
-            else
-                set gridR to (cnt + gridC - 1) div gridC
-            end if
-
-            repeat with i from 1 to cnt
-                set idx to i - 1
-                set gridCol to idx mod gridC
-                set gridRow to idx div gridC
-                set x1 to screenX + (screenW * gridCol div gridC) + pad
-                set x2 to screenX + (screenW * (gridCol + 1) div gridC)
-                set y1 to screenY + (screenH * gridRow div gridR) + pad
-                set y2 to screenY + (screenH * (gridRow + 1) div gridR)
-                set position of window i to {x1, y1}
-                set size of window i to {x2 - x1, y2 - y1}
-                set totalArranged to totalArranged + 1
-            end repeat
-        else
-            set dInfo to item 1 of displayInfo
-            set screenX to x of dInfo
-            set screenY to y of dInfo
-            set screenW to w of dInfo
-            set screenH to h of dInfo
-
-            if ${cols} > 0 then
-                set gridC to ${cols}
-            else if cnt ≤ 2 then
-                set gridC to 2
-            else if cnt ≤ 4 then
-                set gridC to 2
-            else if cnt ≤ 6 then
-                set gridC to 3
-            else
-                set gridC to 4
-            end if
-
-            if ${rows} > 0 then
-                set gridR to ${rows}
-            else
-                set gridR to (cnt + gridC - 1) div gridC
-            end if
-
-            repeat with i from 1 to cnt
-                set idx to i - 1
-                set gridCol to idx mod gridC
-                set gridRow to idx div gridC
-                set x1 to screenX + (screenW * gridCol div gridC) + pad
-                set x2 to screenX + (screenW * (gridCol + 1) div gridC)
-                set y1 to screenY + (screenH * gridRow div gridR) + pad
-                set y2 to screenY + (screenH * (gridRow + 1) div gridR)
-                set position of window i to {x1, y1}
-                set size of window i to {x2 - x1, y2 - y1}
-                set totalArranged to totalArranged + 1
-            end repeat
-        end if
-    end tell
-end tell
-
-return totalArranged
-`;
-}
-
-/**
- * 汎用アプリウィンドウをグリッド配置
- * @param {string} appName - macOSアプリ名
- * @param {Object} options - 配置オプション
- * @returns {Object} { success: boolean, arranged: number, error?: string }
- */
 async function arrangeGenericGrid(appName, options = {}) {
   try {
-    const script = buildGenericGridScript(appName, options);
-    const result = await runAppleScript(script);
+    const result = await runAppleScript(buildSystemEventsGridScript(appName, options), 45000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeGenericGrid error:', error);
@@ -733,18 +397,13 @@ async function arrangeGenericGrid(appName, options = {}) {
   }
 }
 
-// =====================================================
-// エクスポート
-// =====================================================
-
 module.exports = {
   runAppleScript,
   getDisplayInfo,
   arrangeTerminalGrid,
   arrangeFinderGrid,
   arrangeGenericGrid,
-  // スクリプトビルダーもエクスポート（テスト・デバッグ用）
-  buildTerminalGridScript,
+  buildTerminalGridScript: (opts) => buildSystemEventsGridScript('Terminal', opts),
   buildFinderGridScript,
-  buildGenericGridScript,
+  buildGenericGridScript: (appName, opts) => buildSystemEventsGridScript(appName, opts),
 };

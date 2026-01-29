@@ -86,6 +86,34 @@ export function Board() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
+  // Undo スタック（最大30件の BoardData スナップショット）
+  const MAX_UNDO = 30;
+  const undoStackRef = useRef<BoardData[]>([]);
+  // 直前のデータ状態を保持（変更検出用）
+  const prevDataJsonRef = useRef<string>('');
+
+  // data が変更されたらスナップショットを自動保存
+  useEffect(() => {
+    const json = JSON.stringify(data);
+    if (prevDataJsonRef.current && prevDataJsonRef.current !== json) {
+      // 前の状態をスタックに積む
+      try {
+        const prevData = JSON.parse(prevDataJsonRef.current) as BoardData;
+        undoStackRef.current = [...undoStackRef.current.slice(-(MAX_UNDO - 1)), prevData];
+      } catch { /* ignore */ }
+    }
+    prevDataJsonRef.current = json;
+  }, [data]);
+
+  // Undo 実行
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const prev = undoStackRef.current.pop()!;
+    // prevDataJsonRef をリセットして、この setData が再度スタックに積まれないようにする
+    prevDataJsonRef.current = JSON.stringify(prev);
+    setData(prev);
+  }, [setData]);
+
   // 有効なアプリタブ一覧 (後方互換: 未設定ならビルトインのみ)
   const enabledTabs: AppTabConfig[] = useMemo(() => {
     return settings.enabledAppTabs && settings.enabledAppTabs.length > 0
@@ -226,16 +254,39 @@ export function Board() {
   // キーボードショートカット
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // モーダルが開いている場合はショートカットを無効化
+      const isModalOpen = modalColumnId || windowSelectColumnId || editingCard || showExportModal || showSettingsModal || showNoteSelectModal || showGridModal || relinkingCard || showAddIdeaModal;
+      if (isModalOpen) return;
+
+      const mod = e.metaKey || e.ctrlKey;
+
       // Cmd/Ctrl + , で設定モーダルを開く
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      if (mod && e.key === ',') {
         e.preventDefault();
         setShowSettingsModal(true);
+        return;
+      }
+
+      // Ctrl + G でGrid配置モーダルを開く
+      if (mod && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        if (activeBoard !== 'ideas') {
+          setShowGridModal(true);
+        }
+        return;
+      }
+
+      // Cmd/Ctrl + Z でUndo
+      if (mod && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        handleUndo();
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeBoard, handleUndo, modalColumnId, windowSelectColumnId, editingCard, showExportModal, showSettingsModal, showNoteSelectModal, showGridModal, relinkingCard, showAddIdeaModal]);
 
   // タブのスクロール状態を監視
   useEffect(() => {

@@ -167,7 +167,7 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
                 <div className="grid-input-group">
                   <label>列数</label>
                   <div className="grid-input-buttons">
-                    {[2, 3, 4, 5].map((n) => (
+                    {[2, 3, 4, 5, 6].map((n) => (
                       <button
                         key={n}
                         className={`grid-size-btn ${cols === n ? 'active' : ''}`}
@@ -181,7 +181,7 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
                 <div className="grid-input-group">
                   <label>行数</label>
                   <div className="grid-input-buttons">
-                    {[1, 2, 3, 4].map((n) => (
+                    {[1, 2, 3, 4, 5].map((n) => (
                       <button
                         key={n}
                         className={`grid-size-btn ${rows === n ? 'active' : ''}`}
