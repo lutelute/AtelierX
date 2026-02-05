@@ -41,19 +41,35 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 - **Extensible API** &mdash; グリッドレイアウト、エクスポートフォーマット、カードアクション
 - **Local Dev** &mdash; テンプレートからプラグインを開発・テスト
 
-## Screenshot
+## Demo
 
-```
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│    TODO      │ │ IN PROGRESS │ │    DONE      │
-├─────────────┤ ├─────────────┤ ├─────────────┤
-│ ▌Terminal    │ │ ▌Terminal    │ │ ▌Terminal  ✓ │
-│  proj-api    │ │  proj-web   │ │  setup-ci    │
-│              │ │  ▶ Jump     │ │              │
-│ ▌Finder      │ │             │ │ ▌Finder    ✓ │
-│  ~/docs      │ │             │ │  ~/assets    │
-└─────────────┘ └─────────────┘ └─────────────┘
-```
+<p align="center">
+  <img src="docs/assets/demo-hero.gif" alt="AtelierX - Kanban Board" width="720">
+</p>
+
+### Drag & Drop
+
+カードをカラム間でドラッグして、ウィンドウのステータスを管理。
+
+<p align="center">
+  <img src="docs/assets/demo-dnd.gif" alt="Drag & Drop" width="720">
+</p>
+
+### Window Jump
+
+カードの「Jump」ボタンで対象ウィンドウを即座に前面表示。
+
+<p align="center">
+  <img src="docs/assets/demo-jump.gif" alt="Window Jump" width="720">
+</p>
+
+### Grid Layout
+
+散らばったウィンドウをワンクリックでグリッド状に自動配置。
+
+<p align="center">
+  <img src="docs/assets/demo-grid.gif" alt="Grid Layout" width="720">
+</p>
 
 ## Install
 
