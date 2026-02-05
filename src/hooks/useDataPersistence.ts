@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { AllBoardsData, BoardData, ActivityLog, Settings } from '../types';
-import { isAllBoardsData, migrateBoardDataToAllBoards } from '../utils/boardUtils';
+import { isAllBoardsData, migrateBoardDataToAllBoards, migrateColumnColors } from '../utils/boardUtils';
 import { defaultSettings } from '../components/SettingsModal';
 
 const BACKUP_INTERVAL = 60000; // 1分ごとに自動バックアップ
@@ -95,6 +95,7 @@ export function useDataPersistence({
           } else {
             backupAllData = migrateBoardDataToAllBoards(result.data.boardData as BoardData);
           }
+          migrateColumnColors(backupAllData);
 
           const backupTotalCards = Object.values(backupAllData.boards).reduce(
             (sum, board) => sum + Object.keys(board.cards).length, 0
@@ -171,11 +172,14 @@ export function useDataPersistence({
           `バックアップを復元しますか？\n現在のデータは上書きされます。\n\nバックアップ日時: ${new Date(result.data.backupAt).toLocaleString()}`
         );
         if (confirmRestore) {
+          let imported: AllBoardsData;
           if (isAllBoardsData(result.data.boardData)) {
-            setAllData(result.data.boardData);
+            imported = result.data.boardData;
           } else {
-            setAllData(migrateBoardDataToAllBoards(result.data.boardData as BoardData));
+            imported = migrateBoardDataToAllBoards(result.data.boardData as BoardData);
           }
+          migrateColumnColors(imported);
+          setAllData(imported);
           setActivityLogs(result.data.activityLogs || []);
           if (result.data.settings) {
             setSettings(result.data.settings);

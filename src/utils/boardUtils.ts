@@ -27,6 +27,18 @@ export const initialAllBoardsData: AllBoardsData = {
   ideas: [],
 };
 
+// カラムにデフォルト色が未設定の場合に補完するマイグレーション
+export function migrateColumnColors(data: AllBoardsData): AllBoardsData {
+  for (const board of Object.values(data.boards)) {
+    for (const col of board.columns) {
+      if (!col.color && DEFAULT_COLUMN_COLORS[col.id]) {
+        col.color = DEFAULT_COLUMN_COLORS[col.id];
+      }
+    }
+  }
+  return data;
+}
+
 // AllBoardsData かどうかを判定（旧形式BoardDataと区別）
 export function isAllBoardsData(data: unknown): data is AllBoardsData {
   return data !== null && typeof data === 'object' && 'boards' in (data as Record<string, unknown>);
