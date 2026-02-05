@@ -4,6 +4,10 @@
   "private": true,
   "version": "1.4.0",
   "description": "Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプリ - あなたの創作空間",
+  "author": {
+    "name": "lutelute",
+    "email": "lutelute@users.noreply.github.com"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
