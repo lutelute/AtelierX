@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Settings, AppTabConfig, GridResult } from '../types';
+import { Settings, AppTabConfig, GridResult, MultiGridArrangeOptions, MultiGridResult } from '../types';
 
 interface UseExportParams {
   activeBoard: string;
@@ -18,6 +18,7 @@ export function useExport({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNoteSelectModal, setShowNoteSelectModal] = useState(false);
   const [showGridModal, setShowGridModal] = useState(false);
+  const [showMultiGridModal, setShowMultiGridModal] = useState(false);
   const [exportContent, setExportContent] = useState('');
 
   const handleOpenExport = useCallback(() => {
@@ -49,6 +50,10 @@ export function useExport({
     setShowGridModal(true);
   }, []);
 
+  const handleOpenMultiGridModal = useCallback(() => {
+    setShowMultiGridModal(true);
+  }, []);
+
   const handleArrangeGrid = useCallback(async (options: { cols?: number; rows?: number; displayIndex?: number; padding?: number }): Promise<GridResult> => {
     if (activeBoard === 'terminal') {
       if (!window.electronAPI?.arrangeTerminalGrid) return { success: false, arranged: 0 };
@@ -62,6 +67,13 @@ export function useExport({
       return await window.electronAPI.arrangeGenericGrid(activeTab.appName, options);
     }
   }, [activeBoard, enabledTabs]);
+
+  const handleArrangeMultiAppGrid = useCallback(async (options: MultiGridArrangeOptions): Promise<MultiGridResult> => {
+    if (!window.electronAPI?.arrangeMultiAppGrid) {
+      return { success: false, arranged: 0, error: 'API not available' };
+    }
+    return await window.electronAPI.arrangeMultiAppGrid(options);
+  }, []);
 
   const toggleTheme = useCallback(() => {
     const newTheme = (settings.theme || 'dark') === 'dark' ? 'light' : 'dark';
@@ -77,6 +89,8 @@ export function useExport({
     setShowNoteSelectModal,
     showGridModal,
     setShowGridModal,
+    showMultiGridModal,
+    setShowMultiGridModal,
     exportContent,
     handleOpenExport,
     handleSaveExport,
@@ -84,6 +98,8 @@ export function useExport({
     handleNoteInsertSuccess,
     handleOpenGridModal,
     handleArrangeGrid,
+    handleOpenMultiGridModal,
+    handleArrangeMultiAppGrid,
     toggleTheme,
   };
 }

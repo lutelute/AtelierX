@@ -366,6 +366,345 @@ end tell`;
 }
 
 // =========================================================
+// マルチアプリグリッド配置
+// =========================================================
+//
+// 異なるアプリを組み合わせたグリッドに配置する。
+// セルごとにアプリ名を指定し、同一アプリの複数セルはまとめて1つの
+// AppleScriptで処理する。
+
+/**
+ * Finder用: 複数セルに1ウィンドウずつ配置する AppleScript を生成
+ * @param {Array<{x:number, y:number, w:number, h:number}>} cellCoords - セル座標リスト
+ */
+function buildFinderMultiCellScript(cellCoords) {
+  const boundsStatements = cellCoords.map((c, i) => {
+    return `
+            try
+                set bounds of item ${i + 1} of wl to {${c.x}, ${c.y}, ${c.x + c.w}, ${c.y + c.h}}
+            end try`;
+  }).join('\n');
+
+  return `tell application "Finder"
+    activate
+    delay 0.3
+    set wl to every Finder window whose visible is true
+    set cnt to count of wl
+    set needed to ${cellCoords.length}
+    if cnt < needed then
+        repeat (needed - cnt) times
+            make new Finder window
+            delay 0.2
+        end repeat
+        set wl to every Finder window whose visible is true
+    end if
+${boundsStatements}
+end tell
+return ${cellCoords.length}`;
+}
+
+/**
+ * System Events 汎用: 複数セルに1ウィンドウずつ配置する AppleScript を生成
+ * @param {string} processName - プロセス名
+ * @param {Array<{x:number, y:number, w:number, h:number}>} cellCoords - セル座標リスト
+ * @param {number} padding - パディング (Terminal: -5, 汎用: 指定値)
+ */
+function buildSystemEventsMultiCellScript(processName, cellCoords, padding) {
+  const escaped = processName.replace(/"/g, '\\"');
+  const pad = padding;
+
+  const posStatements = cellCoords.map((c, i) => {
+    const x1 = c.x + pad;
+    const y1 = c.y + pad;
+    const w = c.w - pad * 2;
+    const h = c.h - pad * 2;
+    return `
+                try
+                    set position of item ${i + 1} of wl to {${x1}, ${y1}}
+                    set size of item ${i + 1} of wl to {${w}, ${h}}
+                end try`;
+  }).join('\n');
+
+  // 2パスで配置精度向上
+  const pass2Statements = cellCoords.map((c, i) => {
+    const x1 = c.x + pad;
+    const y1 = c.y + pad;
+    const w = c.w - pad * 2;
+    const h = c.h - pad * 2;
+    return `
+                try
+                    set position of item ${i + 1} of wl to {${x1}, ${y1}}
+                    set size of item ${i + 1} of wl to {${w}, ${h}}
+                end try`;
+  }).join('\n');
+
+  return `tell application "${escaped}" to activate
+delay 0.3
+tell application "System Events"
+    tell process "${escaped}"
+        set allWindows to every window
+        set wl to {}
+        repeat with wRef in allWindows
+            try
+                set s to size of wRef
+                if (item 1 of s) > 50 and (item 2 of s) > 50 then
+                    set end of wl to wRef
+                end if
+            end try
+        end repeat
+        set cnt to count of wl
+        set needed to ${cellCoords.length}
+        if cnt < needed then return cnt
+        -- Pass 1
+${posStatements}
+        delay 0.2
+        -- Pass 2
+${pass2Statements}
+    end tell
+end tell
+return ${cellCoords.length}`;
+}
+
+/**
+ * fill モード: Finder の全ウィンドウを指定領域内にグリッド配置する AppleScript
+ * @param {{x:number, y:number, w:number, h:number}} region - 配置領域
+ * @param {number} subCols - 列数指定 (0=自動)
+ * @param {number} subRows - 行数指定 (0=自動)
+ */
+function buildFinderRegionFillScript(region, subCols = 0, subRows = 0) {
+  const colsPart = subCols > 0
+    ? `set gridC to ${subCols}`
+    : `if cnt ≤ 1 then
+        set gridC to 1
+    else if cnt ≤ 2 then
+        set gridC to 2
+    else if cnt ≤ 6 then
+        set gridC to 3
+    else
+        set gridC to 4
+    end if`;
+  const rowsPart = subRows > 0
+    ? `set gridR to ${subRows}`
+    : `set gridR to (cnt + gridC - 1) div gridC`;
+
+  return `tell application "Finder"
+    activate
+    delay 0.3
+    set wl to every Finder window whose visible is true
+    set cnt to count of wl
+    if cnt = 0 then return 0
+
+    set regionX to ${region.x}
+    set regionY to ${region.y}
+    set regionW to ${region.w}
+    set regionH to ${region.h}
+
+    ${colsPart}
+    ${rowsPart}
+
+    repeat with i from 1 to cnt
+        set idx to i - 1
+        set gC to idx mod gridC
+        set gR to idx div gridC
+        set x1 to regionX + (regionW * gC div gridC)
+        set x2 to regionX + (regionW * (gC + 1) div gridC)
+        set y1 to regionY + (regionH * gR div gridR)
+        set y2 to regionY + (regionH * (gR + 1) div gridR)
+        set bounds of item i of wl to {x1, y1, x2, y2}
+    end repeat
+    return cnt
+end tell`;
+}
+
+/**
+ * fill モード: System Events で全ウィンドウを指定領域内にグリッド配置する AppleScript
+ * @param {string} processName - プロセス名
+ * @param {{x:number, y:number, w:number, h:number}} region - 配置領域
+ * @param {number} padding - パディング
+ * @param {number} subCols - 列数指定 (0=自動)
+ * @param {number} subRows - 行数指定 (0=自動)
+ */
+function buildSystemEventsRegionFillScript(processName, region, padding, subCols = 0, subRows = 0) {
+  const escaped = processName.replace(/"/g, '\\"');
+  const colsPart = subCols > 0
+    ? `set gridC to ${subCols}`
+    : `if cnt ≤ 1 then
+            set gridC to 1
+        else if cnt ≤ 2 then
+            set gridC to 2
+        else if cnt ≤ 6 then
+            set gridC to 3
+        else
+            set gridC to 4
+        end if`;
+  const rowsPart = subRows > 0
+    ? `set gridR to ${subRows}`
+    : `set gridR to (cnt + gridC - 1) div gridC`;
+
+  return `tell application "${escaped}" to activate
+delay 0.3
+tell application "System Events"
+    tell process "${escaped}"
+        set allWindows to every window
+        set wl to {}
+        repeat with wRef in allWindows
+            try
+                set s to size of wRef
+                if (item 1 of s) > 50 and (item 2 of s) > 50 then
+                    set end of wl to wRef
+                end if
+            end try
+        end repeat
+        set cnt to count of wl
+        if cnt = 0 then return 0
+
+        set regionX to ${region.x}
+        set regionY to ${region.y}
+        set regionW to ${region.w}
+        set regionH to ${region.h}
+        set pad to ${padding}
+
+        ${colsPart}
+        ${rowsPart}
+
+        -- Pass 1: position のみ (ディスプレイ間移動を確実に)
+        repeat with i from 1 to cnt
+            try
+                set idx to i - 1
+                set gC to idx mod gridC
+                set gR to idx div gridC
+                set x1 to regionX + (regionW * gC div gridC) + pad
+                set y1 to regionY + (regionH * gR div gridR) + pad
+                set position of item i of wl to {x1, y1}
+            end try
+        end repeat
+        delay 0.3
+
+        -- Pass 2-3: position + size
+        repeat with pass from 1 to 2
+            repeat with i from 1 to cnt
+                try
+                    set idx to i - 1
+                    set gC to idx mod gridC
+                    set gR to idx div gridC
+                    set x1 to regionX + (regionW * gC div gridC) + pad
+                    set x2 to regionX + (regionW * (gC + 1) div gridC) - pad
+                    set y1 to regionY + (regionH * gR div gridR) + pad
+                    set y2 to regionY + (regionH * (gR + 1) div gridR) - pad
+                    set position of item i of wl to {x1, y1}
+                    set size of item i of wl to {x2 - x1, y2 - y1}
+                end try
+            end repeat
+            if pass = 1 then delay 0.2
+        end repeat
+        return cnt
+    end tell
+end tell`;
+}
+
+/**
+ * マルチアプリグリッド配置
+ * @param {object} options - { displayIndex, rows, cols, padding, cells, mode }
+ *   mode: 'one-per-cell' (デフォルト) = 各セルに1ウィンドウ
+ *         'fill' = 各セル領域に全ウィンドウをグリッド配置
+ */
+async function arrangeMultiAppGrid(options) {
+  const { displayIndex = 0, rows = 2, cols = 2, padding = 0, cells = [], mode = 'one-per-cell', subCols = 0, subRows = 0 } = options;
+
+  if (cells.length === 0) {
+    return { success: false, error: 'No cells specified', arranged: 0, details: [] };
+  }
+
+  try {
+    // 1. ディスプレイ情報取得
+    const displays = await getDisplayInfo();
+    const dispIdx = displayIndex > 0 ? displayIndex : 1;
+    if (dispIdx > displays.length) {
+      return { success: false, error: 'Display not found', arranged: 0, details: [] };
+    }
+    const d = displays[dispIdx - 1];
+
+    // メニューバー補正
+    let screenX = d.asX;
+    let screenY = d.asY;
+    let screenW = d.visibleW;
+    let screenH = d.visibleH;
+    if (d.visibleH === d.frameH) {
+      screenY += 25;
+      screenH -= 25;
+    }
+
+    // 2. セルをアプリ名でグループ化し、各セルのピクセル座標を計算
+    const appGroups = {};
+    for (const cell of cells) {
+      const { row, col, appName } = cell;
+      if (row < 0 || row >= rows || col < 0 || col >= cols) continue;
+
+      const x = screenX + Math.floor(screenW * col / cols);
+      const y = screenY + Math.floor(screenH * row / rows);
+      const w = Math.floor(screenW * (col + 1) / cols) - Math.floor(screenW * col / cols);
+      const h = Math.floor(screenH * (row + 1) / rows) - Math.floor(screenH * row / rows);
+
+      if (!appGroups[appName]) {
+        appGroups[appName] = [];
+      }
+      appGroups[appName].push({ x, y, w, h });
+    }
+
+    // 3. アプリごとにAppleScript生成・実行
+    const details = [];
+    let totalArranged = 0;
+
+    for (const [appName, coords] of Object.entries(appGroups)) {
+      try {
+        let script;
+
+        if (mode === 'fill') {
+          // fill モード: 全セル領域のバウンディングボックスを計算し、全ウィンドウをその中にグリッド配置
+          const bx = Math.min(...coords.map(c => c.x));
+          const by = Math.min(...coords.map(c => c.y));
+          const bx2 = Math.max(...coords.map(c => c.x + c.w));
+          const by2 = Math.max(...coords.map(c => c.y + c.h));
+          const region = { x: bx, y: by, w: bx2 - bx, h: by2 - by };
+
+          if (appName === 'Finder') {
+            script = buildFinderRegionFillScript(region, subCols, subRows);
+          } else {
+            const appPadding = appName === 'Terminal' ? -5 : padding;
+            script = buildSystemEventsRegionFillScript(appName, region, appPadding, subCols, subRows);
+          }
+        } else {
+          // one-per-cell モード: 各セルに1ウィンドウ
+          if (appName === 'Finder') {
+            script = buildFinderMultiCellScript(coords);
+          } else {
+            const appPadding = appName === 'Terminal' ? -5 : padding;
+            script = buildSystemEventsMultiCellScript(appName, coords, appPadding);
+          }
+        }
+
+        const result = await runAppleScript(script, 30000);
+        const arranged = parseInt(result.trim()) || 0;
+        totalArranged += arranged;
+        details.push({ appName, success: true });
+      } catch (error) {
+        console.error(`arrangeMultiAppGrid: ${appName} error:`, error.message);
+        details.push({ appName, success: false });
+      }
+    }
+
+    return {
+      success: totalArranged > 0,
+      arranged: totalArranged,
+      details,
+    };
+  } catch (error) {
+    console.error('arrangeMultiAppGrid error:', error);
+    return { success: false, error: error.message, arranged: 0, details: [] };
+  }
+}
+
+// =========================================================
 // 公開 API
 // =========================================================
 
@@ -405,6 +744,7 @@ module.exports = {
   arrangeTerminalGrid,
   arrangeFinderGrid,
   arrangeGenericGrid,
+  arrangeMultiAppGrid,
   buildTerminalGridScript: (opts) => buildSystemEventsGridScript('Terminal', opts),
   buildFinderGridScript,
   buildGenericGridScript: (appName, opts) => buildSystemEventsGridScript(appName, opts),

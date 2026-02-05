@@ -21,7 +21,7 @@ import { useTabManagement } from '../hooks/useTabManagement';
 import { useExport } from '../hooks/useExport';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTimerActions } from '../hooks/useTimerActions';
-import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES, MultiGridLayout } from '../types';
 import { createDefaultBoard, initialAllBoardsData, DEFAULT_COLUMN_COLORS } from '../utils/boardUtils';
 import { computeTerminalBgColorFromHex, buildPriorityColorMap, generateGradientColors } from '../utils/terminalColor';
 import { Column } from './Column';
@@ -35,6 +35,7 @@ import { SettingsModal, defaultSettings } from './SettingsModal';
 import { NoteSelectModal } from './NoteSelectModal';
 import { ArchiveSection } from './ArchiveSection';
 import { GridArrangeModal } from './GridArrangeModal';
+import { MultiGridModal } from './MultiGridModal';
 import { RelinkWindowModal } from './RelinkWindowModal';
 import { IdeasPanel } from './IdeasPanel';
 import { AddIdeaModal } from './AddIdeaModal';
@@ -261,6 +262,8 @@ export function Board() {
     setShowNoteSelectModal,
     showGridModal,
     setShowGridModal,
+    showMultiGridModal,
+    setShowMultiGridModal,
     exportContent,
     handleOpenExport,
     handleSaveExport,
@@ -268,6 +271,8 @@ export function Board() {
     handleNoteInsertSuccess,
     handleOpenGridModal,
     handleArrangeGrid,
+    handleOpenMultiGridModal,
+    handleArrangeMultiAppGrid,
     toggleTheme,
   } = useExport({
     activeBoard,
@@ -282,7 +287,7 @@ export function Board() {
   });
 
   // モーダルが開いているか判定
-  const isModalOpen = !!(cardOps.modalColumnId || cardOps.windowSelectColumnId || cardOps.editingCard || showExportModal || showSettingsModal || showNoteSelectModal || showGridModal || cardOps.relinkingCard || cardOps.showAddIdeaModal);
+  const isModalOpen = !!(cardOps.modalColumnId || cardOps.windowSelectColumnId || cardOps.editingCard || showExportModal || showSettingsModal || showNoteSelectModal || showGridModal || showMultiGridModal || cardOps.relinkingCard || cardOps.showAddIdeaModal);
 
   useKeyboardShortcuts({
     activeBoard,
@@ -291,6 +296,22 @@ export function Board() {
     setShowGridModal,
     isModalOpen,
   });
+
+  // マルチグリッドお気に入り保存
+  const handleSaveMultiGridFavorite = useCallback((layout: MultiGridLayout) => {
+    setSettings(prev => ({
+      ...prev,
+      multiGridFavorites: [...(prev.multiGridFavorites || []), layout],
+    }));
+  }, [setSettings]);
+
+  // マルチグリッドお気に入り削除
+  const handleDeleteMultiGridFavorite = useCallback((id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      multiGridFavorites: (prev.multiGridFavorites || []).filter(f => f.id !== id),
+    }));
+  }, [setSettings]);
 
   // プラグインカードアクションを取得（起動時のみ）
   useEffect(() => {
@@ -837,6 +858,9 @@ export function Board() {
           <button className="nav-action" onClick={handleOpenGridModal} title="Grid配置">
             <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
           </button>
+          <button className="nav-action" onClick={handleOpenMultiGridModal} title="マルチアプリGrid配置">
+            <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.2"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.2"/></svg>
+          </button>
           <button className="nav-action" onClick={handleOpenExport} title="エクスポート">
             <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 1v9"/><path d="M4 5l4-4 4 4"/><path d="M2 11v3h12v-3"/></svg>
           </button>
@@ -1068,6 +1092,16 @@ export function Board() {
           appType={enabledTabs.find(t => t.id === activeBoard)?.appName || 'Terminal'}
           onClose={() => setShowGridModal(false)}
           onArrange={handleArrangeGrid}
+        />
+      )}
+      {showMultiGridModal && (
+        <MultiGridModal
+          enabledTabs={enabledTabs}
+          favorites={settings.multiGridFavorites || []}
+          onClose={() => setShowMultiGridModal(false)}
+          onArrange={handleArrangeMultiAppGrid}
+          onSaveFavorite={handleSaveMultiGridFavorite}
+          onDeleteFavorite={handleDeleteMultiGridFavorite}
         />
       )}
       {cardOps.relinkingCard && (

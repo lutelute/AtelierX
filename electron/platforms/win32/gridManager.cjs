@@ -212,9 +212,14 @@ async function arrangeGenericGrid(appName, options = {}) {
   }
 }
 
+async function arrangeMultiAppGrid() {
+  return { success: false, error: 'Multi-app grid not yet implemented on Windows', arranged: 0, details: [] };
+}
+
 module.exports = {
   getDisplayInfo,
   arrangeTerminalGrid,
   arrangeFinderGrid,
   arrangeGenericGrid,
+  arrangeMultiAppGrid,
 };

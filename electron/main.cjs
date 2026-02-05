@@ -28,6 +28,7 @@ const {
   arrangeTerminalGrid,
   arrangeFinderGrid,
   arrangeGenericGrid,
+  arrangeMultiAppGrid,
   // appScanner
   scanInstalledApps,
   getAppIcon,
@@ -432,6 +433,11 @@ ipcMain.handle('arrange-finder-grid', async (_, options = {}) => {
 // IPC: 汎用アプリウィンドウをグリッド配置
 ipcMain.handle('arrange-generic-grid', async (_, appName, options = {}) => {
   return arrangeGenericGrid(appName, options);
+});
+
+// IPC: マルチアプリグリッド配置
+ipcMain.handle('arrange-multi-app-grid', async (_, options) => {
+  return arrangeMultiAppGrid(options);
 });
 
 // =====================================================

@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   arrangeTerminalGrid: (options) => ipcRenderer.invoke('arrange-terminal-grid', options),
   arrangeFinderGrid: (options) => ipcRenderer.invoke('arrange-finder-grid', options),
   arrangeGenericGrid: (appName, options) => ipcRenderer.invoke('arrange-generic-grid', appName, options),
+  arrangeMultiAppGrid: (options) => ipcRenderer.invoke('arrange-multi-app-grid', options),
   // プラグイン関連
   plugins: {
     list: () => ipcRenderer.invoke('plugins:list'),

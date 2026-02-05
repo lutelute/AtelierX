@@ -214,6 +214,7 @@ export interface Settings {
   enabledAppTabs?: AppTabConfig[];  // 有効なアプリタブ一覧
   activateAnimation?: ActivateAnimation;  // ウィンドウ活性化アニメーション
   customPriorities?: PriorityConfig[];  // カスタム優先順位
+  multiGridFavorites?: MultiGridLayout[];  // マルチグリッドお気に入り
 }
 
 // ノート情報
@@ -272,6 +273,43 @@ export interface GridResult {
   success: boolean;
   error?: string;
   arranged: number;
+}
+
+// マルチアプリグリッド配置
+export interface MultiGridCell {
+  row: number;       // 0-based
+  col: number;       // 0-based
+  appName: string;   // macOSアプリ名
+  appTabId?: string; // UIで色・アイコン参照用
+}
+
+export interface MultiGridLayout {
+  id: string;              // 'layout-{timestamp}'
+  name: string;            // ユーザー定義名
+  rows: number;
+  cols: number;
+  cells: MultiGridCell[];  // 割当済みセルのみ
+  displayIndex: number;
+  padding: number;
+  createdAt: number;
+}
+
+export interface MultiGridResult {
+  success: boolean;
+  error?: string;
+  arranged: number;
+  details?: { appName: string; success: boolean }[];
+}
+
+export interface MultiGridArrangeOptions {
+  displayIndex: number;
+  rows: number;
+  cols: number;
+  padding: number;
+  cells: MultiGridCell[];
+  mode?: 'one-per-cell' | 'fill';  // fill: 各領域に全ウィンドウをグリッド配置
+  subCols?: number;  // fill モード: 領域内の列数 (0=自動)
+  subRows?: number;  // fill モード: 領域内の行数 (0=自動)
 }
 
 // プラグイン関連の型
@@ -423,6 +461,7 @@ declare global {
       arrangeTerminalGrid: (options?: GridOptions) => Promise<GridResult>;
       arrangeFinderGrid: (options?: GridOptions) => Promise<GridResult>;
       arrangeGenericGrid: (appName: string, options?: GridOptions) => Promise<GridResult>;
+      arrangeMultiAppGrid: (options: MultiGridArrangeOptions) => Promise<MultiGridResult>;
       // インストール済みアプリスキャン
       scanInstalledApps: () => Promise<InstalledAppInfo[]>;
       getAppIcon: (appName: string) => Promise<string>;
