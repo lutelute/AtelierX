@@ -669,7 +669,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
               </button>
             </div>
           )}
-          {windowApp === 'Terminal' && windowId && (
+          {windowApp === 'Terminal' && windowId && window.electronAPI?.platform === 'darwin' && (
             <div className="form-group">
               <label>Terminal 背景色</label>
               <div className="terminal-color-section">

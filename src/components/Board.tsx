@@ -578,18 +578,20 @@ export function Board() {
     }));
   }, [setSettings]);
 
-  // === Terminal 色一括適用 ===
+  // === Terminal 色一括適用 (macOS のみ) ===
 
-  const isTerminalTab = activeBoard === 'terminal';
+  const isMac = window.electronAPI?.platform === 'darwin';
+  const isTerminalTab = activeBoard === 'terminal' && isMac;
 
   const handleBatchApplyColumnColor = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
     for (const column of currentBoard.columns) {
+      if (column.id === 'todo') continue; // 未着手カラムはスキップ
       if (!column.color) continue;
       const bgColor = computeTerminalBgColorFromHex(column.color);
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
-        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived && card.priority) {
+        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
           window.electronAPI.setTerminalColor(card.windowId, { bgColor });
         }
       }
@@ -631,9 +633,10 @@ export function Board() {
 
   const handleBatchApplyGradient = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
-    // 全 Terminal カードを集める
+    // 未着手以外の Terminal カードを集める
     const termCards: { windowId: string }[] = [];
     for (const column of currentBoard.columns) {
+      if (column.id === 'todo') continue; // 未着手カラムはスキップ
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
         if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {

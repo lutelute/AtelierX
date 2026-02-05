@@ -61,10 +61,30 @@ export function shortenAppName(appName: string): string {
 }
 
 // ビルトインアプリ (常に存在、削除不可、専用API)
-export const BUILTIN_APPS: AppTabConfig[] = [
-  { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '>_', color: '#22c55e', type: 'builtin' },
-  { id: 'finder', appName: 'Finder', displayName: 'Finder', icon: '📁', color: '#3b82f6', type: 'builtin' },
-];
+// プラットフォームに応じてアプリ名を切り替え
+function getBuiltinApps(): AppTabConfig[] {
+  const platform = (typeof window !== 'undefined' && window.electronAPI?.platform) || 'darwin';
+
+  if (platform === 'win32') {
+    return [
+      { id: 'terminal', appName: 'Windows Terminal', displayName: 'Terminal', icon: '>_', color: '#00a4ef', type: 'builtin' },
+      { id: 'finder', appName: 'File Explorer', displayName: 'Explorer', icon: '📁', color: '#f0c800', type: 'builtin' },
+    ];
+  }
+  if (platform === 'linux') {
+    return [
+      { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '>_', color: '#22c55e', type: 'builtin' },
+      { id: 'finder', appName: 'Files', displayName: 'Files', icon: '📁', color: '#3b82f6', type: 'builtin' },
+    ];
+  }
+  // darwin (default)
+  return [
+    { id: 'terminal', appName: 'Terminal', displayName: 'Terminal', icon: '>_', color: '#22c55e', type: 'builtin' },
+    { id: 'finder', appName: 'Finder', displayName: 'Finder', icon: '📁', color: '#3b82f6', type: 'builtin' },
+  ];
+}
+
+export const BUILTIN_APPS: AppTabConfig[] = getBuiltinApps();
 
 // ブラウザ選択肢 (Webタブ用)
 export const BROWSER_APPS: { id: string; appName: string; displayName: string }[] = [

@@ -15,6 +15,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const {
+  // windowManager
   getAppWindows,
   activateWindow,
   openNewTerminalWindow,
@@ -22,13 +23,27 @@ const {
   openNewGenericWindow,
   closeWindow,
   setTerminalColor,
-} = require('./windowManager.cjs');
-const {
+  // gridManager
   getDisplayInfo,
   arrangeTerminalGrid,
   arrangeFinderGrid,
   arrangeGenericGrid,
-} = require('./gridManager.cjs');
+  // appScanner
+  scanInstalledApps,
+  getAppIcon,
+  // updateManager
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  cleanupDownload,
+  cleanupOldFiles,
+  startupCleanup,
+  restartApp,
+  // mainConfig
+  getBrowserWindowOptions,
+  onStartup,
+  onAppReady,
+} = require('./platforms/index.cjs');
 const {
   getInstalledPlugins,
   getPluginSettings,
@@ -40,20 +55,11 @@ const {
   loadEnabledPlugins,
 } = require('./pluginManager.cjs');
 const { getRegisteredGridLayouts, getRegisteredExportFormats, getExportFormatById, getRegisteredCardActions, getCardActionById } = require('./pluginAPI.cjs');
-const {
-  checkForUpdates,
-  downloadUpdate,
-  installUpdate,
-  cleanupDownload,
-  cleanupOldFiles,
-  startupCleanup,
-} = require('./updateManager.cjs');
-const { scanInstalledApps, getAppIcon } = require('./appScanner.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// App Nap を無効化（本番環境でのAppleScript実行遅延防止）
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
+// プラットフォーム固有の起動時処理（macOS: App Nap 無効化 等）
+onStartup();
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -61,8 +67,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    ...getBrowserWindowOptions(),
     backgroundColor: '#1a1a2e',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -82,35 +87,11 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  // powerSaveBlocker でシステムスリープを防止（App Nap対策）
-  const { powerSaveBlocker } = require('electron');
-  powerSaveBlocker.start('prevent-app-suspension');
+  // プラットフォーム固有の app.whenReady 処理（macOS: powerSaveBlocker + .scpt掃除 等）
+  onAppReady();
 
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
-
-  // 起動時に孤児AppleScript一時ファイルを掃除
-  try {
-    const os = require('os');
-    const tmpDir = os.tmpdir();
-    const files = fs.readdirSync(tmpDir);
-    let cleaned = 0;
-    const now = Date.now();
-    for (const f of files) {
-      if (f.startsWith('atelierx-') && f.endsWith('.scpt')) {
-        try {
-          const fullPath = path.join(tmpDir, f);
-          const stat = fs.statSync(fullPath);
-          // 10分以上前のファイルのみ削除（実行中のスクリプトを守る）
-          if (now - stat.mtimeMs > 600000) {
-            fs.unlinkSync(fullPath);
-            cleaned++;
-          }
-        } catch { /* ignore */ }
-      }
-    }
-    if (cleaned > 0) console.log(`Cleaned up ${cleaned} orphaned .scpt files`);
-  } catch { /* ignore */ }
 
   // IPC: ウィンドウ一覧を取得（引数で追加アプリ名を指定可能）
   ipcMain.handle('get-app-windows', async (_, appNames) => {
@@ -638,7 +619,6 @@ ipcMain.handle('update:cleanup', async () => {
 
 // IPC: アプリを再起動
 ipcMain.handle('update:restart', async () => {
-  const { restartApp } = require('./updateManager.cjs');
   restartApp();
 });
 
