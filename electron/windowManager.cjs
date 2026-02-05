@@ -1009,6 +1009,83 @@ function closeWindow(appName, windowId, windowName) {
   }
 }
 
+/**
+ * Terminalウィンドウの背景色・テキスト色を設定
+ * macOS Terminal.appは16bit色（0-65535）を使用するため、RGB 0-255を×257で変換
+ * @param {string} windowId - ウィンドウID（数値IDまたはttyパス）
+ * @param {{bgColor?: {r: number, g: number, b: number}, textColor?: {r: number, g: number, b: number}}} options
+ */
+function setTerminalColor(windowId, options) {
+  const { bgColor, textColor } = options || {};
+  if (!bgColor && !textColor) return;
+
+  const isTtyPath = windowId.startsWith('/dev/');
+  const isNumericId = /^\d+$/.test(windowId);
+
+  // RGB 0-255 → Terminal 16bit (0-65535)
+  const to16bit = (c) => Math.round(c * 257);
+
+  let findTarget;
+  if (isNumericId) {
+    findTarget = `
+tell application "Terminal"
+  repeat with w in windows
+    if id of w is ${windowId} then
+      set targetTab to selected tab of w
+      set found to true
+      exit repeat
+    end if
+  end repeat
+end tell`;
+  } else if (isTtyPath) {
+    const escapedTty = windowId.replace(/"/g, '\\"');
+    findTarget = `
+tell application "Terminal"
+  repeat with w in windows
+    try
+      if tty of selected tab of w is equal to "${escapedTty}" then
+        set targetTab to selected tab of w
+        set found to true
+        exit repeat
+      end if
+    end try
+  end repeat
+end tell`;
+  } else {
+    return; // 不明なIDフォーマット
+  }
+
+  let colorCommands = '';
+  if (bgColor) {
+    const r = to16bit(bgColor.r);
+    const g = to16bit(bgColor.g);
+    const b = to16bit(bgColor.b);
+    colorCommands += `
+      set background color of targetTab to {${r}, ${g}, ${b}}`;
+  }
+  if (textColor) {
+    const r = to16bit(textColor.r);
+    const g = to16bit(textColor.g);
+    const b = to16bit(textColor.b);
+    colorCommands += `
+      set normal text color of targetTab to {${r}, ${g}, ${b}}`;
+  }
+
+  const script = `
+set targetTab to missing value
+set found to false
+${findTarget}
+if found then
+  tell application "Terminal"
+    ${colorCommands}
+  end tell
+end if
+return found
+`;
+
+  runAppleScriptAsync(script);
+}
+
 module.exports = {
   getAppWindows,
   activateWindow,
@@ -1017,4 +1094,5 @@ module.exports = {
   openNewGenericWindow,
   closeWindow,
   getGenericAppWindows,
+  setTerminalColor,
 };

@@ -361,6 +361,18 @@ export interface UpdateCleanupResult {
   error?: string;
 }
 
+// ターミナル色設定
+export interface TerminalColorRGB {
+  r: number;  // 0-255
+  g: number;
+  b: number;
+}
+
+export interface TerminalColorOptions {
+  bgColor?: TerminalColorRGB;
+  textColor?: TerminalColorRGB;
+}
+
 // Electron API の型定義
 declare global {
   interface Window {
@@ -371,6 +383,7 @@ declare global {
       openNewTerminal: (initialPath?: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
       openNewFinder: (targetPath?: string) => Promise<{ success: boolean; windowName?: string; path?: string; error?: string }>;
       openNewGenericWindow: (appName: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
+      setTerminalColor: (windowId: string, options: TerminalColorOptions) => Promise<boolean>;
       closeWindow: (appName: string, windowId: string, windowName?: string) => Promise<{ success: boolean; error?: string }>;
       exportLog: (content: string, filename: string) => Promise<boolean>;
       selectFolder: () => Promise<string | null>;

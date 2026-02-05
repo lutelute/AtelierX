@@ -21,6 +21,7 @@ const {
   openNewFinderWindow,
   openNewGenericWindow,
   closeWindow,
+  setTerminalColor,
 } = require('./windowManager.cjs');
 const {
   getDisplayInfo,
@@ -119,6 +120,12 @@ app.whenReady().then(() => {
   // IPC: ウィンドウをアクティブにする
   ipcMain.handle('activate-window', async (_, appName, windowId, windowName, animation, windowIndex) => {
     return await activateWindow(appName, windowId, windowName, animation, windowIndex);
+  });
+
+  // IPC: Terminalウィンドウの色を設定
+  ipcMain.handle('set-terminal-color', async (_, windowId, options) => {
+    setTerminalColor(windowId, options);
+    return true;
   });
 
   // IPC: 新しいTerminalウィンドウを開く

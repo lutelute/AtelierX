@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openNewFinder: (targetPath) => ipcRenderer.invoke('open-new-finder', targetPath),
   closeWindow: (appName, windowId, windowName) => ipcRenderer.invoke('close-window', appName, windowId, windowName),
   openNewGenericWindow: (appName) => ipcRenderer.invoke('open-new-generic-window', appName),
+  setTerminalColor: (windowId, options) => ipcRenderer.invoke('set-terminal-color', windowId, options),
   exportLog: (content, filename) => ipcRenderer.invoke('export-log', content, filename),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectFile: () => ipcRenderer.invoke('select-file'),

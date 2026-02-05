@@ -165,35 +165,61 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
             {gridMode === 'custom' && (
               <div className="custom-grid-inputs">
                 <div className="grid-input-group">
-                  <label>列数</label>
-                  <div className="grid-input-buttons">
-                    {[2, 3, 4, 5, 6].map((n) => (
-                      <button
-                        key={n}
-                        className={`grid-size-btn ${cols === n ? 'active' : ''}`}
-                        onClick={() => setCols(n)}
-                      >
-                        {n}
-                      </button>
-                    ))}
+                  <label>行数</label>
+                  <div className="grid-input-row">
+                    <div className="grid-input-buttons">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          className={`grid-size-btn ${rows === n ? 'active' : ''}`}
+                          onClick={() => setRows(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      className="grid-number-input"
+                      min={1}
+                      max={20}
+                      value={rows}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        if (v >= 1 && v <= 20) setRows(v);
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="grid-input-group">
-                  <label>行数</label>
-                  <div className="grid-input-buttons">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        className={`grid-size-btn ${rows === n ? 'active' : ''}`}
-                        onClick={() => setRows(n)}
-                      >
-                        {n}
-                      </button>
-                    ))}
+                  <label>列数</label>
+                  <div className="grid-input-row">
+                    <div className="grid-input-buttons">
+                      {[2, 3, 4, 5, 6].map((n) => (
+                        <button
+                          key={n}
+                          className={`grid-size-btn ${cols === n ? 'active' : ''}`}
+                          onClick={() => setCols(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      className="grid-number-input"
+                      min={1}
+                      max={20}
+                      value={cols}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        if (v >= 1 && v <= 20) setCols(v);
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="grid-preview">
-                  {cols} x {rows} = 最大 {cols * rows} ウィンドウ
+                  {rows}行 x {cols}列 = 最大 {cols * rows} ウィンドウ
                 </div>
               </div>
             )}

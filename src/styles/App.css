@@ -3974,9 +3974,41 @@ body {
   margin-bottom: 8px;
 }
 
+.grid-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .grid-input-buttons {
   display: flex;
   gap: 8px;
+  flex: 1;
+}
+
+.grid-number-input {
+  width: 56px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s ease;
+  -moz-appearance: textfield;
+}
+
+.grid-number-input::-webkit-inner-spin-button,
+.grid-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.grid-number-input:focus {
+  border-color: rgba(139, 92, 246, 0.5);
 }
 
 .grid-size-btn {
@@ -6213,6 +6245,16 @@ body.theme-light {
   color: #64748b;
 }
 
+.theme-light .grid-number-input {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-light .grid-number-input:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
 .theme-light .grid-size-btn {
   background: rgba(0, 0, 0, 0.03);
   border-color: #e2e8f0;
@@ -7078,4 +7120,195 @@ body.theme-light {
 .theme-light .column-color-option.active {
   border-color: #1e293b;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   ErrorBoundary / ErrorFallback
+   ============================================ */
+.error-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 24px;
+}
+
+.error-fallback-content {
+  max-width: 520px;
+  text-align: center;
+}
+
+.error-fallback-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f87171;
+  margin-bottom: 12px;
+}
+
+.error-fallback-message {
+  font-size: 14px;
+  color: #a1a1aa;
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.error-fallback-details {
+  text-align: left;
+  margin-bottom: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.error-fallback-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #71717a;
+  margin-bottom: 8px;
+}
+
+.error-fallback-stack {
+  font-size: 11px;
+  color: #a1a1aa;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.error-fallback-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ============================================
+   ライトモード追加オーバーライド
+   コンテキストメニュー、タスク要素、タイマー、ステータスマーカー
+   ============================================ */
+
+/* コンテキストメニュー (CRITICAL) */
+.theme-light .task-context-menu {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .card-context-menu {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .context-menu-action {
+  color: #1e293b;
+}
+
+.theme-light .context-menu-action:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.theme-light .context-menu-action.danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+}
+
+.theme-light .context-action-icon {
+  color: #64748b;
+}
+
+.theme-light .context-menu-divider {
+  background: #e2e8f0;
+}
+
+.theme-light .context-menu-header {
+  color: #6366f1;
+}
+
+.theme-light .context-menu-section {
+  border-color: #e2e8f0;
+}
+
+/* タイマーメニュー (CRITICAL) */
+.theme-light .timer-menu {
+  border-bottom-color: #e2e8f0;
+}
+
+.theme-light .timer-menu-header {
+  color: #334155;
+}
+
+.theme-light .timer-elapsed {
+  color: #16a34a;
+}
+
+.theme-light .timer-status {
+  color: #334155;
+}
+
+.theme-light .timer-action-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+.theme-light .timer-action-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1;
+}
+
+/* タスクチェックボックス (CRITICAL) */
+.theme-light .task-checkbox {
+  border-color: #cbd5e1;
+}
+
+.theme-light .task-checkbox.checked {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+}
+
+/* タスクテキスト (CRITICAL) */
+.theme-light .task-text {
+  color: #334155;
+}
+
+.theme-light .task-item.completed .task-text {
+  color: #94a3b8;
+}
+
+/* タスクアイテムホバー (HIGH) */
+.theme-light .task-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* カードステータスマーカー (HIGH) */
+.theme-light .card-status-marker {
+  border-color: #cbd5e1;
+}
+
+.theme-light .card-status-marker:hover {
+  border-color: #94a3b8;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* チェックボックスサブメニュー */
+.theme-light .checkbox-menu-group {
+  border-color: #e2e8f0;
+}
+
+.theme-light .checkbox-option {
+  color: #1e293b;
+}
+
+.theme-light .checkbox-option:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.theme-light .checkbox-option-label {
+  color: #334155;
+}
+
+.theme-light .checkbox-option-marker {
+  border-color: #cbd5e1;
 }
