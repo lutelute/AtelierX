@@ -22,7 +22,7 @@ import { useExport } from '../hooks/useExport';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTimerActions } from '../hooks/useTimerActions';
 import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
-import { createDefaultBoard, initialAllBoardsData } from '../utils/boardUtils';
+import { createDefaultBoard, initialAllBoardsData, DEFAULT_COLUMN_COLORS } from '../utils/boardUtils';
 import { computeTerminalBgColorFromHex, buildPriorityColorMap, generateGradientColors } from '../utils/terminalColor';
 import { Column } from './Column';
 import { Card } from './Card';
@@ -53,6 +53,8 @@ export function Board() {
   const [lastBackupTime, setLastBackupTime] = useLocalStorage<number>('last-backup-time', 0);
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
+  const [showColorMenu, setShowColorMenu] = useState(false);
+  const colorMenuRef = useRef<HTMLDivElement>(null);
 
   // 旧形式 kanban-data → kanban-all-boards マイグレーション（起動時1回）
   useEffect(() => {
@@ -76,6 +78,35 @@ export function Board() {
       console.error('Migration failed:', error);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // カラム色マイグレーション: デフォルトカラムにcolorが未設定の場合に補完（起動時1回）
+  const hasColorMigrated = useRef(false);
+  useEffect(() => {
+    if (hasColorMigrated.current) return;
+    let needsMigration = false;
+    for (const board of Object.values(allData.boards)) {
+      for (const col of board.columns) {
+        if (!col.color && DEFAULT_COLUMN_COLORS[col.id]) {
+          needsMigration = true;
+          break;
+        }
+      }
+      if (needsMigration) break;
+    }
+    if (!needsMigration) { hasColorMigrated.current = true; return; }
+    hasColorMigrated.current = true;
+    setAllData(prev => {
+      const updated = JSON.parse(JSON.stringify(prev)) as AllBoardsData;
+      for (const board of Object.values(updated.boards)) {
+        for (const col of board.columns) {
+          if (!col.color && DEFAULT_COLUMN_COLORS[col.id]) {
+            col.color = DEFAULT_COLUMN_COLORS[col.id];
+          }
+        }
+      }
+      return updated;
+    });
+  }, [allData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // useRef化: コールバック内でstateの最新値を参照するため
   const allDataRef = useRef(allData);
@@ -578,6 +609,18 @@ export function Board() {
     }));
   }, [setSettings]);
 
+  // カラーメニュー: 外側クリックで閉じる
+  useEffect(() => {
+    if (!showColorMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (colorMenuRef.current && !colorMenuRef.current.contains(e.target as Node)) {
+        setShowColorMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showColorMenu]);
+
   // === Terminal 色一括適用 (macOS のみ) ===
 
   const isMac = window.electronAPI?.platform === 'darwin';
@@ -747,24 +790,44 @@ export function Board() {
 
         <div className="nav-section nav-right">
           {isTerminalTab && (
-            <>
-              <button className="nav-action nav-action-term-color" onClick={handleBatchApplyColumnColor} title="カラム色を一括適用">
-                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="10.5" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>
-              </button>
-              <button className="nav-action nav-action-term-color" onClick={handleBatchApplyPriorityColor} title="優先順位色を一括適用">
-                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="6"/><circle cx="5" cy="8" r="1.2" fill="#ef4444" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="#f59e0b" stroke="none"/><circle cx="11" cy="8" r="1.2" fill="#60a5fa" stroke="none"/></svg>
-              </button>
-              <button className="nav-action nav-action-term-color" onClick={handleBatchApplyGradient} title="グラデーション一括適用">
-                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none">
-                  <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ef4444"/><stop offset="50%" stopColor="#22c55e"/><stop offset="100%" stopColor="#3b82f6"/></linearGradient></defs>
-                  <circle cx="8" cy="8" r="6" stroke="url(#grad)" strokeWidth="1.5" fill="none"/>
+            <div className="color-menu-wrapper" ref={colorMenuRef}>
+              <button
+                className={`nav-action nav-action-term-color ${showColorMenu ? 'active' : ''}`}
+                onClick={() => setShowColorMenu(v => !v)}
+                title="Terminal色メニュー"
+              >
+                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <circle cx="8" cy="8" r="6"/>
+                  <circle cx="5" cy="6.5" r="1.3" fill="#ef4444" stroke="none"/>
+                  <circle cx="11" cy="6.5" r="1.3" fill="#3b82f6" stroke="none"/>
+                  <circle cx="8" cy="11" r="1.3" fill="#22c55e" stroke="none"/>
                 </svg>
               </button>
-              <button className="nav-action nav-action-term-reset" onClick={handleBatchResetColor} title="一括リセット">
-                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 8a6 6 0 1 1 1.8 4.3"/><path d="M2 12.3V8h4.3"/></svg>
-              </button>
-              <div className="nav-divider" />
-            </>
+              {showColorMenu && (
+                <div className="color-menu-dropdown">
+                  <button className="color-menu-item" onClick={() => { handleBatchApplyColumnColor(); setShowColorMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="10.5" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>
+                    <span>カラム色</span>
+                  </button>
+                  <button className="color-menu-item" onClick={() => { handleBatchApplyPriorityColor(); setShowColorMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="6"/><circle cx="5" cy="8" r="1.2" fill="#ef4444" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="#f59e0b" stroke="none"/><circle cx="11" cy="8" r="1.2" fill="#60a5fa" stroke="none"/></svg>
+                    <span>優先順位色</span>
+                  </button>
+                  <button className="color-menu-item" onClick={() => { handleBatchApplyGradient(); setShowColorMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ef4444"/><stop offset="50%" stopColor="#22c55e"/><stop offset="100%" stopColor="#3b82f6"/></linearGradient></defs>
+                      <circle cx="8" cy="8" r="6" stroke="url(#grad)" strokeWidth="1.5" fill="none"/>
+                    </svg>
+                    <span>グラデーション</span>
+                  </button>
+                  <div className="color-menu-divider" />
+                  <button className="color-menu-item color-menu-reset" onClick={() => { handleBatchResetColor(); setShowColorMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 8a6 6 0 1 1 1.8 4.3"/><path d="M2 12.3V8h4.3"/></svg>
+                    <span>リセット</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {activeBoard !== 'ideas' && unaddedWindows.length > 0 && (
             <button className="nav-action pulse" onClick={handleAddAllWindows} title="未追加のウィンドウを追加">
