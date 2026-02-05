@@ -1,171 +1,137 @@
-# AtelierX
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="AtelierX" width="800">
+</p>
 
-> *Atelier（アトリエ＝創作空間）+ X（拡張・可能性）*
+<p align="center">
+  <em>Atelier (workshop) + X (extension) &mdash; your creative workspace for window management</em>
+</p>
 
-Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプリ。プラグインで機能を拡張可能。
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/electron-28-47848F?style=flat-square&logo=electron" alt="Electron">
+  <img src="https://img.shields.io/badge/react-18-61DAFB?style=flat-square&logo=react" alt="React">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+</p>
 
-## 機能
+---
 
-### ウィンドウ管理
-- **カンバンボード**: Terminal/Finderウィンドウをカード化して「未着手」「実行中」「完了」で管理
-- **ドラッグ&ドロップ**: カードをカラム間で自由に移動
-- **ウィンドウジャンプ**: カードをクリックして対象ウィンドウを前面に表示（ポップアニメーション）
-- **タブ切り替え**: Terminal / Finder ボードを切り替え
-- **リマインダー**: 未登録のウィンドウを自動検出して通知
-- **一括追加**: 未登録のウィンドウを全て一括でボードに追加
+Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理するmacOSアプリ。プラグインで機能を拡張可能。
 
-### グリッド配置
-- **ウィンドウ整列**: Terminal/Finderウィンドウをグリッド状に自動配置
-- **プリセット**: プラグインでカスタムレイアウトを追加可能
-- **マルチディスプレイ対応**: ディスプレイごとに配置先を選択
+## Features
 
-### 日報・ログ機能
-- **アクティビティログ**: カードの移動・完了を自動記録
-- **日報エクスポート**: Markdown / JSON / テキスト形式で出力
-- **クリップボードコピー**: ワンクリックでコピー
-- **ファイル保存**: 任意の場所に保存
+### Window Management
+- **Kanban Board** &mdash; ウィンドウをカード化して「未着手」「実行中」「完了」で管理
+- **Drag & Drop** &mdash; カードをカラム間で自由に移動
+- **Window Jump** &mdash; カードクリックで対象ウィンドウを前面に表示
+- **Tab Switching** &mdash; Terminal / Finder / カスタムアプリをタブで切り替え
+- **Auto-Detect** &mdash; 未登録ウィンドウを自動検出して通知
 
-### Obsidian連携
-- **デイリーノート差し込み**: Obsidianのデイリーノートに日報を追記
-- **ノート選択**: 差し込み先のノートを一覧から選択可能
-- **マーカー指定**: 特定の見出し下に差し込み（例: `## AtelierX`）
-- **自動作成**: ノートが存在しない場合は新規作成
+### Grid Layout
+- **Auto-Arrange** &mdash; ウィンドウをグリッド状に自動配置
+- **Presets** &mdash; プラグインでカスタムレイアウトを追加可能
+- **Multi-Display** &mdash; ディスプレイごとに配置先を選択
 
-### プラグインシステム
-- **GitHub連携**: `owner/repo` 形式でプラグインをインストール
-- **拡張API**: グリッドレイアウト追加などの機能拡張
-- **ローカル開発**: `plugins-dev/` でプラグインを開発・テスト
+### Daily Report & Logging
+- **Activity Log** &mdash; カードの移動・完了を自動記録
+- **Export** &mdash; Markdown / JSON / テキスト / プラグインフォーマットで出力
+- **Obsidian Integration** &mdash; デイリーノートに日報を直接差し込み
 
-## スクリーンショット
+### Plugin System
+- **GitHub Install** &mdash; `owner/repo` 形式でプラグインをインストール
+- **Extensible API** &mdash; グリッドレイアウト、エクスポートフォーマット、カードアクション
+- **Local Dev** &mdash; テンプレートからプラグインを開発・テスト
+
+## Screenshot
 
 ```
-+-------------------+-------------------+-------------------+
-|      未着手       |      実行中       |       完了        |
-+-------------------+-------------------+-------------------+
-| [Terminal] proj1  | [Terminal] proj2  |                   |
-| [Finder] docs     |                   |                   |
-+-------------------+-------------------+-------------------+
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│    TODO      │ │ IN PROGRESS │ │    DONE      │
+├─────────────┤ ├─────────────┤ ├─────────────┤
+│ ▌Terminal    │ │ ▌Terminal    │ │ ▌Terminal  ✓ │
+│  proj-api    │ │  proj-web   │ │  setup-ci    │
+│              │ │  ▶ Jump     │ │              │
+│ ▌Finder      │ │             │ │ ▌Finder    ✓ │
+│  ~/docs      │ │             │ │  ~/assets    │
+└─────────────┘ └─────────────┘ └─────────────┘
 ```
 
-## 技術スタック
-
-- **Frontend**: React + TypeScript + Vite
-- **Desktop**: Electron
-- **DnD**: @dnd-kit
-- **macOS API**: AppleScript (Terminal/Finder操作)
-
-## インストール
+## Install
 
 ### macOS
-1. [Releases](../../releases)ページから最新の`.dmg`ファイルをダウンロード
-2. dmgファイルを開き、AtelierXをApplicationsフォルダにドラッグ
+
+1. [Releases](../../releases) ページから最新の `.dmg` をダウンロード
+2. DMGを開いてApplicationsフォルダにドラッグ
 3. Applicationsから起動
 
-### Windows
-1. [Releases](../../releases)ページから最新の`.exe`インストーラーをダウンロード
-2. インストーラーを実行し、指示に従ってインストール
-3. スタートメニューまたはデスクトップから起動
+> アプリ内の設定画面からアップデートを確認できます。
 
-### Linux
-1. [Releases](../../releases)ページから最新の`.AppImage`または`.deb`をダウンロード
-2. AppImage: 実行権限を付与して起動 (`chmod +x AtelierX*.AppImage && ./AtelierX*.AppImage`)
-3. deb: `sudo dpkg -i atelierx_*.deb` でインストール
+## Tech Stack
 
-## 開発
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + TypeScript + Vite |
+| Desktop | Electron |
+| DnD | @dnd-kit |
+| macOS API | AppleScript (Terminal / Finder / System Events) |
+
+## Development
 
 ```bash
-# 依存関係をインストール
+# Install dependencies
 npm install
 
-# 開発モードで起動
+# Dev mode
 npm run electron:dev
 
-# ビルド（macOS）
+# Build (macOS)
 npm run electron:build:mac
-
-# ビルド（Windows）
-npm run electron:build:win
-
-# ビルド（Linux）
-npm run electron:build:linux
-
-# ビルド（全プラットフォーム）
-npm run electron:build:all
 ```
 
-詳細なビルド方法は [CROSS_PLATFORM_BUILD_GUIDE.md](./CROSS_PLATFORM_BUILD_GUIDE.md) を参照。
-
-## リリース手順
-
-### 1. バージョン更新 & ビルド
+## Release
 
 ```bash
-# バグ修正（0.1.0 → 0.1.1）
+# Patch (0.9.0 -> 0.9.1)
 npm run release:patch
 
-# 機能追加（0.1.0 → 0.2.0）
+# Minor (0.9.0 -> 0.10.0)
 npm run release:minor
 
-# 大きな変更（0.1.0 → 1.0.0）
+# Major (0.9.0 -> 1.0.0)
 npm run release:major
 ```
 
-### 2. GitHubにリリース作成
+Release script handles: version bump -> build -> commit -> tag -> push -> GitHub Release (DMG attached).
 
-```bash
-# タグをプッシュ
-git push --tags
-```
-
-1. [GitHub Releases](../../releases) ページを開く
-2. 「Draft a new release」をクリック
-3. 作成されたタグ（例: `v0.2.0`）を選択
-4. リリースノートを記入
-5. `release/AtelierX-x.x.x-arm64.dmg` をアップロード
-6. 「Publish release」をクリック
-
-### 3. 本番アプリの更新
-
-ユーザーは設定画面で「更新を確認」ボタンを押すと、新しいバージョンがある場合はダウンロードリンクが表示されます。
-
-## プロジェクト構成
+## Project Structure
 
 ```
 ├── electron/
-│   ├── main.cjs          # Electronメインプロセス
-│   ├── preload.cjs       # プリロードスクリプト
-│   ├── windowManager.cjs # macOSウィンドウ操作
-│   ├── gridManager.cjs   # グリッド配置
-│   ├── pluginManager.cjs # プラグイン管理
-│   └── pluginAPI.cjs     # プラグインAPI
+│   ├── main.cjs            # Main process
+│   ├── preload.cjs          # Preload script
+│   ├── windowManager.cjs    # macOS window operations
+│   ├── gridManager.cjs      # Grid arrangement
+│   ├── pluginManager.cjs    # Plugin lifecycle
+│   └── pluginAPI.cjs        # Plugin API
 ├── src/
-│   ├── components/       # Reactコンポーネント
-│   ├── hooks/            # カスタムフック
-│   ├── styles/           # CSS
-│   └── types/            # TypeScript型定義
-├── plugins-dev/          # プラグイン開発用
-├── docs/                 # ドキュメント
-└── examples/             # サンプルプラグイン
+│   ├── components/          # React components
+│   ├── hooks/               # Custom hooks
+│   ├── styles/              # CSS
+│   └── types/               # TypeScript types
+└── build/
+    └── icon.icns            # App icon
 ```
 
-## プラグイン開発
+## Plugin Development
 
-詳細は [docs/plugin-development-guide.md](./docs/plugin-development-guide.md) を参照。
+See the [plugin development repository](../plugins/) for templates, tools, and documentation.
 
 ```bash
-# ローカルプラグインのインストール
-cd plugins-dev
-./install-local.sh hello-plugin
+# Quick start
+cp -r plugins/templates/basic my-plugin
+# Edit manifest.json and main.js
+./plugins/tools/install-local.sh my-plugin
 ```
 
-## 既知の問題
-
-詳細は [ISSUES.md](./ISSUES.md) を参照。
-
-1. ウィンドウジャンプ後にElectronアプリが最前面に来る
-2. Finderウィンドウのポップ動作が遅い
-3. Obsidianデイリーノートへの差し込みが動作しない場合がある
-
-## ライセンス
+## License
 
 MIT

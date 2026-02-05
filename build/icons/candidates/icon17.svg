@@ -1,0 +1,168 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg17" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1e2e"/>
+      <stop offset="50%" style="stop-color:#181825"/>
+      <stop offset="100%" style="stop-color:#11111b"/>
+    </linearGradient>
+    <linearGradient id="colBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.06)"/>
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0.02)"/>
+    </linearGradient>
+    <linearGradient id="termGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <linearGradient id="findGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#6d28d9"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.4)"/>
+    </filter>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg17)"/>
+
+  <!-- 背景のアクセントグロー -->
+  <ellipse cx="300" cy="350" rx="200" ry="200" fill="rgba(34,197,94,0.04)"/>
+  <ellipse cx="724" cy="350" rx="200" ry="200" fill="rgba(59,130,246,0.04)"/>
+
+  <!-- ===== 上部: ミニウィンドウ ===== -->
+
+  <!-- Terminal ウィンドウ -->
+  <g filter="url(#softShadow)">
+    <rect x="100" y="100" width="390" height="240" rx="20" fill="#0d1117"/>
+    <rect x="100" y="100" width="390" height="44" rx="20" fill="#1c1c2e"/>
+    <rect x="100" y="130" width="390" height="14" fill="#1c1c2e"/>
+    <!-- ウィンドウボタン -->
+    <circle cx="132" cy="122" r="9" fill="#ff5f57"/>
+    <circle cx="158" cy="122" r="9" fill="#febc2e"/>
+    <circle cx="184" cy="122" r="9" fill="#28c840"/>
+    <!-- 左上にグリーンのインジケーター -->
+    <rect x="100" y="100" width="6" height="240" rx="3" fill="url(#termGrad)"/>
+    <!-- Terminal テキスト -->
+    <text x="136" y="192" font-family="SF Mono, Menlo, monospace" font-size="24" font-weight="500" fill="#7ee787">$ npm run dev</text>
+    <text x="136" y="228" font-family="SF Mono, Menlo, monospace" font-size="22" fill="#3fb950">  Ready on :5173</text>
+    <text x="136" y="264" font-family="SF Mono, Menlo, monospace" font-size="24" fill="#7ee787">$<rect x="160" y="248" width="14" height="22" fill="#7ee787" rx="2"/></text>
+  </g>
+
+  <!-- Finder ウィンドウ -->
+  <g filter="url(#softShadow)">
+    <rect x="534" y="100" width="390" height="240" rx="20" fill="#fafafa"/>
+    <rect x="534" y="100" width="390" height="44" rx="20" fill="#ececec"/>
+    <rect x="534" y="130" width="390" height="14" fill="#ececec"/>
+    <!-- ウィンドウボタン -->
+    <circle cx="566" cy="122" r="9" fill="#ff5f57"/>
+    <circle cx="592" cy="122" r="9" fill="#febc2e"/>
+    <circle cx="618" cy="122" r="9" fill="#28c840"/>
+    <!-- 左上にブルーのインジケーター -->
+    <rect x="534" y="100" width="6" height="240" rx="3" fill="url(#findGrad)"/>
+    <!-- Finder フォルダ -->
+    <g transform="translate(576, 170)">
+      <rect x="0" y="10" width="88" height="70" rx="10" fill="#54aeff"/>
+      <rect x="0" y="0" width="56" height="18" rx="6" fill="#54aeff"/>
+      <text x="44" y="100" font-family="system-ui, -apple-system" font-size="16" fill="#555" text-anchor="middle">src</text>
+    </g>
+    <g transform="translate(690, 170)">
+      <rect x="0" y="10" width="88" height="70" rx="10" fill="#30d158"/>
+      <rect x="0" y="0" width="56" height="18" rx="6" fill="#30d158"/>
+      <text x="44" y="100" font-family="system-ui, -apple-system" font-size="16" fill="#555" text-anchor="middle">docs</text>
+    </g>
+    <g transform="translate(804, 170)">
+      <rect x="0" y="10" width="88" height="70" rx="10" fill="#ff9f0a"/>
+      <rect x="0" y="0" width="56" height="18" rx="6" fill="#ff9f0a"/>
+      <text x="44" y="100" font-family="system-ui, -apple-system" font-size="16" fill="#555" text-anchor="middle">build</text>
+    </g>
+  </g>
+
+  <!-- ===== 接続ライン ===== -->
+  <line x1="295" y1="340" x2="220" y2="410" stroke="rgba(34,197,94,0.25)" stroke-width="2" stroke-dasharray="6,4"/>
+  <line x1="729" y1="340" x2="804" y2="410" stroke="rgba(59,130,246,0.25)" stroke-width="2" stroke-dasharray="6,4"/>
+
+  <!-- ===== 下部: カンバンボード ===== -->
+
+  <!-- 列1: 未着手 -->
+  <rect x="80" y="410" width="268" height="520" rx="20" fill="url(#colBg)" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <text x="214" y="460" font-family="system-ui, -apple-system" font-size="20" font-weight="600" fill="rgba(255,255,255,0.4)" text-anchor="middle" letter-spacing="2">TODO</text>
+
+  <!-- カード: Terminal -->
+  <g filter="url(#cardShadow)">
+    <rect x="100" y="488" width="228" height="96" rx="14" fill="rgba(255,255,255,0.07)"/>
+    <rect x="100" y="488" width="4" height="96" rx="2" fill="#22c55e"/>
+    <rect x="120" y="506" width="70" height="22" rx="6" fill="rgba(34,197,94,0.2)"/>
+    <text x="155" y="522" font-family="system-ui" font-size="12" font-weight="600" fill="#22c55e" text-anchor="middle">Terminal</text>
+    <rect x="120" y="540" width="140" height="10" rx="4" fill="rgba(255,255,255,0.12)"/>
+    <rect x="120" y="558" width="90" height="8" rx="3" fill="rgba(255,255,255,0.06)"/>
+  </g>
+
+  <!-- カード: Finder -->
+  <g filter="url(#cardShadow)">
+    <rect x="100" y="604" width="228" height="96" rx="14" fill="rgba(255,255,255,0.07)"/>
+    <rect x="100" y="604" width="4" height="96" rx="2" fill="#3b82f6"/>
+    <rect x="120" y="622" width="60" height="22" rx="6" fill="rgba(59,130,246,0.2)"/>
+    <text x="150" y="638" font-family="system-ui" font-size="12" font-weight="600" fill="#3b82f6" text-anchor="middle">Finder</text>
+    <rect x="120" y="656" width="120" height="10" rx="4" fill="rgba(255,255,255,0.12)"/>
+    <rect x="120" y="674" width="70" height="8" rx="3" fill="rgba(255,255,255,0.06)"/>
+  </g>
+
+  <!-- 列2: 実行中 -->
+  <rect x="378" y="410" width="268" height="520" rx="20" fill="url(#colBg)" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <text x="512" y="460" font-family="system-ui, -apple-system" font-size="20" font-weight="600" fill="rgba(251,191,36,0.5)" text-anchor="middle" letter-spacing="2">IN PROGRESS</text>
+
+  <!-- アクティブカード -->
+  <g filter="url(#cardShadow)">
+    <rect x="398" y="488" width="228" height="120" rx="14" fill="rgba(255,255,255,0.09)" stroke="rgba(139,92,246,0.4)" stroke-width="2"/>
+    <rect x="398" y="488" width="4" height="120" rx="2" fill="url(#accentGrad)"/>
+    <rect x="418" y="506" width="70" height="22" rx="6" fill="rgba(34,197,94,0.2)"/>
+    <text x="453" y="522" font-family="system-ui" font-size="12" font-weight="600" fill="#22c55e" text-anchor="middle">Terminal</text>
+    <rect x="418" y="540" width="160" height="10" rx="4" fill="rgba(255,255,255,0.15)"/>
+    <rect x="418" y="558" width="110" height="8" rx="3" fill="rgba(255,255,255,0.08)"/>
+    <!-- ジャンプボタン -->
+    <rect x="418" y="578" width="188" height="22" rx="6" fill="rgba(34,197,94,0.15)"/>
+    <text x="512" y="594" font-family="system-ui" font-size="12" font-weight="500" fill="rgba(34,197,94,0.8)" text-anchor="middle">Jump to Window</text>
+  </g>
+
+  <!-- 列3: 完了 -->
+  <rect x="676" y="410" width="268" height="520" rx="20" fill="url(#colBg)" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+  <text x="810" y="460" font-family="system-ui, -apple-system" font-size="20" font-weight="600" fill="rgba(34,197,94,0.5)" text-anchor="middle" letter-spacing="2">DONE</text>
+
+  <!-- 完了カード1 -->
+  <g filter="url(#cardShadow)">
+    <rect x="696" y="488" width="228" height="86" rx="14" fill="rgba(255,255,255,0.06)"/>
+    <rect x="696" y="488" width="4" height="86" rx="2" fill="#22c55e"/>
+    <rect x="716" y="504" width="70" height="22" rx="6" fill="rgba(34,197,94,0.15)"/>
+    <text x="751" y="520" font-family="system-ui" font-size="12" font-weight="600" fill="rgba(34,197,94,0.7)" text-anchor="middle">Terminal</text>
+    <rect x="716" y="538" width="110" height="10" rx="4" fill="rgba(255,255,255,0.08)"/>
+    <!-- チェックマーク -->
+    <circle cx="898" cy="530" r="16" fill="rgba(34,197,94,0.2)"/>
+    <path d="M890 530 L896 536 L908 524" stroke="#22c55e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- 完了カード2 -->
+  <g filter="url(#cardShadow)">
+    <rect x="696" y="594" width="228" height="86" rx="14" fill="rgba(255,255,255,0.06)"/>
+    <rect x="696" y="594" width="4" height="86" rx="2" fill="#3b82f6"/>
+    <rect x="716" y="610" width="60" height="22" rx="6" fill="rgba(59,130,246,0.15)"/>
+    <text x="746" y="626" font-family="system-ui" font-size="12" font-weight="600" fill="rgba(59,130,246,0.7)" text-anchor="middle">Finder</text>
+    <rect x="716" y="644" width="90" height="10" rx="4" fill="rgba(255,255,255,0.08)"/>
+    <!-- チェックマーク -->
+    <circle cx="898" cy="636" r="16" fill="rgba(59,130,246,0.2)"/>
+    <path d="M890 636 L896 642 L908 630" stroke="#3b82f6" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,58 @@
+<svg width="800" height="200" viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bannerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1e2e"/>
+      <stop offset="50%" style="stop-color:#181825"/>
+      <stop offset="100%" style="stop-color:#11111b"/>
+    </linearGradient>
+  </defs>
+  <!-- 背景 -->
+  <rect width="800" height="200" rx="16" fill="url(#bannerBg)"/>
+
+  <!-- アイコン（簡略化） -->
+  <g transform="translate(40, 30)">
+    <!-- ミニカンバン -->
+    <rect width="140" height="140" rx="28" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+    <!-- 3列 -->
+    <rect x="12" y="12" width="34" height="116" rx="6" fill="rgba(255,255,255,0.04)"/>
+    <rect x="53" y="12" width="34" height="116" rx="6" fill="rgba(255,255,255,0.04)"/>
+    <rect x="94" y="12" width="34" height="116" rx="6" fill="rgba(255,255,255,0.04)"/>
+    <!-- カード -->
+    <rect x="16" y="22" width="26" height="20" rx="4" fill="rgba(34,197,94,0.3)"/>
+    <rect x="16" y="22" width="3" height="20" rx="1.5" fill="#22c55e"/>
+    <rect x="16" y="48" width="26" height="20" rx="4" fill="rgba(59,130,246,0.3)"/>
+    <rect x="16" y="48" width="3" height="20" rx="1.5" fill="#3b82f6"/>
+    <!-- アクティブカード -->
+    <rect x="57" y="22" width="26" height="24" rx="4" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+    <rect x="57" y="22" width="3" height="24" rx="1.5" fill="#8b5cf6"/>
+    <!-- 完了カード -->
+    <rect x="98" y="22" width="26" height="18" rx="4" fill="rgba(34,197,94,0.15)"/>
+    <rect x="98" y="22" width="3" height="18" rx="1.5" fill="#22c55e"/>
+    <circle cx="118" cy="31" r="5" fill="rgba(34,197,94,0.3)"/>
+    <path d="M115 31 L117 33 L121 29" stroke="#22c55e" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Terminal表現 -->
+    <rect x="16" y="80" width="50" height="36" rx="6" fill="#0d1117" stroke="rgba(34,197,94,0.4)" stroke-width="1"/>
+    <text x="22" y="100" font-family="SF Mono, monospace" font-size="8" fill="#7ee787">$ _</text>
+    <!-- Finder表現 -->
+    <rect x="74" y="80" width="50" height="36" rx="6" fill="#fafafa" stroke="rgba(59,130,246,0.4)" stroke-width="1"/>
+    <rect x="82" y="92" width="14" height="11" rx="2" fill="#54aeff"/>
+    <rect x="100" y="92" width="14" height="11" rx="2" fill="#30d158"/>
+  </g>
+
+  <!-- テキスト -->
+  <text x="220" y="90" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI'" font-size="56" font-weight="700" fill="#cdd6f4" letter-spacing="-1">AtelierX</text>
+  <text x="220" y="130" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI'" font-size="20" fill="rgba(205,214,244,0.5)" font-weight="400">Window Management meets Kanban</text>
+
+  <!-- バッジエリア -->
+  <g transform="translate(220, 148)">
+    <!-- macOS badge -->
+    <rect width="72" height="24" rx="12" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="36" y="16" font-family="system-ui" font-size="11" fill="rgba(255,255,255,0.6)" text-anchor="middle">macOS</text>
+    <!-- Electron badge -->
+    <rect x="80" y="0" width="80" height="24" rx="12" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="120" y="16" font-family="system-ui" font-size="11" fill="rgba(255,255,255,0.6)" text-anchor="middle">Electron</text>
+    <!-- React badge -->
+    <rect x="168" y="0" width="64" height="24" rx="12" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="200" y="16" font-family="system-ui" font-size="11" fill="rgba(97,218,251,0.7)" text-anchor="middle">React</text>
+  </g>
+</svg>
