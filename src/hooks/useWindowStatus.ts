@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { BoardData, AllBoardsData, Card as CardType, AppWindow, AppTabConfig, TagType, BoardType, getTabIdForApp } from '../types';
 import { createDefaultBoard } from '../utils/boardUtils';
-import { computeTerminalBgColor } from '../utils/terminalColor';
 
 interface UseWindowStatusParams {
   activeBoard: BoardType | 'ideas';
@@ -292,16 +291,6 @@ export function useWindowStatus({
     }
   }, []);
 
-  // Terminalウィンドウにタブ色のティント背景を適用
-  const applyTerminalColor = useCallback((card: CardType, windowId: string) => {
-    if (card.windowApp !== 'Terminal') return;
-    if (!window.electronAPI?.setTerminalColor) return;
-    const tab = enabledTabs.find(t => t.id === card.tag);
-    if (!tab) return;
-    const bgColor = computeTerminalBgColor(tab.color);
-    window.electronAPI.setTerminalColor(windowId, { bgColor });
-  }, [enabledTabs]);
-
   // ウィンドウへジャンプ
   const handleJumpToWindow = useCallback(async (card: CardType, setRelinkingCard: (card: CardType | null) => void) => {
     if (!card.windowApp || !card.windowId) return;
@@ -327,7 +316,6 @@ export function useWindowStatus({
         }));
       }
       window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim, (cached as any).windowIndex);
-      applyTerminalColor(card, cached.id);
       return;
     }
 
@@ -345,11 +333,10 @@ export function useWindowStatus({
         }));
       }
       window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name, anim, (matchedWindow as any).windowIndex);
-      applyTerminalColor(card, matchedWindow.id);
     } else {
       setRelinkingCard(card);
     }
-  }, [findWindowInCache, findMatchingWindow, addToWindowHistory, flashJumpingCard, updateCurrentBoard, settings.activateAnimation, applyTerminalColor]);
+  }, [findWindowInCache, findMatchingWindow, addToWindowHistory, flashJumpingCard, updateCurrentBoard, settings.activateAnimation]);
 
   // ウィンドウを閉じる
   const handleCloseWindowCard = useCallback(async (card: CardType) => {

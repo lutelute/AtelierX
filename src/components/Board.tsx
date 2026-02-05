@@ -21,8 +21,9 @@ import { useTabManagement } from '../hooks/useTabManagement';
 import { useExport } from '../hooks/useExport';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTimerActions } from '../hooks/useTimerActions';
-import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
 import { createDefaultBoard, initialAllBoardsData } from '../utils/boardUtils';
+import { computeTerminalBgColorFromHex, buildPriorityColorMap, generateGradientColors } from '../utils/terminalColor';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -562,6 +563,90 @@ export function Board() {
     return Object.values(currentBoard.cards).filter((card) => card.archived);
   }, [currentBoard.cards]);
 
+  // === 優先順位設定 ===
+
+  const allPriorities = useMemo(() => {
+    return [...DEFAULT_PRIORITIES, ...(settings.customPriorities || [])];
+  }, [settings.customPriorities]);
+
+  const priorityColorMap = useMemo(() => buildPriorityColorMap(allPriorities), [allPriorities]);
+
+  const handleAddPriority = useCallback((config: PriorityConfig) => {
+    setSettings(prev => ({
+      ...prev,
+      customPriorities: [...(prev.customPriorities || []), config],
+    }));
+  }, [setSettings]);
+
+  // === Terminal 色一括適用 ===
+
+  const isTerminalTab = activeBoard === 'terminal';
+
+  const handleBatchApplyColumnColor = useCallback(() => {
+    if (!window.electronAPI?.setTerminalColor) return;
+    for (const column of currentBoard.columns) {
+      if (!column.color) continue;
+      const bgColor = computeTerminalBgColorFromHex(column.color);
+      for (const cardId of column.cardIds) {
+        const card = currentBoard.cards[cardId];
+        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived && card.priority) {
+          window.electronAPI.setTerminalColor(card.windowId, { bgColor });
+        }
+      }
+    }
+  }, [currentBoard]);
+
+  const handleBatchApplyPriorityColor = useCallback(() => {
+    if (!window.electronAPI?.setTerminalColor) return;
+    const black = { r: 0, g: 0, b: 0 };
+    for (const column of currentBoard.columns) {
+      for (const cardId of column.cardIds) {
+        const card = currentBoard.cards[cardId];
+        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
+          const pColor = card.priority ? priorityColorMap[card.priority] : undefined;
+          if (pColor) {
+            const bgColor = computeTerminalBgColorFromHex(pColor);
+            window.electronAPI.setTerminalColor(card.windowId, { bgColor });
+          } else {
+            // 優先順位なし → 黒にリセット
+            window.electronAPI.setTerminalColor(card.windowId, { bgColor: black });
+          }
+        }
+      }
+    }
+  }, [currentBoard, priorityColorMap]);
+
+  const handleBatchResetColor = useCallback(() => {
+    if (!window.electronAPI?.setTerminalColor) return;
+    const black = { r: 0, g: 0, b: 0 };
+    for (const column of currentBoard.columns) {
+      for (const cardId of column.cardIds) {
+        const card = currentBoard.cards[cardId];
+        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
+          window.electronAPI.setTerminalColor(card.windowId, { bgColor: black });
+        }
+      }
+    }
+  }, [currentBoard]);
+
+  const handleBatchApplyGradient = useCallback(() => {
+    if (!window.electronAPI?.setTerminalColor) return;
+    // 全 Terminal カードを集める
+    const termCards: { windowId: string }[] = [];
+    for (const column of currentBoard.columns) {
+      for (const cardId of column.cardIds) {
+        const card = currentBoard.cards[cardId];
+        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
+          termCards.push({ windowId: card.windowId });
+        }
+      }
+    }
+    const colors = generateGradientColors(termCards.length);
+    termCards.forEach((tc, i) => {
+      window.electronAPI!.setTerminalColor(tc.windowId, { bgColor: colors[i] });
+    });
+  }, [currentBoard]);
+
   // === ジャンプ・クリックハンドラ ===
 
   const handleJumpCard = async (cardId: string) => {
@@ -658,6 +743,26 @@ export function Board() {
         </div>
 
         <div className="nav-section nav-right">
+          {isTerminalTab && (
+            <>
+              <button className="nav-action nav-action-term-color" onClick={handleBatchApplyColumnColor} title="カラム色を一括適用">
+                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="10.5" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>
+              </button>
+              <button className="nav-action nav-action-term-color" onClick={handleBatchApplyPriorityColor} title="優先順位色を一括適用">
+                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="6"/><circle cx="5" cy="8" r="1.2" fill="#ef4444" stroke="none"/><circle cx="8" cy="8" r="1.2" fill="#f59e0b" stroke="none"/><circle cx="11" cy="8" r="1.2" fill="#60a5fa" stroke="none"/></svg>
+              </button>
+              <button className="nav-action nav-action-term-color" onClick={handleBatchApplyGradient} title="グラデーション一括適用">
+                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ef4444"/><stop offset="50%" stopColor="#22c55e"/><stop offset="100%" stopColor="#3b82f6"/></linearGradient></defs>
+                  <circle cx="8" cy="8" r="6" stroke="url(#grad)" strokeWidth="1.5" fill="none"/>
+                </svg>
+              </button>
+              <button className="nav-action nav-action-term-reset" onClick={handleBatchResetColor} title="一括リセット">
+                <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 8a6 6 0 1 1 1.8 4.3"/><path d="M2 12.3V8h4.3"/></svg>
+              </button>
+              <div className="nav-divider" />
+            </>
+          )}
           {activeBoard !== 'ideas' && unaddedWindows.length > 0 && (
             <button className="nav-action pulse" onClick={handleAddAllWindows} title="未追加のウィンドウを追加">
               <span className="action-badge">+{unaddedWindows.length}</span>
@@ -712,6 +817,9 @@ export function Board() {
                   cardActions={cardActions}
                   onCardAction={handleCardAction}
                   onTimerAction={handleTimerAction}
+                  onUpdatePriority={cardOps.handleUpdatePriority}
+                  priorityConfigs={settings.customPriorities}
+                  onAddPriority={handleAddPriority}
                   onRenameColumn={handleRenameColumn}
                   onDeleteColumn={handleDeleteColumn}
                   onChangeColumnColor={handleChangeColumnColor}
@@ -822,6 +930,11 @@ export function Board() {
           }}
           defaultSubtagSettings={settings.defaultSubtagSettings}
           enabledTabs={enabledTabs}
+          columnColor={(() => {
+            const col = currentBoard.columns.find(c => c.cardIds.includes(cardOps.editingCard!.id));
+            return col?.color;
+          })()}
+          customPriorities={settings.customPriorities}
         />
       )}
       {!reminderDismissed && (

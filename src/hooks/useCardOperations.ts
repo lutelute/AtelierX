@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { BoardData, AllBoardsData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, WindowHistory, Idea, IdeaCategory, AppTabConfig, getTabIdForApp } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, WindowHistory, Idea, IdeaCategory, AppTabConfig, Priority, getTabIdForApp } from '../types';
 import { createDefaultBoard } from '../utils/boardUtils';
 
 interface UseCardOperationsParams {
@@ -207,6 +207,19 @@ export function useCardOperations({
         [cardId]: {
           ...prev.cards[cardId],
           statusMarker: marker === ' ' ? undefined : marker,
+        },
+      },
+    }));
+  }, [updateCurrentBoard]);
+
+  const handleUpdatePriority = useCallback((cardId: string, priority: Priority | undefined) => {
+    updateCurrentBoard((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [cardId]: {
+          ...prev.cards[cardId],
+          priority,
         },
       },
     }));
@@ -518,6 +531,7 @@ export function useCardOperations({
     handleSaveCard,
     handleUpdateDescription,
     handleUpdateStatusMarker,
+    handleUpdatePriority,
     handleDropWindow,
     handleSelectWindow,
     handleUnlinkWindow,

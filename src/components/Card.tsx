@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, getTagColor, getTagLabel } from '../types';
+import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig, DEFAULT_PRIORITIES, getTagColor, getTagLabel } from '../types';
 import { CHECKBOX_EXTRACT, CHECKBOX_DISPLAY, CHECKBOX_GROUPS, CARD_STATUS_MARKERS } from '../utils/checkboxConstants';
 
 interface CardProps {
   card: CardType;
+  columnColor?: string;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onJump?: (id: string) => void;
@@ -15,6 +16,7 @@ interface CardProps {
   onUnlinkWindow?: (id: string) => void;
   onUpdateDescription?: (id: string, description: string) => void;
   onUpdateStatusMarker?: (id: string, marker: CardStatusMarker) => void;
+  onUpdatePriority?: (priority: Priority | undefined) => void;
   onCardClick?: (id: string) => void;
   onArchive?: (id: string) => void;
   customSubtags?: CustomSubtag[];
@@ -24,6 +26,8 @@ interface CardProps {
   cardActions?: PluginCardActionInfo[];
   onCardAction?: (actionId: string, taskIndex?: number) => void;
   onTimerAction?: (taskIndex: number, action: TimerAction) => void;
+  priorityConfigs?: PriorityConfig[];
+  onAddPriority?: (config: PriorityConfig) => void;
 }
 
 // パースされたコンテンツ行の型
@@ -181,6 +185,100 @@ const CardStatusMenu = memo(function CardStatusMenu({
         );
       })}
     </div>
+  );
+});
+
+// 優先順位メニュー（動的 + カスタム追加）
+const PRIORITY_PRESET_COLORS = [
+  '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e',
+  '#14b8a6', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
+];
+
+const PriorityMenu = memo(function PriorityMenu({
+  currentPriority,
+  allPriorities,
+  onSelect,
+  onAddPriority,
+}: {
+  currentPriority?: Priority;
+  allPriorities: PriorityConfig[];
+  onSelect: (priority: Priority | undefined) => void;
+  onAddPriority?: (config: PriorityConfig) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newColor, setNewColor] = useState(PRIORITY_PRESET_COLORS[4]);
+
+  const handleAdd = () => {
+    if (!newLabel.trim() || !onAddPriority) return;
+    const config: PriorityConfig = {
+      id: `priority-${Date.now()}`,
+      label: newLabel.trim(),
+      color: newColor,
+    };
+    onAddPriority(config);
+    setNewLabel('');
+    setAdding(false);
+  };
+
+  return (
+    <>
+      <div className="context-menu-section">
+        <div className="context-menu-header">優先順位</div>
+        <div className="priority-menu">
+          {allPriorities.map((p) => (
+            <button
+              key={p.id}
+              className={`priority-item ${currentPriority === p.id ? 'active' : ''}`}
+              onClick={() => onSelect(currentPriority === p.id ? undefined : p.id)}
+            >
+              <span className="priority-dot" style={{ background: p.color }} />
+              <span className="priority-label">{p.label}</span>
+            </button>
+          ))}
+          {onAddPriority && (
+            <button
+              className="priority-item priority-add-btn"
+              onClick={() => setAdding(!adding)}
+            >
+              +
+            </button>
+          )}
+        </div>
+        {adding && onAddPriority && (
+          <div className="priority-add-form">
+            <input
+              type="text"
+              className="priority-add-input"
+              placeholder="ラベル"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+              autoFocus
+            />
+            <div className="priority-add-colors">
+              {PRIORITY_PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`priority-color-option ${newColor === c ? 'selected' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setNewColor(c)}
+                />
+              ))}
+            </div>
+            <button
+              className="priority-add-confirm"
+              onClick={handleAdd}
+              disabled={!newLabel.trim()}
+            >
+              追加
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="context-menu-divider" />
+    </>
   );
 });
 
@@ -427,7 +525,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId, cardActions = [], onCardAction, onTimerAction }: CardProps) {
+export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority }: CardProps) {
   const {
     attributes,
     listeners,
@@ -464,10 +562,38 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
     return cardSubtags.map(st => getSubtagInfo(st)).filter((info): info is { color: string; label: string } => info !== null);
   }, [cardSubtags, getSubtagInfo]);
 
+  // 優先順位の全リスト（デフォルト + カスタム）
+  const allPriorities = useMemo(() => {
+    return [...DEFAULT_PRIORITIES, ...(priorityConfigs || [])];
+  }, [priorityConfigs]);
+
+  // カラム色 + 優先順位に基づくスタイル計算
+  const priorityStyle = useMemo(() => {
+    if (!card.priority) return { opacity: 0.02, borderWidth: 2 };
+    const idx = allPriorities.findIndex(p => p.id === card.priority);
+    if (idx === -1) return { opacity: 0.02, borderWidth: 2 };
+    // リスト上位ほど高優先 → 太い/濃い
+    const ratio = 1 - idx / Math.max(allPriorities.length - 1, 1);
+    return {
+      opacity: 0.02 + ratio * 0.06,
+      borderWidth: 2 + Math.round(ratio * 2),
+    };
+  }, [card.priority, allPriorities]);
+
+  const columnColorStyle = useMemo(() => {
+    if (!columnColor) return undefined;
+    const alphaHex = Math.round(priorityStyle.opacity * 255).toString(16).padStart(2, '0');
+    return {
+      borderLeft: `${priorityStyle.borderWidth}px solid ${columnColor}`,
+      background: `${columnColor}${alphaHex}`,
+    };
+  }, [columnColor, priorityStyle]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    ...columnColorStyle,
   };
 
   // タスクのチェック状態をトグル（クリックで完了/未完了を切り替え）
@@ -509,6 +635,12 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
     setCardContextMenu(null);
   }, [card.id, onUpdateStatusMarker]);
 
+  // 優先順位変更
+  const handleChangePriority = useCallback((priority: Priority | undefined) => {
+    onUpdatePriority?.(priority);
+    setCardContextMenu(null);
+  }, [onUpdatePriority]);
+
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     // ボタンやタスクチェックボックスからのクリックは無視
     if ((e.target as HTMLElement).closest('button, .task-item, .card-status-marker')) {
@@ -547,7 +679,7 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
     <div
       ref={setNodeRef}
       style={style}
-      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnId ? `card-status-${columnId}` : ''}`}
+      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnColor ? 'card-column-colored' : ''} ${card.priority && allPriorities.length > 0 && card.priority === allPriorities[0].id ? 'card-priority-high' : ''}`}
       data-card-id={card.id}
       onClick={handleCardClick}
       onContextMenu={handleCardContextMenu}
@@ -586,6 +718,17 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
               {info.label}
             </span>
           ))}
+          {card.priority && (() => {
+            const pConfig = allPriorities.find(p => p.id === card.priority);
+            return pConfig ? (
+              <span
+                className="card-priority-badge"
+                style={{ backgroundColor: pConfig.color }}
+              >
+                {pConfig.label}
+              </span>
+            ) : null;
+          })()}
         </div>
         <div className="card-actions">
           {headerActions.map((action) => (
@@ -726,6 +869,14 @@ export const Card = memo(function Card({ card, onDelete, onEdit, onJump, onClose
                 </div>
                 <div className="context-menu-divider" />
               </>
+            )}
+            {onUpdatePriority && (
+              <PriorityMenu
+                currentPriority={card.priority}
+                allPriorities={allPriorities}
+                onSelect={handleChangePriority}
+                onAddPriority={onAddPriority}
+              />
             )}
             <div className="context-menu-actions">
               <button

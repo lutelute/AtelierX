@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction } from '../types';
+import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig } from '../types';
 import { Card } from './Card';
 
 const COLUMN_COLORS = [
@@ -38,14 +38,17 @@ interface ColumnProps {
   cardActions?: PluginCardActionInfo[];
   onCardAction?: (cardId: string, actionId: string, taskIndex?: number) => void;
   onTimerAction?: (cardId: string, taskIndex: number, action: TimerAction) => void;
+  onUpdatePriority?: (cardId: string, priority: Priority | undefined) => void;
   onRenameColumn?: (columnId: string, newTitle: string) => void;
   onDeleteColumn?: (columnId: string, moveToColumnId?: string) => void;
   onChangeColumnColor?: (columnId: string, color: string) => void;
   allColumns?: ColumnType[];
   canDelete?: boolean;
+  priorityConfigs?: PriorityConfig[];
+  onAddPriority?: (config: PriorityConfig) => void;
 }
 
-export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false }: ColumnProps) {
+export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority }: ColumnProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -249,6 +252,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
             <Card
               key={card.id}
               card={card}
+              columnColor={column.color}
               onDelete={onDeleteCard}
               onEdit={onEditCard}
               onJump={onJumpCard}
@@ -256,6 +260,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
               onUnlinkWindow={onUnlinkWindowCard}
               onUpdateDescription={onUpdateDescription}
               onUpdateStatusMarker={onUpdateStatusMarker}
+              onUpdatePriority={onUpdatePriority ? (priority) => onUpdatePriority(card.id, priority) : undefined}
               onCardClick={onCardClick}
               onArchive={column.id === 'done' ? onArchiveCard : undefined}
               customSubtags={customSubtags}
@@ -265,6 +270,8 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
               cardActions={cardActions}
               onCardAction={(actionId, taskIndex) => onCardAction?.(card.id, actionId, taskIndex)}
               onTimerAction={onTimerAction ? (taskIndex, action) => onTimerAction(card.id, taskIndex, action) : undefined}
+              priorityConfigs={priorityConfigs}
+              onAddPriority={onAddPriority}
             />
           ))}
         </SortableContext>

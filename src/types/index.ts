@@ -193,6 +193,7 @@ export interface Settings {
   theme?: ThemeType;
   enabledAppTabs?: AppTabConfig[];  // 有効なアプリタブ一覧
   activateAnimation?: ActivateAnimation;  // ウィンドウ活性化アニメーション
+  customPriorities?: PriorityConfig[];  // カスタム優先順位
 }
 
 // ノート情報
@@ -452,6 +453,21 @@ export type TimerAction = 'start' | 'pause' | 'stop' | 'cancel';
 // カードステータスマーカー（Minimal theme互換）
 export type CardStatusMarker = ' ' | 'x' | '>' | '<' | '-' | '/' | '!' | '?' | 'i' | 'd';
 
+// カード優先順位（デフォルト3種 + カスタム）
+export type Priority = string;
+
+export interface PriorityConfig {
+  id: string;      // 'high', 'medium', 'low', or 'priority-{timestamp}'
+  label: string;   // '高', '中', '低', or custom
+  color: string;   // hex color
+}
+
+export const DEFAULT_PRIORITIES: PriorityConfig[] = [
+  { id: 'high', label: '高', color: '#ef4444' },
+  { id: 'medium', label: '中', color: '#f59e0b' },
+  { id: 'low', label: '低', color: '#60a5fa' },
+];
+
 export interface Card {
   id: string;
   title: string;
@@ -470,6 +486,8 @@ export interface Card {
   windowId?: string;     // ウィンドウID（一意識別用）
   windowName?: string;
   windowPath?: string;   // Finderのフォルダパス（安定識別用）
+  // 優先順位
+  priority?: Priority;
   // 時間記録
   timeRecords?: TimeRecord[];
   activeTimerId?: string; // 現在実行中のタイマーID

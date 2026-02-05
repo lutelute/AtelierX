@@ -1,11 +1,18 @@
 import { BoardData, AllBoardsData, Card as CardType } from '../types';
 
+// デフォルトカラム色マップ
+export const DEFAULT_COLUMN_COLORS: Record<string, string> = {
+  'todo': '#9ca3af',
+  'in-progress': '#3b82f6',
+  'done': '#22c55e',
+};
+
 export function createDefaultBoard(): BoardData {
   return {
     columns: [
-      { id: 'todo', title: '未着手', cardIds: [] },
-      { id: 'in-progress', title: '実行中', cardIds: [] },
-      { id: 'done', title: '完了', cardIds: [] },
+      { id: 'todo', title: '未着手', cardIds: [], color: DEFAULT_COLUMN_COLORS['todo'] },
+      { id: 'in-progress', title: '実行中', cardIds: [], color: DEFAULT_COLUMN_COLORS['in-progress'] },
+      { id: 'done', title: '完了', cardIds: [], color: DEFAULT_COLUMN_COLORS['done'] },
     ],
     cards: {},
     columnOrder: ['todo', 'in-progress', 'done'],

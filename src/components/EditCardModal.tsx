@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, TagType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow, AppTabConfig, BUILTIN_APPS, getAppNameForTab } from '../types';
+import { Card, TagType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow, AppTabConfig, BUILTIN_APPS, getAppNameForTab, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
+import { computeTerminalBgColorFromHex, buildPriorityColorMap } from '../utils/terminalColor';
 
 // プリセットカラー
 const PRESET_COLORS = [
@@ -21,9 +22,11 @@ interface EditCardModalProps {
   onUpdateDefaultSubtag?: (id: string, updates: { name?: string; color?: string }) => void;
   defaultSubtagSettings?: DefaultSubtagSettings;
   enabledTabs?: AppTabConfig[];
+  columnColor?: string;
+  customPriorities?: PriorityConfig[];
 }
 
-export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings, enabledTabs }: EditCardModalProps) {
+export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, customSubtags = [], onAddSubtag, onUpdateSubtag, onDeleteSubtag, onUpdateDefaultSubtag, defaultSubtagSettings, enabledTabs, columnColor, customPriorities = [] }: EditCardModalProps) {
   const tabs = enabledTabs && enabledTabs.length > 0 ? enabledTabs : BUILTIN_APPS;
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
@@ -664,6 +667,67 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
               >
                 {windowApp} ウィンドウを開く
               </button>
+            </div>
+          )}
+          {windowApp === 'Terminal' && windowId && (
+            <div className="form-group">
+              <label>Terminal 背景色</label>
+              <div className="terminal-color-section">
+                <div className="terminal-color-presets">
+                  {columnColor && (
+                    <button
+                      type="button"
+                      className="terminal-color-action-btn"
+                      onClick={() => {
+                        const bgColor = computeTerminalBgColorFromHex(columnColor);
+                        window.electronAPI?.setTerminalColor(windowId, { bgColor });
+                      }}
+                    >
+                      <span className="terminal-color-dot" style={{ background: columnColor }} />
+                      カラム色
+                    </button>
+                  )}
+                  {card.priority && (() => {
+                    const colorMap = buildPriorityColorMap([...DEFAULT_PRIORITIES, ...customPriorities]);
+                    const pColor = colorMap[card.priority];
+                    return pColor ? (
+                      <button
+                        type="button"
+                        className="terminal-color-action-btn"
+                        onClick={() => {
+                          const bgColor = computeTerminalBgColorFromHex(pColor);
+                          window.electronAPI?.setTerminalColor(windowId, { bgColor });
+                        }}
+                      >
+                        <span className="terminal-color-dot" style={{ background: pColor }} />
+                        優先順位色
+                      </button>
+                    ) : null;
+                  })()}
+                  <button
+                    type="button"
+                    className="terminal-color-action-btn terminal-color-reset-btn"
+                    onClick={() => {
+                      window.electronAPI?.setTerminalColor(windowId, { bgColor: { r: 0, g: 0, b: 0 } });
+                    }}
+                  >
+                    <span className="terminal-color-dot" style={{ background: '#000' }} />
+                    リセット
+                  </button>
+                </div>
+                <div className="terminal-color-custom">
+                  <input
+                    type="color"
+                    className="terminal-color-picker-input"
+                    defaultValue="#1a1a2e"
+                    onChange={(e) => {
+                      const bgColor = computeTerminalBgColorFromHex(e.target.value, 0.35);
+                      window.electronAPI?.setTerminalColor(windowId, { bgColor });
+                    }}
+                  />
+                  <span className="terminal-color-picker-text">カスタムカラー</span>
+                </div>
+              </div>
             </div>
           )}
           <div className="form-actions">
