@@ -86,7 +86,9 @@ export function VersionChecker() {
     try {
       const result = await window.electronAPI?.update.install();
       if (result?.success) {
+        // インストール成功 → 自動再起動
         setUpdateStatus('installed' as UpdateStatus);
+        await window.electronAPI?.update.restart();
       } else {
         setUpdateError(result?.error || 'インストールに失敗しました');
         setUpdateStatus('error');
@@ -94,14 +96,6 @@ export function VersionChecker() {
     } catch {
       setUpdateError('インストール中にエラーが発生しました');
       setUpdateStatus('error');
-    }
-  };
-
-  const handleRestart = async () => {
-    try {
-      await window.electronAPI?.update.restart();
-    } catch {
-      setUpdateError('再起動に失敗しました');
     }
   };
 
@@ -165,8 +159,7 @@ export function VersionChecker() {
 
       {updateStatus === ('installed' as UpdateStatus) && (
         <div className="update-installed">
-          <p className="update-installed-text">✓ インストール完了！</p>
-          <button type="button" className="btn-restart-update" onClick={handleRestart}>再起動して更新を適用</button>
+          <p className="update-installed-text">再起動しています...</p>
         </div>
       )}
     </div>
