@@ -1,4 +1,4 @@
-import { TerminalColorRGB, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
+import { TerminalColorRGB, TerminalColorOptions, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
 
 /**
  * 優先順位設定リストから色マップを構築
@@ -96,3 +96,92 @@ export function generateGradientColors(count: number, mixRatio = 0.25): Terminal
     return mixColors(DARK_BASE, accent, mixRatio);
   });
 }
+
+/**
+ * 背景色の相対輝度を計算 (WCAG 2.0)
+ */
+function relativeLuminance(c: TerminalColorRGB): number {
+  const toLinear = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * toLinear(c.r) + 0.7152 * toLinear(c.g) + 0.0722 * toLinear(c.b);
+}
+
+/**
+ * 背景色に対してコントラストの良いテキスト色を返す
+ */
+export function computeContrastTextColor(bg: TerminalColorRGB): TerminalColorRGB {
+  const lum = relativeLuminance(bg);
+  // 暗い背景 → 明るいテキスト、明るい背景 → 暗いテキスト
+  return lum > 0.18
+    ? { r: 20, g: 20, b: 30 }    // ダークテキスト
+    : { r: 230, g: 230, b: 235 }; // ライトテキスト
+}
+
+/**
+ * bgColor に対して自動で textColor を付与した TerminalColorOptions を返す
+ */
+export function withAutoTextColor(bgColor: TerminalColorRGB): TerminalColorOptions {
+  return { bgColor, textColor: computeContrastTextColor(bgColor) };
+}
+
+// =========================================================
+// プリセット配色
+// =========================================================
+
+export interface TerminalPreset {
+  id: string;
+  name: string;
+  /** プレビュー用のアクセント色 (hex) */
+  previewColor: string;
+  /** 背景色 */
+  bg: TerminalColorRGB;
+  /** テキスト色 */
+  text: TerminalColorRGB;
+}
+
+export const TERMINAL_PRESETS: TerminalPreset[] = [
+  {
+    id: 'ocean',
+    name: 'Ocean',
+    previewColor: '#0ea5e9',
+    bg: { r: 18, g: 32, b: 52 },
+    text: { r: 200, g: 220, b: 240 },
+  },
+  {
+    id: 'forest',
+    name: 'Forest',
+    previewColor: '#22c55e',
+    bg: { r: 20, g: 38, b: 28 },
+    text: { r: 190, g: 230, b: 200 },
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset',
+    previewColor: '#f97316',
+    bg: { r: 48, g: 26, b: 18 },
+    text: { r: 240, g: 210, b: 180 },
+  },
+  {
+    id: 'berry',
+    name: 'Berry',
+    previewColor: '#a855f7',
+    bg: { r: 34, g: 20, b: 50 },
+    text: { r: 220, g: 200, b: 240 },
+  },
+  {
+    id: 'slate',
+    name: 'Slate',
+    previewColor: '#94a3b8',
+    bg: { r: 30, g: 35, b: 42 },
+    text: { r: 200, g: 210, b: 220 },
+  },
+  {
+    id: 'rose',
+    name: 'Rose',
+    previewColor: '#f43f5e',
+    bg: { r: 46, g: 20, b: 28 },
+    text: { r: 240, g: 200, b: 210 },
+  },
+];

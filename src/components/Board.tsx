@@ -23,7 +23,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTimerActions } from '../hooks/useTimerActions';
 import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES, MultiGridLayout } from '../types';
 import { createDefaultBoard, initialAllBoardsData, DEFAULT_COLUMN_COLORS } from '../utils/boardUtils';
-import { computeTerminalBgColorFromHex, buildPriorityColorMap, generateGradientColors } from '../utils/terminalColor';
+import { computeTerminalBgColorFromHex, buildPriorityColorMap, generateGradientColors, withAutoTextColor, TERMINAL_PRESETS } from '../utils/terminalColor';
 import { Column } from './Column';
 import { Card } from './Card';
 import { AddCardModal } from './AddCardModal';
@@ -656,7 +656,7 @@ export function Board() {
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
         if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
-          window.electronAPI.setTerminalColor(card.windowId, { bgColor });
+          window.electronAPI.setTerminalColor(card.windowId, withAutoTextColor(bgColor));
         }
       }
     }
@@ -672,10 +672,9 @@ export function Board() {
           const pColor = card.priority ? priorityColorMap[card.priority] : undefined;
           if (pColor) {
             const bgColor = computeTerminalBgColorFromHex(pColor);
-            window.electronAPI.setTerminalColor(card.windowId, { bgColor });
+            window.electronAPI.setTerminalColor(card.windowId, withAutoTextColor(bgColor));
           } else {
-            // 優先順位なし → 黒にリセット
-            window.electronAPI.setTerminalColor(card.windowId, { bgColor: black });
+            window.electronAPI.setTerminalColor(card.windowId, withAutoTextColor(black));
           }
         }
       }
@@ -685,11 +684,26 @@ export function Board() {
   const handleBatchResetColor = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
     const black = { r: 0, g: 0, b: 0 };
+    const white = { r: 230, g: 230, b: 235 };
     for (const column of currentBoard.columns) {
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
         if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
-          window.electronAPI.setTerminalColor(card.windowId, { bgColor: black });
+          window.electronAPI.setTerminalColor(card.windowId, { bgColor: black, textColor: white });
+        }
+      }
+    }
+  }, [currentBoard]);
+
+  const handleBatchApplyPreset = useCallback((presetId: string) => {
+    if (!window.electronAPI?.setTerminalColor) return;
+    const preset = TERMINAL_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    for (const column of currentBoard.columns) {
+      for (const cardId of column.cardIds) {
+        const card = currentBoard.cards[cardId];
+        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
+          window.electronAPI.setTerminalColor(card.windowId, { bgColor: preset.bg, textColor: preset.text });
         }
       }
     }
@@ -710,7 +724,7 @@ export function Board() {
     }
     const colors = generateGradientColors(termCards.length);
     termCards.forEach((tc, i) => {
-      window.electronAPI!.setTerminalColor(tc.windowId, { bgColor: colors[i] });
+      window.electronAPI!.setTerminalColor(tc.windowId, withAutoTextColor(colors[i]));
     });
   }, [currentBoard]);
 
@@ -841,6 +855,21 @@ export function Board() {
                     </svg>
                     <span>グラデーション</span>
                   </button>
+                  <div className="color-menu-divider" />
+                  <div className="color-menu-label">プリセット</div>
+                  <div className="color-menu-presets">
+                    {TERMINAL_PRESETS.map(p => (
+                      <button
+                        key={p.id}
+                        className="color-preset-chip"
+                        onClick={() => { handleBatchApplyPreset(p.id); setShowColorMenu(false); }}
+                        title={p.name}
+                      >
+                        <span className="color-preset-dot" style={{ background: p.previewColor }} />
+                        <span>{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
                   <div className="color-menu-divider" />
                   <button className="color-menu-item color-menu-reset" onClick={() => { handleBatchResetColor(); setShowColorMenu(false); }}>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 8a6 6 0 1 1 1.8 4.3"/><path d="M2 12.3V8h4.3"/></svg>
