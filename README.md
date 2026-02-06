@@ -7,15 +7,15 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/electron-28-47848F?style=flat-square&logo=electron" alt="Electron">
+  <img src="https://img.shields.io/badge/platform-macOS%20|%20Windows%20|%20Linux-lightgrey?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/electron-40-47848F?style=flat-square&logo=electron" alt="Electron">
   <img src="https://img.shields.io/badge/react-18-61DAFB?style=flat-square&logo=react" alt="React">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 
 ---
 
-Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理するmacOSアプリ。プラグインで機能を拡張可能。
+Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理するクロスプラットフォームアプリ。プラグインで機能を拡張可能。
 
 ## Features
 
@@ -28,8 +28,17 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 
 ### Grid Layout
 - **Auto-Arrange** &mdash; ウィンドウをグリッド状に自動配置
-- **Presets** &mdash; プラグインでカスタムレイアウトを追加可能
+- **Multi-App Grid** &mdash; 画面を分割して異なるアプリのウィンドウを一括配置（実験的）
+- **Sub-Grid** &mdash; 分割領域内のグリッド列×行を手動指定可能
 - **Multi-Display** &mdash; ディスプレイごとに配置先を選択
+- **Presets** &mdash; プラグインでカスタムレイアウトを追加可能
+
+### Terminal Color (macOS)
+- **Preset Themes** &mdash; Ocean / Forest / Sunset / Berry / Slate / Rose の6プリセット
+- **Column Color** &mdash; カラムの色に応じてTerminal背景色を一括適用
+- **Priority Color** &mdash; 優先順位に応じた色分け
+- **Gradient** &mdash; 色相を均等分割したグラデーション
+- **Auto Text Color** &mdash; 背景に応じてテキスト色を自動調整
 
 ### Daily Report & Logging
 - **Activity Log** &mdash; カードの移動・完了を自動記録
@@ -73,22 +82,33 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 
 ## Install
 
-### macOS
+[Releases](../../releases) ページから最新版をダウンロード。
 
-1. [Releases](../../releases) ページから最新の `.dmg` をダウンロード
-2. DMGを開いてApplicationsフォルダにドラッグ
-3. Applicationsから起動
+| Platform | Format | 手順 |
+|----------|--------|------|
+| **macOS** | `.dmg` | DMGを開いてApplicationsにドラッグ |
+| **Windows** | `.exe` | インストーラーを実行 |
+| **Linux** | `.AppImage` / `.deb` | `chmod +x` して実行、または `dpkg -i` |
 
 > アプリ内の設定画面からアップデートを確認できます。
+
+### Linux の前提条件
+
+ウィンドウ管理機能を使うには:
+```bash
+sudo apt install wmctrl xdotool
+```
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18 + TypeScript + Vite |
-| Desktop | Electron |
+| Desktop | Electron 40 |
 | DnD | @dnd-kit |
-| macOS API | AppleScript (Terminal / Finder / System Events) |
+| macOS | AppleScript (Terminal / Finder / System Events) |
+| Windows | PowerShell + user32.dll |
+| Linux | wmctrl + xdotool (X11) |
 
 ## Development
 
@@ -122,19 +142,25 @@ Release script handles: version bump -> build -> commit -> tag -> push -> GitHub
 
 ```
 ├── electron/
-│   ├── main.cjs            # Main process
-│   ├── preload.cjs          # Preload script
-│   ├── windowManager.cjs    # macOS window operations
-│   ├── gridManager.cjs      # Grid arrangement
-│   ├── pluginManager.cjs    # Plugin lifecycle
-│   └── pluginAPI.cjs        # Plugin API
+│   ├── main.cjs              # Main process
+│   ├── preload.cjs            # Preload script
+│   ├── pluginManager.cjs      # Plugin lifecycle
+│   ├── pluginAPI.cjs          # Plugin API
+│   └── platforms/             # Platform abstraction layer
+│       ├── index.cjs          # Router (process.platform)
+│       ├── darwin/            # macOS (AppleScript)
+│       ├── win32/             # Windows (PowerShell)
+│       └── linux/             # Linux (wmctrl/xdotool)
 ├── src/
-│   ├── components/          # React components
-│   ├── hooks/               # Custom hooks
-│   ├── styles/              # CSS
-│   └── types/               # TypeScript types
+│   ├── components/            # React components
+│   ├── hooks/                 # Custom hooks
+│   ├── styles/                # CSS
+│   ├── utils/                 # Utilities
+│   └── types/                 # TypeScript types
 └── build/
-    └── icon.icns            # App icon
+    ├── icon.icns              # macOS icon
+    ├── icon.ico               # Windows icon
+    └── icon.png               # Linux icon
 ```
 
 ## Plugin Development
