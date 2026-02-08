@@ -86,15 +86,20 @@ npm run release:major   # メジャー: 0.7.2 → 1.0.0
 2. **`npm run build`** でビルドが通ることを確認
 3. **git add & commit** （変更ファイルを明示指定、`git add -A`は使わない）
 4. **git push origin main**
-5. **`npm run electron:build:mac`** でDMGをビルド
-6. **DMGをGitHub Releaseにアップロード**:
+5. **git tag v{VERSION} && git push origin v{VERSION}** でタグを作成・push（CI/CDが自動でWin/Linux/macOSの全プラットフォームビルド+Release添付を行う）
+6. **`npm run electron:build:mac`** でローカルDMGをビルド
+7. **先にReleaseを作成し、その後DMGをアップロード**:
    ```bash
-   gh release create v{VERSION} release/AtelierX-{VERSION}-arm64.dmg \
+   gh release create v{VERSION} \
      --title "v{VERSION} - タイトル" \
      --notes "リリースノート"
+   gh release upload v{VERSION} release/AtelierX-{VERSION}-arm64.dmg --clobber
    ```
 
-> **注意: DMGのアップロードを忘れないこと。** コミット・pushだけではユーザーはアプリを更新できない。必ずGitHub Releaseを作成しDMGを添付する。
+> **注意: リリース手順のポイント**
+> - DMGのアップロードを忘れないこと。コミット・pushだけではユーザーはアプリを更新できない
+> - `gh release create` と `gh release upload` は**分けて実行**する（DMGが100MB超のため、createと同時だとアップロードがタイムアウトで404になることがある）
+> - CI/CDの `build.yml` では `--publish never` を使い、electron-builderの自動publishを無効化している。アセットのアップロードは `softprops/action-gh-release` が担当
 
 ## インストール手順
 - **macOS**: DMGを開いて `/Applications` にドラッグ
