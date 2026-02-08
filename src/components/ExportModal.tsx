@@ -53,6 +53,7 @@ function mergeAllBoards(allBoardsData: AllBoardsData): BoardData {
 export function ExportModal({ logs, allBoardsData, activeBoard, onClose, onSave, onObsidian }: ExportModalProps) {
   const boardData = useMemo(() => mergeAllBoards(allBoardsData), [allBoardsData]);
   const [format, setFormat] = useState<ExportFormat>('md');
+  const [showHelp, setShowHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pluginFormats, setPluginFormats] = useState<PluginExportFormatInfo[]>([]);
   const [pluginContent, setPluginContent] = useState<string | null>(null);
@@ -307,8 +308,33 @@ export function ExportModal({ logs, allBoardsData, activeBoard, onClose, onSave,
       <div className="modal export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>日報エクスポート</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <div className="mg-header-actions">
+            <button className={`mg-help-btn ${showHelp ? 'active' : ''}`} onClick={() => setShowHelp(!showHelp)} title="ヘルプ">?</button>
+            <button className="modal-close" onClick={onClose}>×</button>
+          </div>
         </div>
+
+        {showHelp && (
+          <div className="mg-help-panel">
+            <div className="mg-help-body">
+              <h4>エクスポート機能とは</h4>
+              <p>カンバンボードのカード情報を日報としてエクスポートします。</p>
+              <h4>フォーマット</h4>
+              <ul>
+                <li><b>Markdown:</b> 見出し・箇条書き付きの読みやすい形式</li>
+                <li><b>JSON:</b> プログラムで処理しやすい構造化データ</li>
+                <li><b>Text:</b> シンプルなテキスト形式</li>
+              </ul>
+              <h4>フィルター</h4>
+              <p>タブ（Terminal/Finderなど）と状態（未着手/実行中/完了）でエクスポート対象を絞り込めます。</p>
+              <h4>Obsidian連携</h4>
+              <p>設定でObsidian Vaultのパスを指定すると、デイリーノートに直接追記できます。</p>
+              <div className="mg-help-note">
+                <b>ヒント:</b> プラグインで独自のエクスポートフォーマットを追加できます。
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="export-format-selector">
           {/* ビルトインフォーマット */}

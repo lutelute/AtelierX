@@ -116,6 +116,13 @@ export function PluginManager() {
     <>
       <div className="settings-section">
         <h3>プラグインをインストール</h3>
+        <div className="plugin-guide-banner">
+          <div className="plugin-guide-icon">🔌</div>
+          <div className="plugin-guide-text">
+            <p>プラグインでAtelierXの機能を拡張できます。</p>
+            <p className="form-hint">Grid配置プリセット、エクスポートフォーマット、カードアクションなどを追加可能</p>
+          </div>
+        </div>
         <div className="form-group">
           <label>GitHubリポジトリ</label>
           <div className="plugin-install-form">

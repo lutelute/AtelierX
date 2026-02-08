@@ -10,6 +10,7 @@ interface GridArrangeModalProps {
 export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeModalProps) {
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [selectedDisplay, setSelectedDisplay] = useState<number>(0); // 0 = 自動（各ディスプレイ内）
+  const [showHelp, setShowHelp] = useState(false);
   const [gridMode, setGridMode] = useState<'auto' | 'custom' | 'preset'>('auto');
   const [cols, setCols] = useState<number>(2);
   const [rows, setRows] = useState<number>(2);
@@ -73,8 +74,34 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
       <div className="modal grid-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{appType} ウィンドウをグリッド配置</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <div className="mg-header-actions">
+            <button className={`mg-help-btn ${showHelp ? 'active' : ''}`} onClick={() => setShowHelp(!showHelp)} title="ヘルプ">?</button>
+            <button className="modal-close" onClick={onClose}>×</button>
+          </div>
         </div>
+
+        {showHelp && (
+          <div className="mg-help-panel">
+            <div className="mg-help-body">
+              <h4>Grid配置とは</h4>
+              <p>選択したアプリのウィンドウを、ディスプレイ上にグリッド状に整列配置します。</p>
+              <h4>配置先ディスプレイ</h4>
+              <ul>
+                <li><b>自動配置:</b> 各ウィンドウが現在あるディスプレイ内で配置</li>
+                <li><b>ディスプレイ指定:</b> 全ウィンドウを選択したディスプレイに集約して配置</li>
+              </ul>
+              <h4>グリッドサイズ</h4>
+              <ul>
+                <li><b>自動:</b> ウィンドウ数に応じて最適な行列を自動決定</li>
+                <li><b>カスタム:</b> 行数・列数を手動で指定</li>
+                <li><b>プリセット:</b> プラグインで追加されたレイアウトを選択</li>
+              </ul>
+              <div className="mg-help-note">
+                <b>ヒント:</b> 1つのアプリのウィンドウだけを対象にします。複数アプリをまとめて配置する場合は「マルチアプリGrid」を使用してください。
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid-modal-content">
           {/* ディスプレイ選択 */}

@@ -40,6 +40,7 @@ import { RelinkWindowModal } from './RelinkWindowModal';
 import { IdeasPanel } from './IdeasPanel';
 import { AddIdeaModal } from './AddIdeaModal';
 import { TabAddPopover } from './TabAddPopover';
+import { HelpModal } from './HelpModal';
 import { migrateBoardDataToAllBoards } from '../utils/boardUtils';
 
 export function Board() {
@@ -55,6 +56,7 @@ export function Board() {
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
   const [showColorMenu, setShowColorMenu] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // 非表示カラム管理
   const hiddenColumns = useMemo(() => new Set(settings.hiddenColumns || []), [settings.hiddenColumns]);
@@ -304,7 +306,7 @@ export function Board() {
   });
 
   // モーダルが開いているか判定
-  const isModalOpen = !!(cardOps.modalColumnId || cardOps.windowSelectColumnId || cardOps.editingCard || showExportModal || showSettingsModal || showNoteSelectModal || showGridModal || showMultiGridModal || cardOps.relinkingCard || cardOps.showAddIdeaModal);
+  const isModalOpen = !!(cardOps.modalColumnId || cardOps.windowSelectColumnId || cardOps.editingCard || showExportModal || showSettingsModal || showNoteSelectModal || showGridModal || showMultiGridModal || cardOps.relinkingCard || cardOps.showAddIdeaModal || showHelpModal);
 
   useKeyboardShortcuts({
     activeBoard,
@@ -775,6 +777,9 @@ export function Board() {
           <button className="sidebar-btn active" title="ボード">
             <svg className="sidebar-icon-svg" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="11" y="2" width="5" height="5" rx="1"/><rect x="2" y="11" width="5" height="5" rx="1"/><rect x="11" y="11" width="5" height="5" rx="1"/></svg>
           </button>
+          <button className="sidebar-btn" onClick={() => setShowHelpModal(true)} title="ヘルプ">
+            <svg className="sidebar-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </button>
         </div>
         <div className="sidebar-bottom">
           <button className="sidebar-btn" onClick={() => setShowSettingsModal(true)} title="設定">
@@ -846,7 +851,7 @@ export function Board() {
               <button
                 className={`nav-action nav-action-term-color ${showColorMenu ? 'active' : ''}`}
                 onClick={() => setShowColorMenu(v => !v)}
-                title="Terminal色メニュー"
+                title="Terminal色メニュー - カラム色/優先順位色/グラデーション/プリセット"
               >
                 <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <circle cx="8" cy="8" r="6"/>
@@ -897,21 +902,21 @@ export function Board() {
             </div>
           )}
           {activeBoard !== 'ideas' && unaddedWindows.length > 0 && (
-            <button className="nav-action pulse" onClick={handleAddAllWindows} title="未追加のウィンドウを追加">
+            <button className="nav-action pulse" onClick={handleAddAllWindows} title={`未追加のウィンドウを一括追加 (${unaddedWindows.length}件)`}>
               <span className="action-badge">+{unaddedWindows.length}</span>
             </button>
           )}
-          <button className="nav-action" onClick={handleOpenGridModal} title="Grid配置">
+          <button className="nav-action" onClick={handleOpenGridModal} title="Grid配置 - 全ウィンドウをグリッド整列">
             <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
           </button>
-          <button className="nav-action" onClick={handleOpenMultiGridModal} title="マルチアプリGrid配置">
+          <button className="nav-action" onClick={handleOpenMultiGridModal} title="マルチアプリGrid - 複数アプリを画面分割配置">
             <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.2"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.2"/></svg>
           </button>
-          <button className="nav-action" onClick={handleOpenExport} title="エクスポート">
+          <button className="nav-action" onClick={handleOpenExport} title="日報エクスポート - Markdown/JSON/Obsidian">
             <svg className="action-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 1v9"/><path d="M4 5l4-4 4 4"/><path d="M2 11v3h12v-3"/></svg>
           </button>
           <div className="nav-divider" />
-          <div className="theme-slider" onClick={toggleTheme} title="テーマ切替">
+          <div className="theme-slider" onClick={toggleTheme} title="テーマ切替 (ライト/ダーク)">
             <span className="theme-label light">☀</span>
             <div className="theme-track">
               <div className="theme-thumb" />
@@ -1191,6 +1196,9 @@ export function Board() {
           onClose={() => cardOps.setShowAddIdeaModal(false)}
           onAdd={cardOps.handleAddIdea}
         />
+      )}
+      {showHelpModal && (
+        <HelpModal onClose={() => setShowHelpModal(false)} />
       )}
     </div>
   );
