@@ -733,13 +733,14 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
 
     const lines = card.description.split('\n');
     const line = lines[lineIndex];
-    const taskMatch = line.match(CHECKBOX_EXTRACT);
+    const indent = line.match(/^(\s*)/)?.[1] || '';
+    const taskMatch = line.trimStart().match(CHECKBOX_EXTRACT);
 
     if (taskMatch) {
       const currentMarker = taskMatch[1];
       // 完了/未完了のトグル
       const newMarker = currentMarker === 'x' || currentMarker === 'X' ? ' ' : 'x';
-      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      lines[lineIndex] = `${indent}- [${newMarker}] ${taskMatch[2]}`;
       onUpdateDescription(card.id, lines.join('\n'));
     }
   }, [card.id, card.description, onUpdateDescription]);
@@ -759,11 +760,12 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     if (!card.comment || !onUpdateComment) return;
     const lines = card.comment.split('\n');
     const line = lines[lineIndex];
-    const taskMatch = line.match(CHECKBOX_EXTRACT);
+    const indent = line.match(/^(\s*)/)?.[1] || '';
+    const taskMatch = line.trimStart().match(CHECKBOX_EXTRACT);
     if (taskMatch) {
       const currentMarker = taskMatch[1];
       const newMarker = currentMarker === 'x' || currentMarker === 'X' ? ' ' : 'x';
-      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      lines[lineIndex] = `${indent}- [${newMarker}] ${taskMatch[2]}`;
       onUpdateComment(card.id, lines.join('\n'));
     }
   }, [card.id, card.comment, onUpdateComment]);
@@ -773,9 +775,10 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     if (!card.comment || !onUpdateComment) return;
     const lines = card.comment.split('\n');
     const line = lines[lineIndex];
-    const taskMatch = line.match(CHECKBOX_EXTRACT);
+    const indent = line.match(/^(\s*)/)?.[1] || '';
+    const taskMatch = line.trimStart().match(CHECKBOX_EXTRACT);
     if (taskMatch) {
-      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      lines[lineIndex] = `${indent}- [${newMarker}] ${taskMatch[2]}`;
       onUpdateComment(card.id, lines.join('\n'));
     }
   }, [card.id, card.comment, onUpdateComment]);
@@ -786,10 +789,11 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
 
     const lines = card.description.split('\n');
     const line = lines[lineIndex];
-    const taskMatch = line.match(CHECKBOX_EXTRACT);
+    const indent = line.match(/^(\s*)/)?.[1] || '';
+    const taskMatch = line.trimStart().match(CHECKBOX_EXTRACT);
 
     if (taskMatch) {
-      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      lines[lineIndex] = `${indent}- [${newMarker}] ${taskMatch[2]}`;
       onUpdateDescription(card.id, lines.join('\n'));
     }
   }, [card.id, card.description, onUpdateDescription]);
