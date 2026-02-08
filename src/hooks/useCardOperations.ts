@@ -199,6 +199,19 @@ export function useCardOperations({
     }));
   }, [updateCurrentBoard]);
 
+  const handleUpdateComment = useCallback((cardId: string, comment: string) => {
+    updateCurrentBoard((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [cardId]: {
+          ...prev.cards[cardId],
+          comment: comment || undefined,
+        },
+      },
+    }));
+  }, [updateCurrentBoard]);
+
   const handleUpdateStatusMarker = useCallback((cardId: string, marker: CardStatusMarker) => {
     updateCurrentBoard((prev) => ({
       ...prev,
@@ -530,6 +543,7 @@ export function useCardOperations({
     handleEditCard,
     handleSaveCard,
     handleUpdateDescription,
+    handleUpdateComment,
     handleUpdateStatusMarker,
     handleUpdatePriority,
     handleDropWindow,

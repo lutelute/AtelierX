@@ -246,6 +246,50 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
               id="edit-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  const textarea = e.currentTarget;
+                  const start = textarea.selectionStart;
+                  const end = textarea.selectionEnd;
+                  const lines = description.split('\n');
+                  // カーソル位置の行を特定
+                  let charCount = 0;
+                  let lineIndex = 0;
+                  for (let i = 0; i < lines.length; i++) {
+                    if (charCount + lines[i].length >= start) {
+                      lineIndex = i;
+                      break;
+                    }
+                    charCount += lines[i].length + 1; // +1 for \n
+                  }
+                  const line = lines[lineIndex];
+                  // リスト行（- [ ] or - ）のみインデント対応
+                  if (/^\s*[-*]\s/.test(line)) {
+                    if (e.shiftKey) {
+                      // Shift+Tab: アンインデント（先頭2スペース削除）
+                      if (line.startsWith('  ')) {
+                        lines[lineIndex] = line.slice(2);
+                        const newDesc = lines.join('\n');
+                        setDescription(newDesc);
+                        requestAnimationFrame(() => {
+                          textarea.selectionStart = Math.max(start - 2, charCount);
+                          textarea.selectionEnd = Math.max(end - 2, charCount);
+                        });
+                      }
+                    } else {
+                      // Tab: インデント（先頭に2スペース追加）
+                      lines[lineIndex] = '  ' + line;
+                      const newDesc = lines.join('\n');
+                      setDescription(newDesc);
+                      requestAnimationFrame(() => {
+                        textarea.selectionStart = start + 2;
+                        textarea.selectionEnd = end + 2;
+                      });
+                    }
+                  }
+                }
+              }}
               placeholder="詳細を入力&#10;- [ ] タスク1&#10;- [ ] タスク2"
               rows={6}
             />

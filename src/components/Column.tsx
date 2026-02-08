@@ -29,6 +29,7 @@ interface ColumnProps {
   onUnlinkWindowCard?: (cardId: string) => void;
   onDropWindow: (columnId: string) => void;
   onUpdateDescription: (cardId: string, description: string) => void;
+  onUpdateComment?: (cardId: string, comment: string) => void;
   onUpdateStatusMarker?: (cardId: string, marker: CardStatusMarker) => void;
   onCardClick?: (cardId: string) => void;
   onArchiveCard?: (cardId: string) => void;
@@ -46,9 +47,10 @@ interface ColumnProps {
   canDelete?: boolean;
   priorityConfigs?: PriorityConfig[];
   onAddPriority?: (config: PriorityConfig) => void;
+  onHideColumn?: (columnId: string) => void;
 }
 
-export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority }: ColumnProps) {
+export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority, onHideColumn }: ColumnProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -213,6 +215,19 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
             </div>
           )}
           <span className="column-count" style={countStyle}>{cards.length}</span>
+          {onHideColumn && (
+            <button
+              className="column-hide-btn"
+              onClick={() => onHideColumn(column.id)}
+              title="カラムを非表示"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                <circle cx="8" cy="8" r="2" />
+                <line x1="2" y1="14" x2="14" y2="2" />
+              </svg>
+            </button>
+          )}
           {canDelete && (
             <button
               className="column-delete-btn"
@@ -259,6 +274,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
               onCloseWindow={onCloseWindowCard}
               onUnlinkWindow={onUnlinkWindowCard}
               onUpdateDescription={onUpdateDescription}
+              onUpdateComment={onUpdateComment}
               onUpdateStatusMarker={onUpdateStatusMarker}
               onUpdatePriority={onUpdatePriority ? (priority) => onUpdatePriority(card.id, priority) : undefined}
               onCardClick={onCardClick}

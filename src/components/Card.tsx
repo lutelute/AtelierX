@@ -15,6 +15,7 @@ interface CardProps {
   onCloseWindow?: (id: string) => void;
   onUnlinkWindow?: (id: string) => void;
   onUpdateDescription?: (id: string, description: string) => void;
+  onUpdateComment?: (id: string, comment: string) => void;
   onUpdateStatusMarker?: (id: string, marker: CardStatusMarker) => void;
   onUpdatePriority?: (priority: Priority | undefined) => void;
   onCardClick?: (id: string) => void;
@@ -32,7 +33,7 @@ interface CardProps {
 
 // パースされたコンテンツ行の型
 interface ParsedLine {
-  type: 'task' | 'text' | 'empty';
+  type: 'task' | 'list' | 'text' | 'empty';
   marker?: string;
   text?: string;
   original: string;
@@ -339,6 +340,7 @@ const MarkdownContent = memo(function MarkdownContent({
   taskActions: _taskActions,  // v0.6.1で無効化（将来のプラグイン用に保持）
   onTaskAction: _onTaskAction,  // v0.6.1で無効化（将来のプラグイン用に保持）
   onTimerAction,
+  onAddTask,
 }: {
   content: string;
   onToggleTask?: (lineIndex: number) => void;
@@ -346,19 +348,27 @@ const MarkdownContent = memo(function MarkdownContent({
   taskActions?: PluginCardActionInfo[];
   onTaskAction?: (actionId: string, taskIndex: number) => void;
   onTimerAction?: (taskIndex: number, action: TimerAction) => void;
+  onAddTask?: (text: string) => void;
 }) {
   // 未使用変数の警告抑制（将来のプラグイン用に保持）
   void _taskActions;
   void _onTaskAction;
   // 右クリックメニューの状態
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lineIndex: number; taskIndex: number; marker: string; isTimerRunning: boolean } | null>(null);
+  // タスク追加入力の状態
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTaskText, setNewTaskText] = useState('');
+  const addTaskInputRef = useRef<HTMLInputElement>(null);
 
-  // コンテンツをパース（メモ化）- taskIndex とタイマー状態を含める
+  // コンテンツをパース（メモ化）- taskIndex とタイマー状態とインデントを含める
   const parsedLines = useMemo(() => {
     const lines = content.split('\n');
     let taskCounter = 0;
-    return lines.map((line, idx): ParsedLine & { taskIndex?: number; isTimerRunning?: boolean } => {
-      const taskMatch = line.match(CHECKBOX_EXTRACT);
+    return lines.map((line, idx): ParsedLine & { taskIndex?: number; isTimerRunning?: boolean; indent?: number } => {
+      // インデント検出: 行頭の空白を除去してからマッチ
+      const leadingSpaces = line.match(/^(\s*)/)?.[1].length || 0;
+      const trimmedLine = line.trimStart();
+      const taskMatch = trimmedLine.match(CHECKBOX_EXTRACT);
       if (taskMatch) {
         // タスク以下のタイマー行をすべてチェック（実行中のものがあるか）
         let isTimerRunning = false;
@@ -383,19 +393,31 @@ const MarkdownContent = memo(function MarkdownContent({
           original: line,
           taskIndex: taskCounter,
           isTimerRunning,
+          indent: Math.floor(leadingSpaces / 2),
         };
         taskCounter++;
         return result;
-      } else if (line.trim()) {
+      }
+      // 通常のリスト項目（- text, * text）を検出
+      const listMatch = trimmedLine.match(/^[-*]\s+(.+)/);
+      if (listMatch) {
+        return {
+          type: 'list' as const,
+          text: listMatch[1],
+          original: line,
+          indent: Math.floor(leadingSpaces / 2),
+        };
+      }
+      if (line.trim()) {
         return { type: 'text' as const, original: line };
       }
       return { type: 'empty' as const, original: line };
     });
   }, [content]);
 
-  // タスクリストがあるかチェック
+  // タスクリストまたはリストがあるかチェック
   const hasTaskList = useMemo(() => {
-    return parsedLines.some((line) => line.type === 'task');
+    return parsedLines.some((line) => line.type === 'task' || line.type === 'list');
   }, [parsedLines]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, lineIndex: number, taskIndex: number, marker: string, isTimerRunning: boolean) => {
@@ -414,6 +436,32 @@ const MarkdownContent = memo(function MarkdownContent({
 
   const closeMenu = useCallback(() => setContextMenu(null), []);
 
+  // タスク追加
+  const handleAddTask = useCallback(() => {
+    if (!newTaskText.trim() || !onAddTask) return;
+    onAddTask(newTaskText.trim());
+    setNewTaskText('');
+    // 入力欄は開いたまま、連続追加可能
+  }, [newTaskText, onAddTask]);
+
+  const handleAddTaskKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleAddTask();
+    } else if (e.key === 'Escape') {
+      setShowAddTask(false);
+      setNewTaskText('');
+    }
+  }, [handleAddTask]);
+
+  // showAddTaskがtrueになったらフォーカス
+  useEffect(() => {
+    if (showAddTask && addTaskInputRef.current) {
+      addTaskInputRef.current.focus();
+    }
+  }, [showAddTask]);
+
   // タイマーアクションのハンドラ（メニューは閉じない）
   const handleTimerAction = useCallback((action: TimerAction) => {
     if (contextMenu && onTimerAction) {
@@ -425,10 +473,47 @@ const MarkdownContent = memo(function MarkdownContent({
   }, [contextMenu, onTimerAction]);
 
   if (!hasTaskList) {
-    // タスクがない場合は純粋なMarkdown表示
+    // タスクがない場合は純粋なMarkdown表示 + タスク追加ボタン
     return (
       <div className="card-markdown">
         <ReactMarkdown>{content}</ReactMarkdown>
+        {onAddTask && (
+          <div className="task-add-area">
+            {showAddTask ? (
+              <div className="task-add-input-wrapper" onClick={(e) => e.stopPropagation()}>
+                <input
+                  ref={addTaskInputRef}
+                  type="text"
+                  className="task-add-input"
+                  placeholder="新しいタスク..."
+                  value={newTaskText}
+                  onChange={(e) => setNewTaskText(e.target.value)}
+                  onKeyDown={handleAddTaskKeyDown}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                />
+                <button
+                  className="task-add-confirm"
+                  onClick={(e) => { e.stopPropagation(); handleAddTask(); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  disabled={!newTaskText.trim()}
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                className="task-add-toggle"
+                onClick={(e) => { e.stopPropagation(); setShowAddTask(true); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                + タスク追加
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -441,7 +526,7 @@ const MarkdownContent = memo(function MarkdownContent({
           const taskIndex = line.taskIndex!;
           const isTimerRunning = line.isTimerRunning || false;
           return (
-            <div key={index} className={`task-item-wrapper ${isTimerRunning ? 'timer-active' : ''}`}>
+            <div key={index} className={`task-item-wrapper ${isTimerRunning ? 'timer-active' : ''}`} style={line.indent ? { marginLeft: `${line.indent * 16}px` } : undefined}>
               <label
                 className={`task-item ${display.className}`}
                 onClick={(e) => {
@@ -481,6 +566,13 @@ const MarkdownContent = memo(function MarkdownContent({
               */}
             </div>
           );
+        } else if (line.type === 'list') {
+          return (
+            <div key={index} className="list-item-wrapper" style={line.indent ? { marginLeft: `${line.indent * 16}px` } : undefined}>
+              <span className="list-item-bullet">-</span>
+              <span className="list-item-text">{line.text}</span>
+            </div>
+          );
         } else if (line.type === 'text') {
           return (
             <div key={index} className="markdown-line">
@@ -490,6 +582,45 @@ const MarkdownContent = memo(function MarkdownContent({
         }
         return <br key={index} />;
       })}
+
+      {/* タスク追加UI */}
+      {onAddTask && (
+        <div className="task-add-area">
+          {showAddTask ? (
+            <div className="task-add-input-wrapper" onClick={(e) => e.stopPropagation()}>
+              <input
+                ref={addTaskInputRef}
+                type="text"
+                className="task-add-input"
+                placeholder="新しいタスク..."
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                onKeyDown={handleAddTaskKeyDown}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              />
+              <button
+                className="task-add-confirm"
+                onClick={(e) => { e.stopPropagation(); handleAddTask(); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                disabled={!newTaskText.trim()}
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              className="task-add-toggle"
+              onClick={(e) => { e.stopPropagation(); setShowAddTask(true); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              + タスク追加
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 右クリックメニュー（Portal経由） */}
       {contextMenu && (
@@ -525,7 +656,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority }: CardProps) {
+export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority }: CardProps) {
   const {
     attributes,
     listeners,
@@ -613,6 +744,42 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     }
   }, [card.id, card.description, onUpdateDescription]);
 
+  // タスクを追加（リストの末尾に）
+  const handleAddTaskToList = useCallback((text: string) => {
+    if (!onUpdateDescription) return;
+    const currentDesc = card.description || '';
+    const newLine = `- [ ] ${text}`;
+    // 既存の説明がある場合は改行して追加、ない場合はそのまま
+    const newDesc = currentDesc ? `${currentDesc}\n${newLine}` : newLine;
+    onUpdateDescription(card.id, newDesc);
+  }, [card.id, card.description, onUpdateDescription]);
+
+  // コメントのタスクトグル
+  const handleToggleCommentTask = useCallback((lineIndex: number) => {
+    if (!card.comment || !onUpdateComment) return;
+    const lines = card.comment.split('\n');
+    const line = lines[lineIndex];
+    const taskMatch = line.match(CHECKBOX_EXTRACT);
+    if (taskMatch) {
+      const currentMarker = taskMatch[1];
+      const newMarker = currentMarker === 'x' || currentMarker === 'X' ? ' ' : 'x';
+      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      onUpdateComment(card.id, lines.join('\n'));
+    }
+  }, [card.id, card.comment, onUpdateComment]);
+
+  // コメントのタスクマーカー変更
+  const handleChangeCommentTaskMarker = useCallback((lineIndex: number, newMarker: string) => {
+    if (!card.comment || !onUpdateComment) return;
+    const lines = card.comment.split('\n');
+    const line = lines[lineIndex];
+    const taskMatch = line.match(CHECKBOX_EXTRACT);
+    if (taskMatch) {
+      lines[lineIndex] = `- [${newMarker}] ${taskMatch[2]}`;
+      onUpdateComment(card.id, lines.join('\n'));
+    }
+  }, [card.id, card.comment, onUpdateComment]);
+
   // タスクのマーカーを変更（右クリックメニューから）
   const handleChangeTaskMarker = useCallback((lineIndex: number, newMarker: string) => {
     if (!card.description || !onUpdateDescription) return;
@@ -640,6 +807,21 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     onUpdatePriority?.(priority);
     setCardContextMenu(null);
   }, [onUpdatePriority]);
+
+  // カードが「進行中」か判定（タイマー動作中 or [/][d]マーカー）
+  const isCardInProgress = useMemo(() => {
+    if (!card.description) return false;
+    const lines = card.description.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      // タイマー動作中
+      if (trimmed.startsWith('⏱') && trimmed.endsWith('開始')) return true;
+      // [/] 進行中 or [d] 作業中 マーカー
+      const match = trimmed.match(CHECKBOX_EXTRACT);
+      if (match && (match[1] === '/' || match[1] === 'd')) return true;
+    }
+    return false;
+  }, [card.description]);
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     // ボタンやタスクチェックボックスからのクリックは無視
@@ -679,7 +861,7 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     <div
       ref={setNodeRef}
       style={style}
-      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnColor ? 'card-column-colored' : ''} ${card.priority && allPriorities.length > 0 && card.priority === allPriorities[0].id ? 'card-priority-high' : ''}`}
+      className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnColor ? 'card-column-colored' : ''} ${card.priority && allPriorities.length > 0 && card.priority === allPriorities[0].id ? 'card-priority-high' : ''} ${isCardInProgress ? 'card-in-progress' : ''}`}
       data-card-id={card.id}
       onClick={handleCardClick}
       onContextMenu={handleCardContextMenu}
@@ -787,11 +969,16 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
           taskActions={taskActions}
           onTaskAction={(actionId, taskIndex) => onCardAction?.(actionId, taskIndex)}
           onTimerAction={onTimerAction ? (taskIndex, action) => onTimerAction(taskIndex, action) : undefined}
+          onAddTask={onUpdateDescription ? handleAddTaskToList : undefined}
         />
       )}
       {card.comment && (
         <div className="card-comment">
-          <ReactMarkdown>{card.comment}</ReactMarkdown>
+          <MarkdownContent
+            content={card.comment}
+            onToggleTask={handleToggleCommentTask}
+            onChangeTaskMarker={handleChangeCommentTaskMarker}
+          />
         </div>
       )}
       {card.windowApp && onJump && (

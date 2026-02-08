@@ -15,6 +15,7 @@ type ColumnFilter = 'todo' | 'in-progress' | 'done';
 interface ExportModalProps {
   logs: ActivityLog[];
   allBoardsData: AllBoardsData;
+  activeBoard?: string;
   onClose: () => void;
   onSave: (content: string, filename: string) => void;
   onObsidian?: (content: string) => void;
@@ -49,7 +50,7 @@ function mergeAllBoards(allBoardsData: AllBoardsData): BoardData {
   };
 }
 
-export function ExportModal({ logs, allBoardsData, onClose, onSave, onObsidian }: ExportModalProps) {
+export function ExportModal({ logs, allBoardsData, activeBoard, onClose, onSave, onObsidian }: ExportModalProps) {
   const boardData = useMemo(() => mergeAllBoards(allBoardsData), [allBoardsData]);
   const [format, setFormat] = useState<ExportFormat>('md');
   const [copied, setCopied] = useState(false);
@@ -57,12 +58,12 @@ export function ExportModal({ logs, allBoardsData, onClose, onSave, onObsidian }
   const [pluginContent, setPluginContent] = useState<string | null>(null);
   const [isLoadingPlugin, setIsLoadingPlugin] = useState(false);
 
-  // フィルター設定
+  // フィルター設定: デフォルトは現在のタブ + 完了のみ
   const [selectedColumns, setSelectedColumns] = useState<Set<ColumnFilter>>(
-    new Set(['todo', 'in-progress', 'done'])
+    new Set(['done'])
   );
   const [selectedTags, setSelectedTags] = useState<Set<TagType>>(
-    new Set(['terminal', 'finder'])
+    new Set(activeBoard ? [activeBoard as TagType] : ['terminal'])
   );
 
   // カラムフィルターの切り替え

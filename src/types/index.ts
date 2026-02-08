@@ -215,6 +215,7 @@ export interface Settings {
   activateAnimation?: ActivateAnimation;  // ウィンドウ活性化アニメーション
   customPriorities?: PriorityConfig[];  // カスタム優先順位
   multiGridFavorites?: MultiGridLayout[];  // マルチグリッドお気に入り
+  hiddenColumns?: string[];  // 非表示カラムID
 }
 
 // ノート情報

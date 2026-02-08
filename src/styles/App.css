@@ -533,6 +533,7 @@ body {
   overflow-x: auto;
   padding-bottom: 20px;
   will-change: scroll-position;
+  position: relative;
 }
 
 /* Column Styles */
@@ -573,6 +574,21 @@ body {
 .column-in-progress .column-count {
   background: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
+}
+/* カード個別の進行中パルス（カラム単位ではなくカード単位で適用） */
+.card.card-in-progress {
+  border-left: 3px solid rgba(59, 130, 246, 0.6);
+  animation: card-pulse-border 1.8s ease-in-out infinite;
+}
+@keyframes card-pulse-border {
+  0%, 100% {
+    border-left-color: rgba(59, 130, 246, 0.4);
+    box-shadow: -2px 0 4px rgba(59, 130, 246, 0);
+  }
+  50% {
+    border-left-color: rgba(59, 130, 246, 1);
+    box-shadow: -3px 0 12px rgba(59, 130, 246, 0.4);
+  }
 }
 
 .column-done .column-header {
@@ -2559,6 +2575,134 @@ body {
 @keyframes timerPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+/* 通常リスト項目 */
+.list-item-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.list-item-bullet {
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.list-item-text {
+  color: #e4e4e7;
+}
+
+[data-theme="light"] .list-item-bullet {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .list-item-text {
+  color: #1a1a2e;
+}
+
+/* タスク追加UI */
+.task-add-area {
+  margin-top: 4px;
+  padding-top: 2px;
+}
+
+.task-add-toggle {
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.task-add-toggle:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  color: rgba(59, 130, 246, 0.8);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.task-add-input-wrapper {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.task-add-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #e4e4e7;
+  font-size: 11px;
+  padding: 3px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.task-add-input:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.task-add-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.task-add-confirm {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.task-add-confirm:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.task-add-confirm:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ライトテーマ */
+[data-theme="light"] .task-add-toggle {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .task-add-toggle:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  color: rgba(59, 130, 246, 0.8);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+[data-theme="light"] .task-add-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #1a1a2e;
+}
+
+[data-theme="light"] .task-add-input::placeholder {
+  color: rgba(0, 0, 0, 0.3);
 }
 
 /* タイマーメニュー */
@@ -7221,6 +7365,105 @@ body.theme-light {
 .theme-light .popover-item-badge {
   color: rgba(0, 0, 0, 0.35);
   background: rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================
+   非表示カラム復元バー
+   ============================================ */
+.hidden-columns-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  flex-direction: column;
+  min-width: 100px;
+}
+
+.hidden-columns-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.hidden-column-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.hidden-column-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.hidden-column-count {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* カラム非表示ボタン */
+.column-hide-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+  opacity: 0;
+}
+
+.column-header:hover .column-hide-btn {
+  opacity: 1;
+}
+
+.column-hide-btn:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .hidden-columns-bar {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .hidden-columns-label {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .hidden-column-chip {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] .hidden-column-chip:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="light"] .column-hide-btn {
+  color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .column-hide-btn:hover {
+  color: rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================

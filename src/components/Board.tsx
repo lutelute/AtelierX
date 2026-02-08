@@ -55,6 +55,23 @@ export function Board() {
   const [windowHistory, setWindowHistory] = useLocalStorage<WindowHistory[]>('window-history', []);
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
   const [showColorMenu, setShowColorMenu] = useState(false);
+
+  // 非表示カラム管理
+  const hiddenColumns = useMemo(() => new Set(settings.hiddenColumns || []), [settings.hiddenColumns]);
+
+  const handleHideColumn = useCallback((columnId: string) => {
+    setSettings(prev => ({
+      ...prev,
+      hiddenColumns: [...(prev.hiddenColumns || []), columnId],
+    }));
+  }, [setSettings]);
+
+  const handleShowColumn = useCallback((columnId: string) => {
+    setSettings(prev => ({
+      ...prev,
+      hiddenColumns: (prev.hiddenColumns || []).filter(id => id !== columnId),
+    }));
+  }, [setSettings]);
   const colorMenuRef = useRef<HTMLDivElement>(null);
 
   // 旧形式 kanban-data → kanban-all-boards マイグレーション（起動時1回）
@@ -913,8 +930,8 @@ export function Board() {
             onDragEnd={handleDragEnd}
           >
             <div className="board">
-              <SortableContext items={currentBoard.columns.map(col => `column-${col.id}`)} strategy={horizontalListSortingStrategy}>
-              {currentBoard.columns.map((column) => (
+              <SortableContext items={currentBoard.columns.filter(col => !hiddenColumns.has(col.id)).map(col => `column-${col.id}`)} strategy={horizontalListSortingStrategy}>
+              {currentBoard.columns.filter(col => !hiddenColumns.has(col.id)).map((column) => (
                 <Column
                   key={column.id}
                   column={column}
@@ -927,6 +944,7 @@ export function Board() {
                   onUnlinkWindowCard={cardOps.handleUnlinkWindow}
                   onDropWindow={cardOps.handleDropWindow}
                   onUpdateDescription={cardOps.handleUpdateDescription}
+                  onUpdateComment={cardOps.handleUpdateComment}
                   onUpdateStatusMarker={cardOps.handleUpdateStatusMarker}
                   onCardClick={handleCardClickById}
                   onArchiveCard={cardOps.handleArchiveCard}
@@ -944,8 +962,31 @@ export function Board() {
                   onChangeColumnColor={handleChangeColumnColor}
                   allColumns={currentBoard.columns}
                   canDelete={!DEFAULT_COLUMN_IDS.has(column.id)}
+                  onHideColumn={handleHideColumn}
                 />
               ))}
+              {/* 非表示カラム復元パネル（カラム追加ボタンの前） */}
+              {hiddenColumns.size > 0 && (
+                <div className="hidden-columns-bar">
+                  <span className="hidden-columns-label">非表示</span>
+                  {currentBoard.columns
+                    .filter(col => hiddenColumns.has(col.id))
+                    .map(col => (
+                      <button
+                        key={col.id}
+                        className="hidden-column-chip"
+                        onClick={() => handleShowColumn(col.id)}
+                        title={`${col.title} を表示`}
+                        style={col.color ? { borderColor: col.color, color: col.color } : undefined}
+                      >
+                        <span>{col.title}</span>
+                        <span className="hidden-column-count">
+                          {(filteredCardsByColumn[col.id] || []).length}
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              )}
               <button className="add-column-button" onClick={handleAddColumn}>
                 + カラム追加
               </button>
@@ -1069,6 +1110,7 @@ export function Board() {
         <ExportModal
           logs={activityLogs}
           allBoardsData={allData}
+          activeBoard={activeBoard}
           onClose={() => setShowExportModal(false)}
           onSave={handleSaveExport}
           onObsidian={handleObsidianExport}
