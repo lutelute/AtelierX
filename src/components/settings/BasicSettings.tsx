@@ -7,87 +7,69 @@ interface BasicSettingsProps {
 
 export function BasicSettings({ settings, onSettingsChange }: BasicSettingsProps) {
   return (
-    <>
-      <div className="settings-section">
-        <h3>外観</h3>
-        <div className="form-group">
+    <div className="settings-section">
+      <h3>基本設定</h3>
+      <div className="settings-grid-2col">
+        <div className="form-group-compact">
           <label>テーマ</label>
-          <div className="theme-selector">
+          <div className="toggle-group">
             <button
               type="button"
-              className={`theme-option ${(settings.theme || 'dark') === 'dark' ? 'active' : ''}`}
+              className={`toggle-option ${(settings.theme || 'dark') === 'dark' ? 'active' : ''}`}
               onClick={() => onSettingsChange((prev) => ({ ...prev, theme: 'dark' }))}
             >
               🌙 ダーク
             </button>
             <button
               type="button"
-              className={`theme-option ${settings.theme === 'light' ? 'active' : ''}`}
+              className={`toggle-option ${settings.theme === 'light' ? 'active' : ''}`}
               onClick={() => onSettingsChange((prev) => ({ ...prev, theme: 'light' }))}
             >
               ☀️ ライト
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="settings-section">
-        <h3>動作設定</h3>
-
-        <div className="form-group">
-          <label>カードクリック時の動作</label>
-          <div className="radio-group">
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="cardClickBehavior"
-                value="edit"
-                checked={settings.cardClickBehavior === 'edit'}
-                onChange={(e) => onSettingsChange((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
-              />
-              <span>カード編集を開く</span>
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="cardClickBehavior"
-                value="jump"
-                checked={settings.cardClickBehavior === 'jump'}
-                onChange={(e) => onSettingsChange((prev) => ({ ...prev, cardClickBehavior: e.target.value as 'edit' | 'jump' }))}
-              />
-              <span>ウィンドウにジャンプ</span>
-            </label>
+        <div className="form-group-compact">
+          <label>カードクリック</label>
+          <div className="toggle-group">
+            <button
+              type="button"
+              className={`toggle-option ${settings.cardClickBehavior === 'edit' ? 'active' : ''}`}
+              onClick={() => onSettingsChange((prev) => ({ ...prev, cardClickBehavior: 'edit' as const }))}
+            >
+              編集
+            </button>
+            <button
+              type="button"
+              className={`toggle-option ${settings.cardClickBehavior === 'jump' ? 'active' : ''}`}
+              onClick={() => onSettingsChange((prev) => ({ ...prev, cardClickBehavior: 'jump' as const }))}
+            >
+              ジャンプ
+            </button>
           </div>
-          <span className="form-hint">カードをクリックした時のデフォルト動作を選択</span>
         </div>
 
-        <div className="form-group">
-          <label>ウィンドウ活性化アニメーション</label>
-          <div className="radio-group">
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="activateAnimation"
-                value="pop"
-                checked={(settings.activateAnimation || 'pop') === 'pop'}
-                onChange={(e) => onSettingsChange((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
-              />
-              <span>ポップ（引っ込んで飛び出す）</span>
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="activateAnimation"
-                value="minimize"
-                checked={settings.activateAnimation === 'minimize'}
-                onChange={(e) => onSettingsChange((prev) => ({ ...prev, activateAnimation: e.target.value as ActivateAnimation }))}
-              />
-              <span>最小化復帰（Dockに吸い込まれて戻る）</span>
-            </label>
+        <div className="form-group-compact">
+          <label>ウィンドウアニメーション</label>
+          <div className="toggle-group">
+            <button
+              type="button"
+              className={`toggle-option ${(settings.activateAnimation || 'pop') === 'pop' ? 'active' : ''}`}
+              onClick={() => onSettingsChange((prev) => ({ ...prev, activateAnimation: 'pop' as ActivateAnimation }))}
+            >
+              ポップ
+            </button>
+            <button
+              type="button"
+              className={`toggle-option ${settings.activateAnimation === 'minimize' ? 'active' : ''}`}
+              onClick={() => onSettingsChange((prev) => ({ ...prev, activateAnimation: 'minimize' as ActivateAnimation }))}
+            >
+              最小化復帰
+            </button>
           </div>
-          <span className="form-hint">ウィンドウジャンプ時のアニメーション効果</span>
         </div>
       </div>
-    </>
+    </div>
   );
 }

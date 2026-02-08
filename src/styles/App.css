@@ -3538,6 +3538,89 @@ body {
   margin-bottom: 0;
 }
 
+/* 設定2カラムグリッド */
+.settings-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-group-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group-compact label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* トグルグループ（コンパクトなセグメントボタン） */
+.toggle-group {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.toggle-option {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toggle-option:not(:last-child) {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toggle-option.active {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  font-weight: 500;
+}
+
+.toggle-option:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ライトテーマ */
+[data-theme="light"] .form-group-compact label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .toggle-group {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .toggle-option {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .toggle-option:not(:last-child) {
+  border-right-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .toggle-option.active {
+  background: rgba(109, 40, 217, 0.1);
+  color: #6d28d9;
+}
+
+[data-theme="light"] .toggle-option:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.65);
+}
+
 /* Card Markdown Styles */
 .card-markdown {
   margin-top: 8px;
