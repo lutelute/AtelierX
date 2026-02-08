@@ -1083,7 +1083,7 @@ end if
 return found
 `;
 
-  runAppleScriptAsync(script);
+  runAppleScript(script, 15000);
 }
 
 module.exports = {
