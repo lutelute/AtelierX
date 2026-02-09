@@ -4,6 +4,12 @@ release
 .DS_Store
 *.log
 
+# Legacy files (moved to platforms/)
+electron/appScanner.cjs
+electron/gridManager.cjs
+electron/updateManager.cjs
+electron/windowManager.cjs
+
 # Auto Claude data directory
 .auto-claude/
 
