@@ -5,6 +5,14 @@ interface BackupSectionProps {
 }
 
 export function BackupSection({ lastBackupTime, onExportBackup, onImportBackup }: BackupSectionProps) {
+  const handleUninstall = async () => {
+    try {
+      await window.electronAPI?.uninstallApp();
+    } catch {
+      // quit時のエラーは無視
+    }
+  };
+
   return (
     <div className="settings-section">
       <h3>データバックアップ</h3>
@@ -30,6 +38,14 @@ export function BackupSection({ lastBackupTime, onExportBackup, onImportBackup }
           </button>
         </div>
         <span className="form-hint">バックアップファイルを保存・復元できます</span>
+      </div>
+
+      <div className="form-group">
+        <label>アンインストール</label>
+        <button type="button" className="btn-danger" onClick={handleUninstall}>
+          AtelierX をアンインストール
+        </button>
+        <span className="form-hint">アプリをゴミ箱に移動します。カンバンデータは保持されます。</span>
       </div>
     </div>
   );

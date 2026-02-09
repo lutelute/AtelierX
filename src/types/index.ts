@@ -457,6 +457,8 @@ declare global {
       exportBackup: (data: Omit<BackupData, 'backupAt' | 'version'>) => Promise<BackupResult>;
       importBackup: () => Promise<LoadBackupResult>;
       getBackupPath: () => Promise<string>;
+      // アンインストール
+      uninstallApp: () => Promise<{ success: boolean; error?: string }>;
       // グリッド配置関連
       getDisplays: () => Promise<DisplayInfo[]>;
       arrangeTerminalGrid: (options?: GridOptions) => Promise<GridResult>;

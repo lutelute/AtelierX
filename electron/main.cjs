@@ -628,6 +628,42 @@ ipcMain.handle('update:restart', async () => {
   restartApp();
 });
 
+// IPC: アプリをアンインストール（.appをゴミ箱に移動、データは保持）
+ipcMain.handle('uninstall-app', async () => {
+  const appPath = app.getAppPath();
+  // app.asar の場合、.app バンドルのパスを取得
+  const appBundlePath = appPath.includes('.app')
+    ? appPath.replace(/\/Contents\/Resources\/app\.asar$/, '').replace(/\/Contents\/Resources\/app$/, '')
+    : null;
+
+  if (!appBundlePath || !appBundlePath.endsWith('.app')) {
+    return { success: false, error: '開発モードではアンインストールできません' };
+  }
+
+  const { response } = await dialog.showMessageBox({
+    type: 'warning',
+    buttons: ['アンインストール', 'キャンセル'],
+    defaultId: 1,
+    cancelId: 1,
+    title: 'AtelierX をアンインストール',
+    message: 'AtelierX をアンインストールしますか？',
+    detail: `アプリ（${appBundlePath}）をゴミ箱に移動します。\nカンバンデータは保持されます。`,
+  });
+
+  if (response !== 0) {
+    return { success: false, error: 'キャンセルされました' };
+  }
+
+  try {
+    const { shell } = require('electron');
+    await shell.trashItem(appBundlePath);
+    app.quit();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

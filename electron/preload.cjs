@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // インストール済みアプリスキャン
   scanInstalledApps: () => ipcRenderer.invoke('scan-installed-apps'),
   getAppIcon: (appName) => ipcRenderer.invoke('get-app-icon', appName),
+  // アンインストール
+  uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
   // アップデート関連
   update: {
     check: () => ipcRenderer.invoke('update:check'),
