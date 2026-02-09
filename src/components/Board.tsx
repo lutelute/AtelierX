@@ -57,22 +57,19 @@ export function Board() {
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [accessibilityDismissed, setAccessibilityDismissed] = useLocalStorage<boolean>('accessibility-dismissed', false);
   const [accessibilityGranted, setAccessibilityGranted] = useState(true);
 
   // Accessibility 権限チェック（macOS のみ）
   useEffect(() => {
     if (window.electronAPI?.platform !== 'darwin') return;
-    let timer: ReturnType<typeof setInterval>;
     const check = async () => {
       const granted = await window.electronAPI?.checkAccessibility();
       setAccessibilityGranted(!!granted);
-      if (granted && timer) clearInterval(timer);
+      if (granted) setAccessibilityDismissed(true);
     };
     check();
-    // 権限が付与されるまで定期的にチェック
-    timer = setInterval(check, 5000);
-    return () => clearInterval(timer);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 非表示カラム管理
   const hiddenColumns = useMemo(() => new Set(settings.hiddenColumns || []), [settings.hiddenColumns]);
@@ -788,24 +785,34 @@ export function Board() {
   return (
     <div className="board-container">
       {/* Accessibility 権限バナー（macOS） */}
-      {!accessibilityGranted && (
-        <div className="accessibility-banner" style={{
+      {!accessibilityGranted && !accessibilityDismissed && (
+        <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
           background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
           color: '#fff', padding: '10px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
           fontSize: '13px', fontWeight: 500,
         }}>
-          <span>AtelierX のウィンドウ管理機能を使うには、アクセシビリティ権限が必要です</span>
+          <span>ウィンドウ管理にはアクセシビリティ権限が必要です（許可後はアプリを再起動してください）</span>
           <button
             onClick={() => window.electronAPI?.requestAccessibility()}
             style={{
               background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)',
               color: '#fff', padding: '4px 14px', borderRadius: '6px', cursor: 'pointer',
-              fontSize: '12px', fontWeight: 600,
+              fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap',
             }}
           >
             システム設定を開く
+          </button>
+          <button
+            onClick={() => setAccessibilityDismissed(true)}
+            style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
+              cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 4px',
+            }}
+            title="閉じる"
+          >
+            &times;
           </button>
         </div>
       )}
