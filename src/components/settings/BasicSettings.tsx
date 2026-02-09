@@ -55,7 +55,7 @@ export function BasicSettings({ settings, onSettingsChange }: BasicSettingsProps
           <div className="toggle-group">
             <button
               type="button"
-              className={`toggle-option ${(settings.activateAnimation || 'pop') === 'pop' ? 'active' : ''}`}
+              className={`toggle-option ${settings.activateAnimation === 'pop' ? 'active' : ''}`}
               onClick={() => onSettingsChange((prev) => ({ ...prev, activateAnimation: 'pop' as ActivateAnimation }))}
             >
               ポップ

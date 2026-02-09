@@ -27,6 +27,7 @@ export const defaultSettings: Settings = {
   dailyNotePath: 'Daily Notes/{{date}}.md',
   insertMarker: '## AtelierX',
   cardClickBehavior: 'edit',
+  activateAnimation: 'minimize',
   customSubtags: [],
   theme: 'dark',
 };
