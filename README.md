@@ -101,7 +101,7 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 ターミナルにコピペするだけで、ダウンロード → インストール → Gatekeeper 回避まで一括完了します。
 
 ```bash
-curl -sL "$(curl -s https://api.github.com/repos/lutelute/AtelierX/releases/latest | grep browser_download_url | grep universal.dmg | cut -d '"' -f 4)" -o /tmp/AtelierX.dmg && hdiutil attach /tmp/AtelierX.dmg -nobrowse -quiet && cp -R /Volumes/AtelierX*/AtelierX.app /Applications/ && hdiutil detach /Volumes/AtelierX* -quiet && xattr -cr /Applications/AtelierX.app && rm /tmp/AtelierX.dmg && echo "Done! open /Applications/AtelierX.app で起動"
+curl -sL "$(curl -s https://api.github.com/repos/lutelute/AtelierX/releases/latest | grep browser_download_url | grep '.dmg"' | cut -d '"' -f 4)" -o /tmp/AtelierX.dmg && hdiutil attach /tmp/AtelierX.dmg -nobrowse -quiet && cp -R /Volumes/AtelierX*/AtelierX.app /Applications/ && hdiutil detach /Volumes/AtelierX* -quiet && xattr -cr /Applications/AtelierX.app && rm /tmp/AtelierX.dmg && echo "Done! open /Applications/AtelierX.app で起動"
 ```
 
 #### 手動インストール

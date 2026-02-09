@@ -319,6 +319,7 @@ function getDefaultBackupPath() {
 }
 
 // IPC: バックアップ保存（自動保存用 — 差分検知付き、非同期書き込み、インデントなし）
+// バックアップローテーション: 保存前に既存ファイルを .prev.json にコピー
 let lastBackupHash = '';
 ipcMain.handle('save-backup', async (_, data) => {
   try {
@@ -335,6 +336,13 @@ ipcMain.handle('save-backup', async (_, data) => {
       return { success: true, path: backupPath, timestamp: backupData.backupAt };
     }
     lastBackupHash = dataHash;
+    // ローテーション: 既存バックアップを .prev.json に保存
+    try {
+      if (fs.existsSync(backupPath)) {
+        const prevPath = backupPath.replace('.json', '.prev.json');
+        await fs.promises.copyFile(backupPath, prevPath);
+      }
+    } catch (_) { /* ローテーション失敗は無視 */ }
     await fs.promises.writeFile(backupPath, json, 'utf-8');
     console.log('Backup saved:', backupPath);
     return { success: true, path: backupPath, timestamp: backupData.backupAt };
@@ -345,16 +353,44 @@ ipcMain.handle('save-backup', async (_, data) => {
 });
 
 // IPC: バックアップ読み込み（起動時復元用）
+// メインバックアップが空（カード0件）の場合、.prev.json から復元を試みる
 ipcMain.handle('load-backup', async () => {
   try {
     const backupPath = getDefaultBackupPath();
-    if (!fs.existsSync(backupPath)) {
-      return { success: false, error: 'No backup found', data: null };
+    const prevPath = backupPath.replace('.json', '.prev.json');
+
+    const loadFile = (filePath) => {
+      if (!fs.existsSync(filePath)) return null;
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content);
+    };
+
+    const countCards = (data) => {
+      if (!data?.boardData) return 0;
+      const boards = data.boardData.boards;
+      if (boards) {
+        return Object.values(boards).reduce((sum, b) => sum + Object.keys(b.cards || {}).length, 0);
+      }
+      return Object.keys(data.boardData.cards || {}).length;
+    };
+
+    const mainData = loadFile(backupPath);
+    const prevData = loadFile(prevPath);
+    const mainCards = countCards(mainData);
+    const prevCards = countCards(prevData);
+
+    // メインが空で prev にデータがある場合、prev から復元
+    if (mainCards === 0 && prevCards > 0) {
+      console.log(`Backup restored from prev: ${prevCards} cards (main had ${mainCards})`);
+      return { success: true, data: prevData };
     }
-    const content = fs.readFileSync(backupPath, 'utf-8');
-    const data = JSON.parse(content);
-    console.log('Backup loaded:', backupPath);
-    return { success: true, data };
+
+    if (mainData) {
+      console.log('Backup loaded:', backupPath);
+      return { success: true, data: mainData };
+    }
+
+    return { success: false, error: 'No backup found', data: null };
   } catch (error) {
     console.error('Backup load error:', error);
     return { success: false, error: error.message, data: null };
