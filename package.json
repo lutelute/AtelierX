@@ -79,14 +79,12 @@
         {
           "target": "dmg",
           "arch": [
-            "universal"
+            "arm64"
           ]
         }
       ],
       "icon": "build/icon.icns",
-      "identity": null,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "identity": null
     },
     "dmg": {
       "writeUpdateInfo": false

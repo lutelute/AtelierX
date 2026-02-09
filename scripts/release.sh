@@ -54,7 +54,7 @@ git push origin "v$NEW_VERSION"
 # 7. Create GitHub release with DMG
 echo ""
 echo "🎉 Creating GitHub release..."
-DMG_FILE="release/AtelierX-$NEW_VERSION-universal.dmg"
+DMG_FILE="release/AtelierX-$NEW_VERSION-arm64.dmg"
 
 if [[ -f "$DMG_FILE" ]]; then
   gh release create "v$NEW_VERSION" "$DMG_FILE" \
