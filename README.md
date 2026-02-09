@@ -82,63 +82,75 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 
 ## Install
 
-[Releases](../../releases) ページから最新版をダウンロード。
+[Releases](https://github.com/lutelute/AtelierX/releases/latest) ページから最新版をダウンロード。
 
-| Platform | Format | 手順 |
-|----------|--------|------|
-| **macOS** | `.dmg` | DMGを開いてApplicationsにドラッグ |
-| **Windows** | `.exe` | インストーラーを実行 |
-| **Linux** | `.AppImage` / `.deb` | `chmod +x` して実行、または `dpkg -i` |
+| Platform | Format | 対応環境 |
+|----------|--------|---------|
+| **macOS** | `.dmg` (Universal) | Apple Silicon (M1〜) & Intel 両対応 |
+| **Windows** | `.exe` | Windows 10 以降 |
+| **Linux** | `.AppImage` / `.deb` | Ubuntu 20.04 以降 (X11) |
 
 > アプリ内の設定画面からアップデートを確認できます。
 
-### macOS ワンライナーインストール
+---
 
-ターミナルにコピペするだけで、ダウンロードからインストール、Gatekeeper回避まで一括で完了します。
+### macOS
+
+#### ワンライナーインストール（推奨）
+
+ターミナルにコピペするだけで、ダウンロード → インストール → Gatekeeper 回避まで一括完了します。
 
 ```bash
 curl -sL "$(curl -s https://api.github.com/repos/lutelute/AtelierX/releases/latest | grep browser_download_url | grep universal.dmg | cut -d '"' -f 4)" -o /tmp/AtelierX.dmg && hdiutil attach /tmp/AtelierX.dmg -nobrowse -quiet && cp -R /Volumes/AtelierX*/AtelierX.app /Applications/ && hdiutil detach /Volumes/AtelierX* -quiet && xattr -cr /Applications/AtelierX.app && rm /tmp/AtelierX.dmg && echo "Done! open /Applications/AtelierX.app で起動"
 ```
 
-> インストール済みの場合は上書きされます。
+#### 手動インストール
 
-### macOS Gatekeeper 回避手順
+1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.dmg` をダウンロード
+2. DMG を開いて `AtelierX.app` を `/Applications` にドラッグ
+3. 初回起動前にターミナルで以下を実行:
+   ```bash
+   xattr -cr /Applications/AtelierX.app
+   ```
+4. アプリを起動し、**アクセシビリティ権限**を許可する（ウィンドウ管理に必要）
 
-> **「AtelierXは壊れているため、開けません」** と表示された場合
+#### 「壊れているため開けません」と表示される場合
 
-macOS はダウンロードしたファイルに隔離フラグ (`com.apple.quarantine`) を付与し、未署名アプリの起動をブロックします。以下のいずれかの方法で Gatekeeper の檻から解放してください。
+macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与し、Gatekeeper がブロックします。以下のいずれかで解除できます。
 
-#### Method 1: ターミナルで隔離属性を除去（推奨）
+| 方法 | 手順 |
+|------|------|
+| **ターミナル（推奨）** | `xattr -cr /Applications/AtelierX.app` |
+| **システム設定** | アプリを開く → ブロック → **システム設定 > プライバシーとセキュリティ** →「このまま開く」 |
+| **Gatekeeper 無効化** | `sudo spctl --master-disable` → アプリ起動 → `sudo spctl --master-enable` |
 
-```bash
-xattr -cr /Applications/AtelierX.app
-```
+> **なぜこうなる？** AtelierX は現在 Apple Developer ID で署名されていません。ローカルビルドでは問題ありませんが、GitHub からダウンロードするとブラウザが隔離フラグを付与します。
 
-#### Method 2: システム設定から許可
+---
 
-1. AtelierX.app をダブルクリック（ブロックされる）
-2. **システム設定 > プライバシーとセキュリティ** を開く
-3. 「AtelierX は開発元を確認できないため、使用がブロックされました」の横にある **「このまま開く」** をクリック
-4. パスワードを入力して許可
+### Windows
 
-#### Method 3: Gatekeeper を一時的に無効化（上級者向け）
+1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.exe` をダウンロード
+2. インストーラーを実行
+3. 「Windows によって PC が保護されました」と表示されたら **「詳細情報」→「実行」** をクリック
 
-```bash
-# Gatekeeper OFF
-sudo spctl --master-disable
+---
 
-# AtelierX.app を起動した後、再度有効化
-sudo spctl --master-enable
-```
+### Linux
 
-> **なぜこうなる？** AtelierX は現在 Apple Developer ID で署名されていません。ローカルでビルドすれば隔離フラグが付かないため問題は起きませんが、GitHub Releases からダウンロードするとブラウザが自動的にフラグを付与し、Gatekeeper がブロックします。
+1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.AppImage` または `.deb` をダウンロード
+2. インストール:
+   ```bash
+   # AppImage
+   chmod +x AtelierX-*.AppImage && ./AtelierX-*.AppImage
 
-### Linux の前提条件
-
-ウィンドウ管理機能を使うには:
-```bash
-sudo apt install wmctrl xdotool
-```
+   # deb
+   sudo dpkg -i AtelierX-*.deb
+   ```
+3. ウィンドウ管理機能の前提パッケージ:
+   ```bash
+   sudo apt install wmctrl xdotool
+   ```
 
 ## Tech Stack
 
