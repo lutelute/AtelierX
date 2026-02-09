@@ -18,15 +18,6 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { exec } = require('child_process');
-const { systemPreferences } = require('electron');
-
-function checkAccessibility() {
-  if (!systemPreferences.isTrustedAccessibilityClient(false)) {
-    systemPreferences.isTrustedAccessibilityClient(true);
-    return { success: false, error: 'アクセシビリティ権限が必要です。システム設定で AtelierX を許可してください。', arranged: 0 };
-  }
-  return null;
-}
 
 // ----- AppleScript 実行 -----
 
@@ -618,8 +609,6 @@ end tell`;
  *         'fill' = 各セル領域に全ウィンドウをグリッド配置
  */
 async function arrangeMultiAppGrid(options) {
-  const accessError = checkAccessibility();
-  if (accessError) return { ...accessError, details: [] };
   const { displayIndex = 0, rows = 2, cols = 2, padding = 0, cells = [], mode = 'one-per-cell', subCols = 0, subRows = 0 } = options;
 
   if (cells.length === 0) {
@@ -720,8 +709,6 @@ async function arrangeMultiAppGrid(options) {
 // =========================================================
 
 async function arrangeTerminalGrid(options = {}) {
-  const accessError = checkAccessibility();
-  if (accessError) return accessError;
   try {
     const result = await runAppleScript(buildSystemEventsGridScript('Terminal', options), 30000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
@@ -732,8 +719,6 @@ async function arrangeTerminalGrid(options = {}) {
 }
 
 async function arrangeFinderGrid(options = {}) {
-  const accessError = checkAccessibility();
-  if (accessError) return accessError;
   try {
     const result = await runAppleScript(buildFinderGridScript(options), 20000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
@@ -744,8 +729,6 @@ async function arrangeFinderGrid(options = {}) {
 }
 
 async function arrangeGenericGrid(appName, options = {}) {
-  const accessError = checkAccessibility();
-  if (accessError) return accessError;
   try {
     const result = await runAppleScript(buildSystemEventsGridScript(appName, options), 45000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };

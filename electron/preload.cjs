@@ -2,8 +2,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
-  checkAccessibility: () => ipcRenderer.invoke('check-accessibility'),
-  requestAccessibility: () => ipcRenderer.invoke('request-accessibility'),
   getAppWindows: (appNames) => ipcRenderer.invoke('get-app-windows', appNames),
   activateWindow: (app, windowId, windowName, animation, windowIndex) => ipcRenderer.invoke('activate-window', app, windowId, windowName, animation, windowIndex),
   openNewTerminal: (initialPath) => ipcRenderer.invoke('open-new-terminal', initialPath),
