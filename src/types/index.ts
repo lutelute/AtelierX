@@ -438,6 +438,8 @@ declare global {
   interface Window {
     electronAPI?: {
       platform: string;
+      checkAccessibility: () => Promise<boolean>;
+      requestAccessibility: () => Promise<boolean>;
       getAppWindows: (appNames?: string[]) => Promise<AppWindow[]>;
       activateWindow: (app: string, windowId: string, windowName?: string, animation?: string, windowIndex?: number) => Promise<boolean>;
       openNewTerminal: (initialPath?: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;

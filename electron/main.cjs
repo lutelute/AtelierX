@@ -11,7 +11,7 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const {
@@ -93,6 +93,18 @@ app.whenReady().then(() => {
 
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
+
+  // IPC: Accessibility 権限チェック（macOS のみ）
+  ipcMain.handle('check-accessibility', () => {
+    if (process.platform !== 'darwin') return true;
+    return systemPreferences.isTrustedAccessibilityClient(false);
+  });
+
+  // IPC: Accessibility 権限をリクエスト（macOS のみ、システム設定を開く）
+  ipcMain.handle('request-accessibility', () => {
+    if (process.platform !== 'darwin') return true;
+    return systemPreferences.isTrustedAccessibilityClient(true);
+  });
 
   // IPC: ウィンドウ一覧を取得（引数で追加アプリ名を指定可能）
   ipcMain.handle('get-app-windows', async (_, appNames) => {

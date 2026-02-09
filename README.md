@@ -92,6 +92,47 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 
 > アプリ内の設定画面からアップデートを確認できます。
 
+### macOS ワンライナーインストール
+
+ターミナルにコピペするだけで、ダウンロードからインストール、Gatekeeper回避まで一括で完了します。
+
+```bash
+curl -sL "$(curl -s https://api.github.com/repos/lutelute/AtelierX/releases/latest | grep browser_download_url | grep universal.dmg | cut -d '"' -f 4)" -o /tmp/AtelierX.dmg && hdiutil attach /tmp/AtelierX.dmg -nobrowse -quiet && cp -R /Volumes/AtelierX*/AtelierX.app /Applications/ && hdiutil detach /Volumes/AtelierX* -quiet && xattr -cr /Applications/AtelierX.app && rm /tmp/AtelierX.dmg && echo "Done! open /Applications/AtelierX.app で起動"
+```
+
+> インストール済みの場合は上書きされます。
+
+### macOS Gatekeeper 回避手順
+
+> **「AtelierXは壊れているため、開けません」** と表示された場合
+
+macOS はダウンロードしたファイルに隔離フラグ (`com.apple.quarantine`) を付与し、未署名アプリの起動をブロックします。以下のいずれかの方法で Gatekeeper の檻から解放してください。
+
+#### Method 1: ターミナルで隔離属性を除去（推奨）
+
+```bash
+xattr -cr /Applications/AtelierX.app
+```
+
+#### Method 2: システム設定から許可
+
+1. AtelierX.app をダブルクリック（ブロックされる）
+2. **システム設定 > プライバシーとセキュリティ** を開く
+3. 「AtelierX は開発元を確認できないため、使用がブロックされました」の横にある **「このまま開く」** をクリック
+4. パスワードを入力して許可
+
+#### Method 3: Gatekeeper を一時的に無効化（上級者向け）
+
+```bash
+# Gatekeeper OFF
+sudo spctl --master-disable
+
+# AtelierX.app を起動した後、再度有効化
+sudo spctl --master-enable
+```
+
+> **なぜこうなる？** AtelierX は現在 Apple Developer ID で署名されていません。ローカルでビルドすれば隔離フラグが付かないため問題は起きませんが、GitHub Releases からダウンロードするとブラウザが自動的にフラグを付与し、Gatekeeper がブロックします。
+
 ### Linux の前提条件
 
 ウィンドウ管理機能を使うには:

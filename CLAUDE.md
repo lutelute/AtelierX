@@ -93,7 +93,7 @@ npm run release:major   # メジャー: 0.7.2 → 1.0.0
    gh release create v{VERSION} \
      --title "v{VERSION} - タイトル" \
      --notes "リリースノート"
-   gh release upload v{VERSION} release/AtelierX-{VERSION}-arm64.dmg --clobber
+   gh release upload v{VERSION} release/AtelierX-{VERSION}-universal.dmg --clobber
    ```
 
 > **注意: リリース手順のポイント**
