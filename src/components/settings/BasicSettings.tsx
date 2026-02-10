@@ -67,6 +67,13 @@ export function BasicSettings({ settings, onSettingsChange }: BasicSettingsProps
             >
               最小化復帰
             </button>
+            <button
+              type="button"
+              className={`toggle-option ${settings.activateAnimation === 'dock' ? 'active' : ''}`}
+              onClick={() => onSettingsChange((prev) => ({ ...prev, activateAnimation: 'dock' as ActivateAnimation }))}
+            >
+              スライド
+            </button>
           </div>
         </div>
       </div>

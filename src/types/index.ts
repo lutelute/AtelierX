@@ -201,7 +201,7 @@ export type CardClickBehavior = 'edit' | 'jump';
 
 export type ThemeType = 'dark' | 'light';
 
-export type ActivateAnimation = 'pop' | 'minimize';
+export type ActivateAnimation = 'pop' | 'minimize' | 'dock';
 
 export interface Settings {
   obsidianVaultPath: string;

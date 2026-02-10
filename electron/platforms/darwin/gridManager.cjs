@@ -55,6 +55,31 @@ use scripting additions
 set screenList to current application's NSScreen's screens()
 set mainFrame to (item 1 of screenList)'s frame()
 set mainH to (current application's NSHeight(mainFrame)) as integer
+set menuBarH to 25
+
+-- Dock サイズ検出（全ディスプレイから最大差分を取得）
+set dockBottom to 0
+set dockLeft to 0
+set dockRight to 0
+repeat with i from 1 to count of screenList
+    set aScreen to item i of screenList
+    set vf to aScreen's visibleFrame()
+    set frm to aScreen's frame()
+    set fw to (current application's NSWidth(frm)) as integer
+    set fh to (current application's NSHeight(frm)) as integer
+    set vw to (current application's NSWidth(vf)) as integer
+    set vh to (current application's NSHeight(vf)) as integer
+    set vfX to (current application's NSMinX(vf)) as integer
+    set fX to (current application's NSMinX(frm)) as integer
+    set bDiff to fh - vh
+    if i = 1 then set bDiff to bDiff - menuBarH
+    if bDiff > dockBottom then set dockBottom to bDiff
+    set lDiff to vfX - fX
+    if lDiff > dockLeft then set dockLeft to lDiff
+    set rDiff to (fX + fw) - (vfX + vw)
+    if rDiff > dockRight then set dockRight to rDiff
+end repeat
+
 set output to ""
 repeat with i from 1 to count of screenList
     set aScreen to item i of screenList
@@ -66,6 +91,17 @@ repeat with i from 1 to count of screenList
     set fh to (current application's NSHeight(frm)) as integer
     set vw to (current application's NSWidth(vf)) as integer
     set vh to (current application's NSHeight(vf)) as integer
+    set vfX to (current application's NSMinX(vf)) as integer
+    -- Dock 予約を全ディスプレイに適用
+    set curBottom to fh - vh
+    if i = 1 then set curBottom to curBottom - menuBarH
+    set curLeft to vfX - fx
+    set curRight to (fx + fw) - (vfX + vw)
+    if dockBottom > 0 and curBottom < dockBottom then set vh to vh - (dockBottom - curBottom)
+    if dockLeft > 0 and curLeft < dockLeft then
+        set vw to vw - (dockLeft - curLeft)
+    end if
+    if dockRight > 0 and curRight < dockRight then set vw to vw - (dockRight - curRight)
     set asX to fx
     set asY to mainH - (fy + fh)
     set output to output & i & "|" & fx & "|" & fy & "|" & fw & "|" & fh & "|" & asX & "|" & asY & "|" & vw & "|" & vh & linefeed
@@ -99,25 +135,86 @@ async function getDisplayInfo() {
 
 // ----- AppleScript テンプレート部品 -----
 
-/** ディスプレイ一覧を {x, y, w, h} のリストとして取得する AppleScript */
+/**
+ * ディスプレイ一覧を {x, y, w, h} のリストとして取得する AppleScript
+ *
+ * macOS はマルチディスプレイ時に Dock がマウスのあるディスプレイに移動するため、
+ * visibleFrame() だけではDockが現在いないディスプレイのスペースが確保されない。
+ * → Dock サイズを検出し、全ディスプレイに予約する。
+ */
 function asDisplayInfo() {
   return `
 set screenList to current application's NSScreen's screens()
 set screenCount to count of screenList
 set mainH to (current application's NSHeight((item 1 of screenList)'s frame())) as integer
+set menuBarH to 25
+
+-- Pass 1: 全ディスプレイを走査し Dock が占有するスペースを検出
+-- （Dock が現在いるディスプレイの frame - visibleFrame の差分が最大）
+set dockBottom to 0
+set dockLeft to 0
+set dockRight to 0
+repeat with i from 1 to screenCount
+    set aScreen to item i of screenList
+    set vf to aScreen's visibleFrame()
+    set frm to aScreen's frame()
+    set fw to (current application's NSWidth(frm)) as integer
+    set fh to (current application's NSHeight(frm)) as integer
+    set vw to (current application's NSWidth(vf)) as integer
+    set vh to (current application's NSHeight(vf)) as integer
+    set vfX to (current application's NSMinX(vf)) as integer
+    set fX to (current application's NSMinX(frm)) as integer
+    -- bottom: メインディスプレイはメニューバー分を差し引く
+    set bDiff to fh - vh
+    if i = 1 then set bDiff to bDiff - menuBarH
+    if bDiff > dockBottom then set dockBottom to bDiff
+    -- left
+    set lDiff to vfX - fX
+    if lDiff > dockLeft then set dockLeft to lDiff
+    -- right
+    set rDiff to (fX + fw) - (vfX + vw)
+    if rDiff > dockRight then set dockRight to rDiff
+end repeat
+
+-- Pass 2: 各ディスプレイに Dock 予約を適用して座標を算出
 set displayInfo to {}
 repeat with i from 1 to screenCount
     set aScreen to item i of screenList
     set vf to aScreen's visibleFrame()
     set frm to aScreen's frame()
+    set fw to (current application's NSWidth(frm)) as integer
+    set fh to (current application's NSHeight(frm)) as integer
     set vw to (current application's NSWidth(vf)) as integer
     set vh to (current application's NSHeight(vf)) as integer
-    set fh to (current application's NSHeight(frm)) as integer
-    set asX to (current application's NSMinX(vf)) as integer
-    set asY to (mainH - (current application's NSMinY(vf)) as integer - vh)
+    set vfX to (current application's NSMinX(vf)) as integer
+    set vfY to (current application's NSMinY(vf)) as integer
+    set fX to (current application's NSMinX(frm)) as integer
+    set asX to vfX
+    set asY to (mainH - vfY - vh)
+
+    -- このディスプレイの現在の Dock 占有を計算
+    set curBottom to fh - vh
+    if i = 1 then set curBottom to curBottom - menuBarH
+    set curLeft to vfX - fX
+    set curRight to (fX + fw) - (vfX + vw)
+
+    -- Dock が現在いないディスプレイにも Dock 分を予約
+    if dockBottom > 0 and curBottom < dockBottom then
+        set vh to vh - (dockBottom - curBottom)
+    end if
+    if dockLeft > 0 and curLeft < dockLeft then
+        set extraL to dockLeft - curLeft
+        set asX to asX + extraL
+        set vw to vw - extraL
+    end if
+    if dockRight > 0 and curRight < dockRight then
+        set vw to vw - (dockRight - curRight)
+    end if
+
+    -- メニューバーがないディスプレイ（vh = fh）にはメニューバー分を確保
     if vh = fh then
-        set asY to asY + 25
-        set vh to vh - 25
+        set asY to asY + menuBarH
+        set vh to vh - menuBarH
     end if
     set end of displayInfo to {x:asX, y:asY, w:vw, h:vh}
 end repeat`;

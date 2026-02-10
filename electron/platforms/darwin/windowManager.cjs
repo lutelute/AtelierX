@@ -361,96 +361,90 @@ function popAnimationSnippet(windowVar) {
 }
 
 /**
- * 最小化→復帰エフェクト（System Events ブロックの外で実行）
+ * Dock風アニメーション - NSScreen事前計算（tell process ブロックの外で実行）
  *
- * 復帰後に再AXRaiseして確実に前面化する。
- * アプリごとにAPIが異なるため分岐:
- *   - Terminal: miniaturized
- *   - Finder: collapsed (miniaturizedは非サポート)
- *   - Generic: System Events の AXMinimized 属性
+ * NSScreen の Cocoa ブリッジ呼び出し（NSMinX, NSHeight 等）は
+ * tell process ブロック内で実行すると型衝突（-1700）を起こすため、
+ * ディスプレイ境界を事前にプレーンなリストとして計算しておく。
+ * @returns {string} AppleScript スニペット（_scr* 変数を定義）
  */
-function minimizeAnimationOuter(appType, appName) {
-  const escaped = (appName || '').replace(/"/g, '\\"');
-  if (appType === 'Terminal') {
-    // window id で直接操作（名前ループは最小化中に失敗しうる）
-    return `
-  try
-    if targetWindowId > 0 then
-      tell application "Terminal"
-        set miniaturized of window id targetWindowId to true
-      end tell
-      delay 0.5
-      tell application "Terminal"
-        set miniaturized of window id targetWindowId to false
-        delay 0.1
-        set index of window id targetWindowId to 1
-      end tell
-      delay 0.15
-      tell application "System Events"
-        tell process "Terminal"
-          repeat with w in windows
-            if name of w is targetWindowName then
-              perform action "AXRaise" of w
-              exit repeat
-            end if
-          end repeat
-        end tell
-      end tell
-    end if
-  end try`;
-  }
-  if (appType === 'Finder') {
-    // window id で直接操作
-    return `
-  try
-    if targetWindowId > 0 then
-      tell application "Finder"
-        set collapsed of Finder window id targetWindowId to true
-      end tell
-      delay 0.5
-      tell application "Finder"
-        set collapsed of Finder window id targetWindowId to false
-        delay 0.1
-        set index of Finder window id targetWindowId to 1
-      end tell
-      delay 0.15
-      tell application "System Events"
-        tell process "Finder"
-          repeat with w in windows
-            if name of w is targetWindowName then
-              perform action "AXRaise" of w
-              exit repeat
-            end if
-          end repeat
-        end tell
-      end tell
-    end if
-  end try`;
-  }
-  // Generic: System Events AXMinimized
+function dockPreComputeSnippet() {
   return `
-  if targetWindowName is not "" then
+  set _scrLefts to {}
+  set _scrRights to {}
+  set _scrTops to {}
+  set _scrBottoms to {}
+  set _scrCenterXs to {}
+  try
+    set screenList to current application's NSScreen's screens()
+    set mainFrame to (item 1 of screenList)'s frame()
+    set _mainH to (current application's NSHeight(mainFrame)) as integer
+    repeat with i from 1 to count of screenList
+      set frm to (item i of screenList)'s frame()
+      set fx to (current application's NSMinX(frm)) as integer
+      set fy to (current application's NSMinY(frm)) as integer
+      set fw to (current application's NSWidth(frm)) as integer
+      set fh to (current application's NSHeight(frm)) as integer
+      set end of _scrLefts to fx
+      set end of _scrRights to fx + fw
+      set end of _scrTops to _mainH - (fy + fh)
+      set end of _scrBottoms to _mainH - fy
+      set end of _scrCenterXs to fx + (fw div 2)
+    end repeat
+  end try
+  set _scrCount to count of _scrLefts`;
+}
+
+/**
+ * Dock風アニメーション - ウィンドウ操作（tell process ブロック内で実行）
+ *
+ * dockPreComputeSnippet() で定義された _scr* 変数を使って
+ * ウィンドウが属するディスプレイを特定し、そのDock領域に向かって
+ * スライド→復帰アニメーションを実行する。
+ *
+ * position のみ変更（size は変更しない）:
+ *   Terminal.app は System Events 経由の set size 後にウィンドウ参照が
+ *   無効化される問題があるため、position のみでアニメーションする。
+ *
+ * @param {string} windowVar - System Events ウィンドウ変数名
+ * @returns {string} AppleScript スニペット
+ */
+function dockAnimateSnippet(windowVar) {
+  return `
     try
-      tell application "System Events"
-        tell process "${escaped}"
-          set targetW to missing value
-          repeat with w in windows
-            if name of w is targetWindowName then
-              set targetW to w
-              exit repeat
-            end if
-          end repeat
-          if targetW is not missing value then
-            set value of attribute "AXMinimized" of targetW to true
-            delay 0.5
-            set value of attribute "AXMinimized" of targetW to false
-            delay 0.15
-            perform action "AXRaise" of targetW
-          end if
-        end tell
-      end tell
-    end try
-  end if`;
+      set {origX, origY} to position of ${windowVar}
+      set {origW, origH} to size of ${windowVar}
+
+      -- 斜め下方向にぬるっとスライドして戻る
+      set dx to 40
+      set dy to 70
+
+      -- Phase 1: 斜め下へ（6フレーム、easeInOut）
+      repeat with step from 1 to 6
+        set t to step / 6
+        set easedT to t * t * (3 - 2 * t)
+        set newX to (origX + dx * easedT) as integer
+        set newY to (origY + dy * easedT) as integer
+        set position of ${windowVar} to {newX, newY}
+        delay 0.02
+      end repeat
+
+      -- じわっと停止
+      delay 0.15
+
+      -- Phase 2: 元の位置に復帰（6フレーム、easeInOut逆順）
+      repeat with step from 6 to 1 by -1
+        set t to step / 6
+        set easedT to t * t * (3 - 2 * t)
+        set newX to (origX + dx * easedT) as integer
+        set newY to (origY + dy * easedT) as integer
+        set position of ${windowVar} to {newX, newY}
+        delay 0.02
+      end repeat
+
+      -- 元の位置に確実に復帰
+      set position of ${windowVar} to {origX, origY}
+    end try`;
 }
 
 /**
@@ -466,8 +460,10 @@ function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const idx = parseInt(windowIndex) || 1;
 
   const anim = animation || 'pop';
-  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
-  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Generic', escapedApp) : '';
+  const isDock = anim === 'minimize' || anim === 'dock';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') :
+                       isDock ? dockAnimateSnippet('targetW') : '';
+  const preCompute = isDock ? dockPreComputeSnippet() : '';
 
   // 対象ウィンドウだけを前面に表示（AXRaise + activateWithOptions:2）
   // 名前が変わりやすいアプリ（ブラウザ等）のため3段階で検索:
@@ -475,6 +471,7 @@ function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const script = `
 use framework "AppKit"
 use scripting additions
+${preCompute}
 
 set targetWindowName to ""
 set targetW to missing value
@@ -524,7 +521,6 @@ try
     end if
   end repeat
 end try
-${outerSnippet}
 `;
 
   runAppleScriptAsync(script);
@@ -632,9 +628,11 @@ function activateTerminalWindow(windowId, windowName, animation) {
   const isTtyPath = windowId.startsWith('/dev/');
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
-  const anim = animation || 'pop';
-  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
-  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Terminal', 'Terminal') : '';
+  const anim = animation || 'minimize';
+  const isDock = anim === 'minimize' || anim === 'dock';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') :
+                       isDock ? dockAnimateSnippet('targetW') : '';
+  const preCompute = isDock ? dockPreComputeSnippet() : '';
 
   // Step 1: Terminal.appで対象ウィンドウを特定し、nameを取得
   // numeric window ID → tty → 名前 の優先順でマッチ
@@ -689,6 +687,7 @@ end tell`;
   const script = `
 use framework "AppKit"
 use scripting additions
+${preCompute}
 
 set targetWindowName to ""
 set targetWindowId to 0
@@ -720,7 +719,6 @@ ${innerSnippet}
       termApp's activateWithOptions:2
     end if
   end try
-${outerSnippet}
 end if
 return found
 `;
@@ -778,12 +776,15 @@ tell application "Finder"
 end tell`;
   }
 
-  const anim = animation || 'pop';
-  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
-  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
+  const anim = animation || 'minimize';
+  const isDock = anim === 'minimize' || anim === 'dock';
+  const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') :
+                       isDock ? dockAnimateSnippet('targetW') : '';
+  const preCompute = isDock ? dockPreComputeSnippet() : '';
   const script = `
 use framework "AppKit"
 use scripting additions
+${preCompute}
 
 set targetWindowName to ""
 set targetWindowId to 0
@@ -812,7 +813,6 @@ ${innerSnippet}
       finderApp's activateWithOptions:2
     end if
   end try
-${outerSnippet}
 end if
 return found
 `;
