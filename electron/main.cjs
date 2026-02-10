@@ -11,7 +11,7 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const {
@@ -540,23 +540,42 @@ ipcMain.handle('get-displays', async () => {
   return getDisplayInfo();
 });
 
+// アクセシビリティ権限チェック (macOS)
+function checkAccessibility() {
+  if (process.platform !== 'darwin') return true;
+  const trusted = systemPreferences.isTrustedAccessibilityClient(true);
+  return trusted;
+}
+
 // IPC: Terminalウィンドウをグリッド配置
 ipcMain.handle('arrange-terminal-grid', async (_, options = {}) => {
+  if (!checkAccessibility()) {
+    return { success: false, error: 'アクセシビリティ権限が必要です。システム設定 → プライバシーとセキュリティ → アクセシビリティ で AtelierX を許可してください。', arranged: 0 };
+  }
   return arrangeTerminalGrid(options);
 });
 
 // IPC: Finderウィンドウをグリッド配置
 ipcMain.handle('arrange-finder-grid', async (_, options = {}) => {
+  if (!checkAccessibility()) {
+    return { success: false, error: 'アクセシビリティ権限が必要です。システム設定 → プライバシーとセキュリティ → アクセシビリティ で AtelierX を許可してください。', arranged: 0 };
+  }
   return arrangeFinderGrid(options);
 });
 
 // IPC: 汎用アプリウィンドウをグリッド配置
 ipcMain.handle('arrange-generic-grid', async (_, appName, options = {}) => {
+  if (!checkAccessibility()) {
+    return { success: false, error: 'アクセシビリティ権限が必要です。システム設定 → プライバシーとセキュリティ → アクセシビリティ で AtelierX を許可してください。', arranged: 0 };
+  }
   return arrangeGenericGrid(appName, options);
 });
 
 // IPC: マルチアプリグリッド配置
 ipcMain.handle('arrange-multi-app-grid', async (_, options) => {
+  if (!checkAccessibility()) {
+    return { success: false, error: 'アクセシビリティ権限が必要です。システム設定 → プライバシーとセキュリティ → アクセシビリティ で AtelierX を許可してください。', arranged: 0, details: [] };
+  }
   return arrangeMultiAppGrid(options);
 });
 
