@@ -171,6 +171,7 @@ ${asDisplayInfo()}
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
+if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 
 tell application "${escaped}" to activate
 delay 0.3
@@ -229,6 +230,12 @@ tell application "System Events"
                 if pass = 1 then delay 0.2
             end repeat
             set totalArranged to cnt
+            -- 配置済みウィンドウを前面に
+            repeat with i from 1 to cnt
+                try
+                    perform action "AXRaise" of item i of wl
+                end try
+            end repeat
 
         else
             -- ===== 自動モード: 各ディスプレイ内のウィンドウを個別に配置 =====
@@ -298,6 +305,7 @@ ${asDisplayInfo()}
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
+if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 
 tell application "Finder"
     activate
@@ -728,6 +736,7 @@ ${asDisplayInfo()}
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
+if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 set targetIds to {${idsArray}}
 
 tell application "Terminal" to activate
@@ -846,6 +855,13 @@ tell application "System Events"
                 end if
             end repeat
         end if
+
+        -- 配置済みウィンドウだけを前面に持ってくる
+        repeat with i from 1 to cnt
+            try
+                perform action "AXRaise" of item i of wl
+            end try
+        end repeat
     end tell
 end tell
 return totalArranged`;
@@ -867,6 +883,7 @@ ${asDisplayInfo()}
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
+if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 set targetIds to {${idsArray}}
 
 tell application "Finder"
@@ -963,6 +980,7 @@ ${asDisplayInfo()}
 set pad to ${padding}
 set totalArranged to 0
 set targetDisplay to ${displayIndex}
+if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 set targetNames to {${namesArray}}
 
 tell application "${escaped}" to activate
@@ -1065,6 +1083,13 @@ tell application "System Events"
                 end if
             end repeat
         end if
+
+        -- 配置済みウィンドウだけを前面に持ってくる
+        repeat with i from 1 to cnt
+            try
+                perform action "AXRaise" of item i of wl
+            end try
+        end repeat
     end tell
 end tell
 return totalArranged`;
@@ -1074,14 +1099,25 @@ return totalArranged`;
 // 公開 API
 // =========================================================
 
+/** 配置完了後に対象アプリを前面に持ってくる（activate + frontmost のみ） */
+function bringAppToFront(appName) {
+  const escaped = appName.replace(/"/g, '\\"');
+  return runAppleScript(`
+tell application "${escaped}" to activate
+delay 0.1
+tell application "System Events"
+    set frontmost of process "${escaped}" to true
+end tell`, 5000).catch(() => {});
+}
+
 async function arrangeTerminalGrid(options = {}) {
   try {
-    // windowIds 指定時はフィルタ付きスクリプトを使用
     const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
       ? () => buildFilteredTerminalGridScript(options)
       : () => buildSystemEventsGridScript('Terminal', options);
     const result = await runAppleScript(scriptFn(), 30000);
-    return { success: true, arranged: parseInt(result.trim()) || 0 };
+    const arranged = parseInt(result.trim()) || 0;
+    return { success: true, arranged };
   } catch (error) {
     console.error('arrangeTerminalGrid error:', error);
     return { success: false, error: error.message, arranged: 0 };
@@ -1094,7 +1130,8 @@ async function arrangeFinderGrid(options = {}) {
       ? () => buildFilteredFinderGridScript(options)
       : () => buildFinderGridScript(options);
     const result = await runAppleScript(scriptFn(), 20000);
-    return { success: true, arranged: parseInt(result.trim()) || 0 };
+    const arranged = parseInt(result.trim()) || 0;
+    return { success: true, arranged };
   } catch (error) {
     console.error('arrangeFinderGrid error:', error);
     return { success: false, error: error.message, arranged: 0 };
@@ -1107,7 +1144,8 @@ async function arrangeGenericGrid(appName, options = {}) {
       ? () => buildFilteredGenericGridScript(appName, options)
       : () => buildSystemEventsGridScript(appName, options);
     const result = await runAppleScript(scriptFn(), 45000);
-    return { success: true, arranged: parseInt(result.trim()) || 0 };
+    const arranged = parseInt(result.trim()) || 0;
+    return { success: true, arranged };
   } catch (error) {
     console.error('arrangeGenericGrid error:', error);
     return { success: false, error: error.message, arranged: 0 };
