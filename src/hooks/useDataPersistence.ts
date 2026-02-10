@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { AllBoardsData, BoardData, ActivityLog, Settings } from '../types';
+import { AllBoardsData, BoardData, ActivityLog, Settings, SettingsPreset, CardBackup } from '../types';
 import { isAllBoardsData, migrateBoardDataToAllBoards, migrateColumnColors } from '../utils/boardUtils';
 import { defaultSettings } from '../components/SettingsModal';
 
@@ -193,6 +193,102 @@ export function useDataPersistence({
     }
   }, [setAllData, setActivityLogs, setSettings]);
 
+  // 設定プリセットエクスポート
+  const handleExportSettingsPreset = useCallback(async () => {
+    if (!window.electronAPI?.exportSettingsPreset) return;
+    try {
+      const { obsidianVaultPath, dailyNotePath, insertMarker, ...shareableSettings } = settings;
+      const preset: SettingsPreset = {
+        type: 'settings-preset',
+        settings: shareableSettings,
+        backupAt: Date.now(),
+        version: 1,
+      };
+      const result = await window.electronAPI.exportSettingsPreset(preset);
+      if (result.success) {
+        alert('設定プリセットをエクスポートしました');
+      }
+    } catch (error) {
+      console.error('Export settings preset failed:', error);
+      alert('設定プリセットのエクスポートに失敗しました');
+    }
+  }, [settings]);
+
+  // 設定プリセットインポート
+  const handleImportSettingsPreset = useCallback(async () => {
+    if (!window.electronAPI?.importSettingsPreset) return;
+    try {
+      const result = await window.electronAPI.importSettingsPreset();
+      if (result.success && result.data) {
+        const confirmRestore = confirm(
+          `設定プリセットをインポートしますか？\nObsidian連携パスは現在の設定が保持されます。\n\nプリセット日時: ${new Date(result.data.backupAt).toLocaleString()}`
+        );
+        if (confirmRestore) {
+          setSettings(prev => ({
+            ...prev,
+            ...result.data!.settings,
+            obsidianVaultPath: prev.obsidianVaultPath,
+            dailyNotePath: prev.dailyNotePath,
+            insertMarker: prev.insertMarker,
+          }));
+          alert('設定プリセットをインポートしました');
+        }
+      }
+    } catch (error) {
+      console.error('Import settings preset failed:', error);
+      alert('設定プリセットのインポートに失敗しました');
+    }
+  }, [setSettings]);
+
+  // カードデータエクスポート
+  const handleExportCardBackup = useCallback(async () => {
+    if (!window.electronAPI?.exportCardBackup) return;
+    try {
+      const cardBackup: CardBackup = {
+        type: 'card-backup',
+        boardData: allData,
+        activityLogs,
+        backupAt: Date.now(),
+        version: 1,
+      };
+      const result = await window.electronAPI.exportCardBackup(cardBackup);
+      if (result.success) {
+        alert('カードデータをエクスポートしました');
+      }
+    } catch (error) {
+      console.error('Export card backup failed:', error);
+      alert('カードデータのエクスポートに失敗しました');
+    }
+  }, [allData, activityLogs]);
+
+  // カードデータインポート
+  const handleImportCardBackup = useCallback(async () => {
+    if (!window.electronAPI?.importCardBackup) return;
+    try {
+      const result = await window.electronAPI.importCardBackup();
+      if (result.success && result.data) {
+        const confirmRestore = confirm(
+          `カードデータをインポートしますか？\n現在のカードデータは上書きされます。設定は保持されます。\n\nバックアップ日時: ${new Date(result.data.backupAt).toLocaleString()}`
+        );
+        if (confirmRestore) {
+          let imported: AllBoardsData;
+          if (isAllBoardsData(result.data.boardData)) {
+            imported = result.data.boardData;
+          } else {
+            imported = migrateBoardDataToAllBoards(result.data.boardData as BoardData);
+          }
+          migrateColumnColors(imported);
+          setAllData(imported);
+          setActivityLogs(result.data.activityLogs || []);
+          alert('カードデータをインポートしました');
+        }
+      }
+    } catch (error) {
+      console.error('Import card backup failed:', error);
+      alert('カードデータのインポートに失敗しました');
+    }
+  }, [setAllData, setActivityLogs]);
+
   return {
     handleUndo,
     showRestorePrompt,
@@ -201,5 +297,9 @@ export function useDataPersistence({
     handleSkipRestore,
     handleExportBackup,
     handleImportBackup,
+    handleExportSettingsPreset,
+    handleImportSettingsPreset,
+    handleExportCardBackup,
+    handleImportCardBackup,
   };
 }

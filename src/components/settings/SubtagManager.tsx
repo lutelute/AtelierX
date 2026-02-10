@@ -113,6 +113,10 @@ export function SubtagManager({ settings, onSettingsChange }: SubtagManagerProps
                     {PRESET_COLORS.map((color) => (
                       <button key={color} type="button" className={`color-option ${st.color === color ? 'selected' : ''}`} style={{ backgroundColor: color }} onClick={() => handleUpdateDefaultSubtag(st.id, { color })} />
                     ))}
+                    <label className="color-custom-input" title="カスタム色">
+                      <input type="color" value={st.color} onChange={(e) => handleUpdateDefaultSubtag(st.id, { color: e.target.value })} />
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+                    </label>
                   </div>
                   <button type="button" className="subtag-action-btn done" onClick={() => setEditingDefaultSubtagId(null)}>完了</button>
                   {(st.name !== st.originalName || st.color !== st.originalColor) && (
@@ -159,6 +163,10 @@ export function SubtagManager({ settings, onSettingsChange }: SubtagManagerProps
                     {PRESET_COLORS.map((color) => (
                       <button key={color} type="button" className={`color-option ${st.color === color ? 'selected' : ''}`} style={{ backgroundColor: color }} onClick={() => handleUpdateSubtag(st.id, { color })} />
                     ))}
+                    <label className="color-custom-input" title="カスタム色">
+                      <input type="color" value={st.color} onChange={(e) => handleUpdateSubtag(st.id, { color: e.target.value })} />
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+                    </label>
                   </div>
                   <button type="button" className="subtag-action-btn done" onClick={() => setEditingSubtagId(null)}>完了</button>
                 </>
@@ -183,6 +191,10 @@ export function SubtagManager({ settings, onSettingsChange }: SubtagManagerProps
             {PRESET_COLORS.map((color) => (
               <button key={color} type="button" className={`color-option ${newSubtagColor === color ? 'selected' : ''}`} style={{ backgroundColor: color }} onClick={() => setNewSubtagColor(color)} />
             ))}
+            <label className="color-custom-input" title="カスタム色">
+              <input type="color" value={newSubtagColor} onChange={(e) => setNewSubtagColor(e.target.value)} />
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+            </label>
           </div>
           <button type="button" className="btn-add-subtag" onClick={handleAddSubtag} disabled={!newSubtagName.trim()}>追加</button>
         </div>

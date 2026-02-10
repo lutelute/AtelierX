@@ -19,6 +19,10 @@ interface SettingsModalProps {
   initialSettings: Settings;
   onExportBackup?: () => void;
   onImportBackup?: () => void;
+  onExportSettingsPreset?: () => void;
+  onImportSettingsPreset?: () => void;
+  onExportCardBackup?: () => void;
+  onImportCardBackup?: () => void;
   lastBackupTime?: number;
 }
 
@@ -30,9 +34,10 @@ export const defaultSettings: Settings = {
   activateAnimation: 'minimize',
   customSubtags: [],
   theme: 'dark',
+  confirmCloseWindow: true,
 };
 
-export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup, onImportBackup, lastBackupTime }: SettingsModalProps) {
+export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup, onImportBackup, onExportSettingsPreset, onImportSettingsPreset, onExportCardBackup, onImportCardBackup, lastBackupTime }: SettingsModalProps) {
   const [settings, setSettings] = useState<Settings>(initialSettings);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTab>('basic');
@@ -92,7 +97,15 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
               {generalSubTab === 'integration' && (
                 <>
                   <ObsidianIntegration settings={settings} onSettingsChange={onSettingsChange} />
-                  <BackupSection lastBackupTime={lastBackupTime} onExportBackup={onExportBackup} onImportBackup={onImportBackup} />
+                  <BackupSection
+                    lastBackupTime={lastBackupTime}
+                    onExportBackup={onExportBackup}
+                    onImportBackup={onImportBackup}
+                    onExportSettingsPreset={onExportSettingsPreset}
+                    onImportSettingsPreset={onImportSettingsPreset}
+                    onExportCardBackup={onExportCardBackup}
+                    onImportCardBackup={onImportCardBackup}
+                  />
                 </>
               )}
             </>

@@ -63,6 +63,22 @@ export function useTabManagement({
         },
       };
     });
+    // Webタブ追加時にネイティブアイコンを非同期取得
+    if (!tab.iconDataUri && window.electronAPI?.getAppIcon) {
+      window.electronAPI.getAppIcon(tab.appName).then(iconDataUri => {
+        if (iconDataUri) {
+          setSettings(prev => {
+            const tabs = prev.enabledAppTabs || [];
+            return {
+              ...prev,
+              enabledAppTabs: tabs.map(t =>
+                t.id === tab.id ? { ...t, iconDataUri } : t
+              ),
+            };
+          });
+        }
+      }).catch(() => {});
+    }
   }, [setSettings, setAllData]);
 
   const handleRemoveTab = useCallback((tabId: string) => {

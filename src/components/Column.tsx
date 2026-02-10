@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig } from '../types';
+import { Column as ColumnType, Card as CardType, CardStatusMarker, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig, Settings } from '../types';
 import { Card } from './Card';
 
 const COLUMN_COLORS = [
@@ -48,9 +48,11 @@ interface ColumnProps {
   priorityConfigs?: PriorityConfig[];
   onAddPriority?: (config: PriorityConfig) => void;
   onHideColumn?: (columnId: string) => void;
+  settings?: Settings;
+  onUpdateSettings?: (updater: (prev: Settings) => Settings) => void;
 }
 
-export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority, onHideColumn }: ColumnProps) {
+export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onDropWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority, onHideColumn, settings, onUpdateSettings }: ColumnProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -210,6 +212,19 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
                       }}
                     />
                   ))}
+                  <label className="column-color-custom" title="カスタム色">
+                    <input
+                      type="color"
+                      value={columnColor || '#9ca3af'}
+                      onChange={(e) => {
+                        onChangeColumnColor(column.id, e.target.value);
+                      }}
+                    />
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" />
+                      <path d="M2 14h12" />
+                    </svg>
+                  </label>
                 </div>
               )}
             </div>
@@ -288,6 +303,8 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
               onTimerAction={onTimerAction ? (taskIndex, action) => onTimerAction(card.id, taskIndex, action) : undefined}
               priorityConfigs={priorityConfigs}
               onAddPriority={onAddPriority}
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
             />
           ))}
         </SortableContext>

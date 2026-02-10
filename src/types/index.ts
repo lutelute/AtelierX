@@ -216,6 +216,7 @@ export interface Settings {
   customPriorities?: PriorityConfig[];  // カスタム優先順位
   multiGridFavorites?: MultiGridLayout[];  // マルチグリッドお気に入り
   hiddenColumns?: string[];  // 非表示カラムID
+  confirmCloseWindow?: boolean;  // ウィンドウ閉じる時の確認ダイアログ
 }
 
 // ノート情報
@@ -231,6 +232,23 @@ export interface BackupData {
   boardData: BoardData | AllBoardsData;  // 旧形式(BoardData)または新形式(AllBoardsData)
   activityLogs: ActivityLog[];
   settings: Settings;
+  backupAt: number;
+  version: number;
+}
+
+// 設定プリセットバックアップ（個人パス除外、共有可能）
+export interface SettingsPreset {
+  type: 'settings-preset';
+  settings: Omit<Settings, 'obsidianVaultPath' | 'dailyNotePath' | 'insertMarker'>;
+  backupAt: number;
+  version: number;
+}
+
+// カードデータバックアップ（設定除外）
+export interface CardBackup {
+  type: 'card-backup';
+  boardData: BoardData | AllBoardsData;
+  activityLogs: ActivityLog[];
   backupAt: number;
   version: number;
 }
@@ -457,6 +475,11 @@ declare global {
       exportBackup: (data: Omit<BackupData, 'backupAt' | 'version'>) => Promise<BackupResult>;
       importBackup: () => Promise<LoadBackupResult>;
       getBackupPath: () => Promise<string>;
+      // 分離バックアップ関連
+      exportSettingsPreset: (data: SettingsPreset) => Promise<BackupResult>;
+      importSettingsPreset: () => Promise<{ success: boolean; error?: string; data: SettingsPreset | null }>;
+      exportCardBackup: (data: CardBackup) => Promise<BackupResult>;
+      importCardBackup: () => Promise<{ success: boolean; error?: string; data: CardBackup | null }>;
       // アンインストール
       uninstallApp: () => Promise<{ success: boolean; error?: string }>;
       // グリッド配置関連

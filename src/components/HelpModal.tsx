@@ -96,6 +96,16 @@ export function HelpModal({ onClose }: HelpModalProps) {
                 </ul>
               </div>
               <div className="help-feature-detail">
+                <h4>データバックアップ</h4>
+                <p>カンバンの全データをJSON形式で保存・復元できます。</p>
+                <ul>
+                  <li>JSON（.json）形式のみ対応</li>
+                  <li>自動バックアップ: 1分ごとに自動保存 + ローテーション保護</li>
+                  <li>手動エクスポート / インポートで任意のタイミングで保存・復元</li>
+                  <li>保存時に前回データを <code className="help-code-inline">.prev.json</code> に自動退避</li>
+                </ul>
+              </div>
+              <div className="help-feature-detail">
                 <h4>プラグインシステム</h4>
                 <p>GitHubリポジトリからプラグインをインストールして機能を拡張できます。</p>
                 <ul>

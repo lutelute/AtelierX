@@ -213,6 +213,10 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
                       onClick={() => setNewSubtagColor(color)}
                     />
                   ))}
+                  <label className="color-custom-input" title="カスタム色">
+                    <input type="color" value={newSubtagColor} onChange={(e) => setNewSubtagColor(e.target.value)} />
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+                  </label>
                 </div>
                 <button
                   type="button"

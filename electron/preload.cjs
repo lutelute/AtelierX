@@ -21,6 +21,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportBackup: (data) => ipcRenderer.invoke('export-backup', data),
   importBackup: () => ipcRenderer.invoke('import-backup'),
   getBackupPath: () => ipcRenderer.invoke('get-backup-path'),
+  // 分離バックアップ関連
+  exportSettingsPreset: (data) => ipcRenderer.invoke('export-settings-preset', data),
+  importSettingsPreset: () => ipcRenderer.invoke('import-settings-preset'),
+  exportCardBackup: (data) => ipcRenderer.invoke('export-card-backup', data),
+  importCardBackup: () => ipcRenderer.invoke('import-card-backup'),
   // グリッド配置関連
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   arrangeTerminalGrid: (options) => ipcRenderer.invoke('arrange-terminal-grid', options),

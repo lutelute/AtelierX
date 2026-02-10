@@ -377,6 +377,10 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                           onClick={() => onUpdateDefaultSubtag(subtagOption, { color })}
                         />
                       ))}
+                      <label className="color-custom-input round" title="カスタム色">
+                        <input type="color" value={info.color} onChange={(e) => onUpdateDefaultSubtag(subtagOption, { color: e.target.value })} />
+                        <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+                      </label>
                     </div>
                     <button
                       type="button"
@@ -437,6 +441,10 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                           onClick={() => onUpdateSubtag(customTag.id, { color })}
                         />
                       ))}
+                      <label className="color-custom-input round" title="カスタム色">
+                        <input type="color" value={customTag.color} onChange={(e) => onUpdateSubtag(customTag.id, { color: e.target.value })} />
+                        <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+                      </label>
                     </div>
                     <button
                       type="button"
@@ -522,6 +530,10 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                       onClick={() => setNewSubtagColor(color)}
                     />
                   ))}
+                  <label className="color-custom-input" title="カスタム色">
+                    <input type="color" value={newSubtagColor} onChange={(e) => setNewSubtagColor(e.target.value)} />
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" /></svg>
+                  </label>
                 </div>
                 <button
                   type="button"

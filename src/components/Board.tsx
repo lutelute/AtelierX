@@ -246,6 +246,10 @@ export function Board() {
     handleSkipRestore,
     handleExportBackup,
     handleImportBackup,
+    handleExportSettingsPreset,
+    handleImportSettingsPreset,
+    handleExportCardBackup,
+    handleImportCardBackup,
   } = useDataPersistence({
     allData,
     setAllData,
@@ -374,7 +378,7 @@ export function Board() {
       }
     };
     loadBuiltinIcons();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings.enabledAppTabs?.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // テーマを適用
   useEffect(() => {
@@ -967,6 +971,8 @@ export function Board() {
                   allColumns={currentBoard.columns}
                   canDelete={!DEFAULT_COLUMN_IDS.has(column.id)}
                   onHideColumn={handleHideColumn}
+                  settings={settings}
+                  onUpdateSettings={(updater) => setSettings(updater)}
                 />
               ))}
               {/* 非表示カラム復元パネル（カラム追加ボタンの前） */}
@@ -1127,6 +1133,10 @@ export function Board() {
           onSave={setSettings}
           onExportBackup={handleExportBackup}
           onImportBackup={handleImportBackup}
+          onExportSettingsPreset={handleExportSettingsPreset}
+          onImportSettingsPreset={handleImportSettingsPreset}
+          onExportCardBackup={handleExportCardBackup}
+          onImportCardBackup={handleImportCardBackup}
           lastBackupTime={lastBackupTime}
         />
       )}

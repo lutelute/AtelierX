@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig, DEFAULT_PRIORITIES, getTagColor, getTagLabel } from '../types';
+import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig, DEFAULT_PRIORITIES, getTagColor, getTagLabel, Settings } from '../types';
 import { CHECKBOX_EXTRACT, CHECKBOX_DISPLAY, CHECKBOX_GROUPS, CARD_STATUS_MARKERS } from '../utils/checkboxConstants';
 
 interface CardProps {
@@ -29,6 +29,8 @@ interface CardProps {
   onTimerAction?: (taskIndex: number, action: TimerAction) => void;
   priorityConfigs?: PriorityConfig[];
   onAddPriority?: (config: PriorityConfig) => void;
+  settings?: Settings;
+  onUpdateSettings?: (updater: (prev: Settings) => Settings) => void;
 }
 
 // パースされたコンテンツ行の型
@@ -267,6 +269,12 @@ const PriorityMenu = memo(function PriorityMenu({
                   onClick={() => setNewColor(c)}
                 />
               ))}
+              <label className="color-custom-input round" title="カスタム色">
+                <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)} />
+                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M12.5 2.5l1 1-7.5 7.5-2.5.5.5-2.5 7.5-7.5z" />
+                </svg>
+              </label>
             </div>
             <button
               className="priority-add-confirm"
@@ -656,7 +664,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority }: CardProps) {
+export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority, settings, onUpdateSettings }: CardProps) {
   const {
     attributes,
     listeners,
@@ -665,6 +673,10 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     transition,
     isDragging,
   } = useSortable({ id: card.id });
+
+  // ウィンドウ閉じる確認
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
 
   // カード右クリックメニュー
   const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; showStatusSubmenu: boolean } | null>(null);
@@ -996,7 +1008,10 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
               }}
               title="リンク解除"
             >
-              🔗
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 6l-4 4" />
+                <path d="M6 6l4 4" />
+              </svg>
             </button>
           )}
           <button
@@ -1015,13 +1030,60 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
               className="card-close-window-button"
               onClick={(e) => {
                 e.stopPropagation();
-                onCloseWindow(card.id);
+                const needConfirm = settings?.confirmCloseWindow !== false;
+                if (needConfirm) {
+                  setShowCloseConfirm(true);
+                } else {
+                  onCloseWindow(card.id);
+                }
               }}
               title={`${card.windowApp} を閉じる`}
             >
               ✕
             </button>
           )}
+        </div>
+      )}
+      {showCloseConfirm && onCloseWindow && (
+        <div className="card-close-confirm">
+          <p className="card-close-confirm-text">{card.windowApp} を閉じますか？</p>
+          {card.windowApp === 'Terminal' && (
+            <p className="card-close-confirm-warning">内容は失われる可能性があります。</p>
+          )}
+          <label className="card-close-confirm-check" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={dontAskAgain}
+              onChange={(e) => setDontAskAgain(e.target.checked)}
+            />
+            <span>次回から確認しない</span>
+          </label>
+          <div className="card-close-confirm-actions">
+            <button
+              className="btn-secondary btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCloseConfirm(false);
+                setDontAskAgain(false);
+              }}
+            >
+              キャンセル
+            </button>
+            <button
+              className="btn-danger-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (dontAskAgain && onUpdateSettings) {
+                  onUpdateSettings(prev => ({ ...prev, confirmCloseWindow: false }));
+                }
+                setShowCloseConfirm(false);
+                setDontAskAgain(false);
+                onCloseWindow(card.id);
+              }}
+            >
+              閉じる
+            </button>
+          </div>
         </div>
       )}
       {footerActions.length > 0 && (

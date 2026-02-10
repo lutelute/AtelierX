@@ -446,6 +446,90 @@ ipcMain.handle('get-backup-path', async () => {
   return getDefaultBackupPath();
 });
 
+// IPC: 設定プリセットをエクスポート
+ipcMain.handle('export-settings-preset', async (_, data) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { filePath } = await dialog.showSaveDialog({
+      defaultPath: `atelierx-settings-${today}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (filePath) {
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      return { success: true, path: filePath };
+    }
+    return { success: false, error: 'Cancelled' };
+  } catch (error) {
+    console.error('Export settings preset error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: 設定プリセットをインポート
+ipcMain.handle('import-settings-preset', async () => {
+  try {
+    const { filePaths } = await dialog.showOpenDialog({
+      title: '設定プリセットファイルを選択',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (filePaths && filePaths.length > 0) {
+      const content = fs.readFileSync(filePaths[0], 'utf-8');
+      const data = JSON.parse(content);
+      if (data.type !== 'settings-preset') {
+        return { success: false, error: '設定プリセットファイルではありません', data: null };
+      }
+      return { success: true, data };
+    }
+    return { success: false, error: 'Cancelled', data: null };
+  } catch (error) {
+    console.error('Import settings preset error:', error);
+    return { success: false, error: error.message, data: null };
+  }
+});
+
+// IPC: カードデータをエクスポート
+ipcMain.handle('export-card-backup', async (_, data) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { filePath } = await dialog.showSaveDialog({
+      defaultPath: `atelierx-cards-${today}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (filePath) {
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      return { success: true, path: filePath };
+    }
+    return { success: false, error: 'Cancelled' };
+  } catch (error) {
+    console.error('Export card backup error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: カードデータをインポート
+ipcMain.handle('import-card-backup', async () => {
+  try {
+    const { filePaths } = await dialog.showOpenDialog({
+      title: 'カードデータファイルを選択',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (filePaths && filePaths.length > 0) {
+      const content = fs.readFileSync(filePaths[0], 'utf-8');
+      const data = JSON.parse(content);
+      if (data.type !== 'card-backup') {
+        return { success: false, error: 'カードデータファイルではありません', data: null };
+      }
+      return { success: true, data };
+    }
+    return { success: false, error: 'Cancelled', data: null };
+  } catch (error) {
+    console.error('Import card backup error:', error);
+    return { success: false, error: error.message, data: null };
+  }
+});
+
 // =====================================================
 // グリッド配置機能 (gridManager.cjs モジュールを使用)
 // @see ./gridManager.cjs - terminal_grid.sh / finder_grid.sh と同等のロジック
