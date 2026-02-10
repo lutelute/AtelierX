@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
-import { DisplayInfo, GridOptions, PluginGridLayout } from '../types';
+import { useState, useEffect, useMemo } from 'react';
+import { DisplayInfo, GridOptions, PluginGridLayout, Column as ColumnType, Card as CardType } from '../types';
 
 interface GridArrangeModalProps {
   appType: string;
   onClose: () => void;
   onArrange: (options: GridOptions) => Promise<{ success: boolean; arranged: number }>;
+  columns?: ColumnType[];
+  cards?: Record<string, CardType>;
 }
 
-export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeModalProps) {
+export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }: GridArrangeModalProps) {
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [selectedDisplay, setSelectedDisplay] = useState<number>(0); // 0 = 自動（各ディスプレイ内）
   const [showHelp, setShowHelp] = useState(false);
@@ -19,6 +21,42 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
   const [result, setResult] = useState<{ success: boolean; arranged: number } | null>(null);
   const [pluginLayouts, setPluginLayouts] = useState<PluginGridLayout[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+
+  // カラム別フィルタ用
+  const [activeTab, setActiveTab] = useState<'all' | 'column'>('all');
+  const [selectedColumnIds, setSelectedColumnIds] = useState<Set<string>>(new Set());
+
+  // カラムデータがあるかどうか（タブ表示の判定）
+  const hasColumnData = !!(columns && columns.length > 0 && cards);
+
+  // カラムごとのウィンドウ紐付きカード数を計算
+  const columnWindowCounts = useMemo(() => {
+    if (!columns || !cards) return {};
+    const counts: Record<string, number> = {};
+    for (const col of columns) {
+      counts[col.id] = col.cardIds.filter(cardId => {
+        const card = cards[cardId];
+        return card && !card.archived && card.windowId;
+      }).length;
+    }
+    return counts;
+  }, [columns, cards]);
+
+  // 選択されたカラムのウィンドウIDリストを取得
+  const selectedWindowIds = useMemo(() => {
+    if (!columns || !cards || selectedColumnIds.size === 0) return [];
+    const ids: string[] = [];
+    for (const col of columns) {
+      if (!selectedColumnIds.has(col.id)) continue;
+      for (const cardId of col.cardIds) {
+        const card = cards[cardId];
+        if (card && !card.archived && card.windowId) {
+          ids.push(card.windowId);
+        }
+      }
+    }
+    return ids;
+  }, [columns, cards, selectedColumnIds]);
 
   // ディスプレイ情報とプラグインレイアウトを取得
   useEffect(() => {
@@ -45,6 +83,28 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
     setPadding(layout.padding || 5);
   };
 
+  const handleColumnToggle = (colId: string) => {
+    setSelectedColumnIds(prev => {
+      const next = new Set(prev);
+      if (next.has(colId)) {
+        next.delete(colId);
+      } else {
+        next.add(colId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllColumns = () => {
+    if (!columns) return;
+    const allIds = columns.filter(col => (columnWindowCounts[col.id] || 0) > 0).map(col => col.id);
+    setSelectedColumnIds(new Set(allIds));
+  };
+
+  const handleDeselectAllColumns = () => {
+    setSelectedColumnIds(new Set());
+  };
+
   const handleArrange = async () => {
     setIsArranging(true);
     setResult(null);
@@ -56,11 +116,16 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
       padding: padding,
     };
 
+    // カラム別タブで選択がある場合、windowIds を付与
+    if (activeTab === 'column' && selectedWindowIds.length > 0) {
+      options.windowIds = selectedWindowIds;
+    }
+
     try {
       const res = await onArrange(options);
       setResult(res);
-      if (res.success && res.arranged > 0) {
-        setTimeout(() => onClose(), 1500);
+      if (res.success) {
+        setTimeout(() => setResult(null), 3000);
       }
     } catch (error) {
       setResult({ success: false, arranged: 0 });
@@ -68,6 +133,8 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
       setIsArranging(false);
     }
   };
+
+  const canArrange = activeTab === 'all' || (activeTab === 'column' && selectedWindowIds.length > 0);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -96,6 +163,12 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
                 <li><b>カスタム:</b> 行数・列数を手動で指定</li>
                 <li><b>プリセット:</b> プラグインで追加されたレイアウトを選択</li>
               </ul>
+              {hasColumnData && (
+                <>
+                  <h4>カラム別配置</h4>
+                  <p>特定のカラムに属するカードのウィンドウだけを選んで配置できます。</p>
+                </>
+              )}
               <div className="mg-help-note">
                 <b>ヒント:</b> 1つのアプリのウィンドウだけを対象にします。複数アプリをまとめて配置する場合は「マルチアプリGrid」を使用してください。
               </div>
@@ -104,6 +177,71 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
         )}
 
         <div className="grid-modal-content">
+          {/* タブUI（カラムデータがある場合のみ表示） */}
+          {hasColumnData && (
+            <div className="grid-filter-tabs">
+              <button
+                className={`grid-filter-tab ${activeTab === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveTab('all')}
+              >
+                全体配置
+              </button>
+              <button
+                className={`grid-filter-tab ${activeTab === 'column' ? 'active' : ''}`}
+                onClick={() => setActiveTab('column')}
+              >
+                カラム別
+              </button>
+            </div>
+          )}
+
+          {/* カラム選択UI（カラム別タブ時のみ） */}
+          {activeTab === 'column' && hasColumnData && (
+            <div className="grid-section grid-column-filter">
+              <div className="grid-column-filter-header">
+                <h3>対象カラム</h3>
+                <div className="grid-column-filter-actions">
+                  <button className="grid-column-select-btn" onClick={handleSelectAllColumns}>全選択</button>
+                  <button className="grid-column-select-btn" onClick={handleDeselectAllColumns}>全解除</button>
+                </div>
+              </div>
+              <div className="grid-column-list">
+                {columns!.map(col => {
+                  const wCount = columnWindowCounts[col.id] || 0;
+                  return (
+                    <label
+                      key={col.id}
+                      className={`grid-column-item ${selectedColumnIds.has(col.id) ? 'selected' : ''} ${wCount === 0 ? 'disabled' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedColumnIds.has(col.id)}
+                        onChange={() => handleColumnToggle(col.id)}
+                        disabled={wCount === 0}
+                      />
+                      <span
+                        className="grid-column-color"
+                        style={{ background: col.color || '#6b7280' }}
+                      />
+                      <span className="grid-column-name">{col.title}</span>
+                      <span className="grid-column-count">{wCount}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {selectedWindowIds.length > 0 && (
+                <div className="grid-column-summary">
+                  {selectedWindowIds.length} 個のウィンドウが対象
+                </div>
+              )}
+              {selectedWindowIds.length === 0 && selectedColumnIds.size === 0 && (
+                <div className="grid-column-summary grid-column-summary-warn">
+                  カラムを選択してください
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ディスプレイ選択 */}
           <div className="grid-section">
             <h3>配置先ディスプレイ</h3>
@@ -288,7 +426,7 @@ export function GridArrangeModal({ appType, onClose, onArrange }: GridArrangeMod
             type="button"
             className="btn-primary"
             onClick={handleArrange}
-            disabled={isArranging}
+            disabled={isArranging || !canArrange}
           >
             {isArranging ? '配置中...' : '配置する'}
           </button>

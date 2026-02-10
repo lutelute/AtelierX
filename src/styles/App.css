@@ -9513,3 +9513,212 @@ body.theme-light {
 .theme-light .card-close-confirm-check {
   color: #64748b;
 }
+
+/* =========================================================
+   Grid配置モーダル: カラムフィルタUI
+   ========================================================= */
+
+.grid-filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.grid-filter-tab {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grid-filter-tab:hover {
+  color: #d4d4d8;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.grid-filter-tab.active {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+}
+
+.grid-column-filter {
+  margin-bottom: 16px;
+}
+
+.grid-column-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.grid-column-filter-header h3 {
+  margin: 0;
+}
+
+.grid-column-filter-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.grid-column-select-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grid-column-select-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #d4d4d8;
+}
+
+.grid-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grid-column-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grid-column-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.grid-column-item.selected {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.grid-column-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.grid-column-item input[type="checkbox"] {
+  accent-color: #a78bfa;
+  flex-shrink: 0;
+}
+
+.grid-column-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.grid-column-name {
+  flex: 1;
+  font-size: 13px;
+  color: #e4e4e7;
+  font-weight: 500;
+}
+
+.grid-column-count {
+  font-size: 12px;
+  color: #71717a;
+  min-width: 20px;
+  text-align: right;
+}
+
+.grid-column-summary {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #a78bfa;
+  text-align: center;
+  padding: 6px;
+  background: rgba(139, 92, 246, 0.06);
+  border-radius: 6px;
+}
+
+.grid-column-summary-warn {
+  color: #71717a;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ライトテーマ対応 */
+
+.theme-light .grid-filter-tabs {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.theme-light .grid-filter-tab {
+  color: #71717a;
+}
+
+.theme-light .grid-filter-tab:hover {
+  color: #3f3f46;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.theme-light .grid-filter-tab.active {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
+
+.theme-light .grid-column-select-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #71717a;
+}
+
+.theme-light .grid-column-select-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #3f3f46;
+}
+
+.theme-light .grid-column-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .grid-column-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .grid-column-item.selected {
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+.theme-light .grid-column-name {
+  color: #3f3f46;
+}
+
+.theme-light .grid-column-count {
+  color: #a1a1aa;
+}
+
+.theme-light .grid-column-summary {
+  color: #7c3aed;
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.theme-light .grid-column-summary-warn {
+  color: #a1a1aa;
+  background: rgba(0, 0, 0, 0.02);
+}

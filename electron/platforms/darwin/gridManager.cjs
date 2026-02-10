@@ -705,12 +705,382 @@ async function arrangeMultiAppGrid(options) {
 }
 
 // =========================================================
+// フィルタ付きグリッド配置 (windowIds 指定時のみ使用)
+// =========================================================
+//
+// windowIds が指定された場合、対象ウィンドウだけをグリッド配置する。
+// 既存の buildSystemEventsGridScript / buildFinderGridScript は一切変更しない。
+
+/**
+ * Terminal用フィルタ付きグリッドスクリプト
+ * Terminal の card.windowId は AppleScript の `id of window` （数値）。
+ * Terminal.app で id→name を取得し、System Events で name マッチで配置。
+ */
+function buildFilteredTerminalGridScript(options = {}) {
+  const { cols = 0, rows = 0, displayIndex = 0, padding = -5, windowIds = [] } = options;
+  // windowIds は数値文字列（例: "3812"）なので、数値リストとして渡す
+  const idsArray = windowIds.map(id => parseInt(id) || 0).join(', ');
+
+  return `use framework "AppKit"
+use scripting additions
+${asDisplayInfo()}
+
+set pad to ${padding}
+set totalArranged to 0
+set targetDisplay to ${displayIndex}
+set targetIds to {${idsArray}}
+
+tell application "Terminal" to activate
+delay 0.3
+
+-- Terminal.app で数値ID→ウィンドウ名を収集
+set targetNames to {}
+tell application "Terminal"
+    repeat with w in every window
+        try
+            if targetIds contains (id of w) then
+                set end of targetNames to name of w
+            end if
+        end try
+    end repeat
+end tell
+
+tell application "System Events"
+    tell process "Terminal"
+        -- ウィンドウ収集: targetNames にマッチするウィンドウのみ
+        set allWindows to every window
+        set wl to {}
+        repeat with wRef in allWindows
+            try
+                set s to size of wRef
+                if (item 1 of s) > 50 and (item 2 of s) > 50 then
+                    set wName to name of wRef
+                    if targetNames contains wName then
+                        set end of wl to wRef
+                    end if
+                end if
+            end try
+        end repeat
+        set cnt to count of wl
+        if cnt = 0 then return 0
+
+        if targetDisplay > 0 and targetDisplay ≤ screenCount then
+            set dInfo to item targetDisplay of displayInfo
+            set screenX to x of dInfo
+            set screenY to y of dInfo
+            set screenW to w of dInfo
+            set screenH to h of dInfo
+            ${asGridCalc('cnt', cols, rows)}
+
+            -- Pass 1: position のみ (ディスプレイ間移動)
+            repeat with i from 1 to cnt
+                try
+                    set idx to i - 1
+                    set x1 to screenX + (screenW * (idx mod gridC) div gridC) + pad
+                    set y1 to screenY + (screenH * (idx div gridC) div gridR) + pad
+                    set position of item i of wl to {x1, y1}
+                end try
+            end repeat
+            delay 0.4
+
+            -- Pass 2-3: position + size
+            repeat with pass from 1 to 2
+                repeat with i from 1 to cnt
+                    try
+                        set idx to i - 1
+                        set gC to idx mod gridC
+                        set gR to idx div gridC
+                        set x1 to screenX + (screenW * gC div gridC) + pad
+                        set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                        set y1 to screenY + (screenH * gR div gridR) + pad
+                        set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                        set position of item i of wl to {x1, y1}
+                        set size of item i of wl to {x2 - x1, y2 - y1}
+                    end try
+                end repeat
+                if pass = 1 then delay 0.2
+            end repeat
+            set totalArranged to cnt
+        else
+            -- 自動モード: 各ディスプレイ内で配置
+            repeat with dispIdx from 1 to screenCount
+                set dInfo to item dispIdx of displayInfo
+                set screenX to x of dInfo
+                set screenY to y of dInfo
+                set screenW to w of dInfo
+                set screenH to h of dInfo
+
+                set dw to {}
+                repeat with i from 1 to cnt
+                    try
+                        set p to position of item i of wl
+                        set s to size of item i of wl
+                        set cx to (item 1 of p) + (item 1 of s) / 2
+                        set cy to (item 2 of p) + (item 2 of s) / 2
+                        if cx ≥ screenX and cx < (screenX + screenW) and cy ≥ screenY and cy < (screenY + screenH) then
+                            set end of dw to (item i of wl)
+                        end if
+                    end try
+                end repeat
+
+                set dc to count of dw
+                if dc > 0 then
+                    ${asGridCalc('dc', cols, rows)}
+                    repeat with pass from 1 to 2
+                        repeat with j from 1 to dc
+                            try
+                                set idx to j - 1
+                                set gC to idx mod gridC
+                                set gR to idx div gridC
+                                set x1 to screenX + (screenW * gC div gridC) + pad
+                                set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                                set y1 to screenY + (screenH * gR div gridR) + pad
+                                set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                                set position of (item j of dw) to {x1, y1}
+                                set size of (item j of dw) to {x2 - x1, y2 - y1}
+                            end try
+                        end repeat
+                        if pass = 1 then delay 0.15
+                    end repeat
+                    set totalArranged to totalArranged + dc
+                end if
+            end repeat
+        end if
+    end tell
+end tell
+return totalArranged`;
+}
+
+/**
+ * Finder用フィルタ付きグリッドスクリプト
+ * Finder の card.windowId は `id of Finder window` の数値を文字列化したもの。
+ * 数値リストとして渡して `id of fw` で直接フィルタ。
+ */
+function buildFilteredFinderGridScript(options = {}) {
+  const { cols = 0, rows = 0, displayIndex = 0, padding = 0, windowIds = [] } = options;
+  const idsArray = windowIds.map(id => parseInt(id) || 0).join(', ');
+
+  return `use framework "AppKit"
+use scripting additions
+${asDisplayInfo()}
+
+set pad to ${padding}
+set totalArranged to 0
+set targetDisplay to ${displayIndex}
+set targetIds to {${idsArray}}
+
+tell application "Finder"
+    activate
+    set allFW to every Finder window whose visible is true
+    set wl to {}
+    repeat with fw in allFW
+        if targetIds contains (id of fw) then
+            set end of wl to fw
+        end if
+    end repeat
+    set cnt to count of wl
+    if cnt = 0 then return 0
+
+    if targetDisplay > 0 and targetDisplay ≤ screenCount then
+        set dInfo to item targetDisplay of displayInfo
+        set screenX to x of dInfo
+        set screenY to y of dInfo
+        set screenW to w of dInfo
+        set screenH to h of dInfo
+        ${asGridCalc('cnt', cols, rows)}
+
+        repeat with i from 1 to cnt
+            set idx to i - 1
+            set gC to idx mod gridC
+            set gR to idx div gridC
+            set x1 to screenX + (screenW * gC div gridC) + pad
+            set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+            set y1 to screenY + (screenH * gR div gridR) + pad
+            set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+            set bounds of item i of wl to {x1, y1, x2, y2}
+            set totalArranged to totalArranged + 1
+        end repeat
+    else
+        repeat with dispIdx from 1 to screenCount
+            set dInfo to item dispIdx of displayInfo
+            set screenX to x of dInfo
+            set screenY to y of dInfo
+            set screenW to w of dInfo
+            set screenH to h of dInfo
+
+            set dw to {}
+            repeat with i from 1 to cnt
+                set b to bounds of item i of wl
+                set cx to (item 1 of b) + ((item 3 of b) - (item 1 of b)) / 2
+                set cy to (item 2 of b) + ((item 4 of b) - (item 2 of b)) / 2
+                if cx ≥ screenX and cx < (screenX + screenW) and cy ≥ screenY and cy < (screenY + screenH) then
+                    set end of dw to (item i of wl)
+                end if
+            end repeat
+
+            set dc to count of dw
+            if dc > 0 then
+                ${asGridCalc('dc', cols, rows)}
+                repeat with j from 1 to dc
+                    set idx to j - 1
+                    set gC to idx mod gridC
+                    set gR to idx div gridC
+                    set x1 to screenX + (screenW * gC div gridC) + pad
+                    set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                    set y1 to screenY + (screenH * gR div gridR) + pad
+                    set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                    set bounds of (item j of dw) to {x1, y1, x2, y2}
+                    set totalArranged to totalArranged + 1
+                end repeat
+            end if
+        end repeat
+    end if
+    return totalArranged
+end tell`;
+}
+
+/**
+ * 汎用アプリ用フィルタ付きグリッドスクリプト
+ * windowId の形式は "AppName:WindowTitle" （windowManager.cjs の getGenericAppWindows 参照）
+ * コロン以降のウィンドウ名でマッチングする。
+ */
+function buildFilteredGenericGridScript(processName, options = {}) {
+  const { cols = 0, rows = 0, displayIndex = 0, padding = -5, windowIds = [] } = options;
+  const escaped = processName.replace(/"/g, '\\"');
+  // windowIds から名前部分を抽出: "AppName:WindowTitle" or "AppName:WindowTitle-2"
+  const namesArray = windowIds.map(id => {
+    const colonIdx = id.indexOf(':');
+    let name = colonIdx >= 0 ? id.substring(colonIdx + 1) : id;
+    // 末尾の重複連番サフィックス "-2", "-3" を除去（同名ウィンドウのIDに付与される）
+    name = name.replace(/-\d+$/, '');
+    return `"${name.replace(/"/g, '\\"')}"`;
+  }).join(', ');
+
+  return `use framework "AppKit"
+use scripting additions
+${asDisplayInfo()}
+
+set pad to ${padding}
+set totalArranged to 0
+set targetDisplay to ${displayIndex}
+set targetNames to {${namesArray}}
+
+tell application "${escaped}" to activate
+delay 0.3
+
+tell application "System Events"
+    tell process "${escaped}"
+        set allWindows to every window
+        set wl to {}
+        repeat with wRef in allWindows
+            try
+                set s to size of wRef
+                if (item 1 of s) > 50 and (item 2 of s) > 50 then
+                    set wName to name of wRef
+                    if targetNames contains wName then
+                        set end of wl to wRef
+                    end if
+                end if
+            end try
+        end repeat
+        set cnt to count of wl
+        if cnt = 0 then return 0
+
+        if targetDisplay > 0 and targetDisplay ≤ screenCount then
+            set dInfo to item targetDisplay of displayInfo
+            set screenX to x of dInfo
+            set screenY to y of dInfo
+            set screenW to w of dInfo
+            set screenH to h of dInfo
+            ${asGridCalc('cnt', cols, rows)}
+
+            repeat with i from 1 to cnt
+                try
+                    set idx to i - 1
+                    set x1 to screenX + (screenW * (idx mod gridC) div gridC) + pad
+                    set y1 to screenY + (screenH * (idx div gridC) div gridR) + pad
+                    set position of item i of wl to {x1, y1}
+                end try
+            end repeat
+            delay 0.4
+
+            repeat with pass from 1 to 2
+                repeat with i from 1 to cnt
+                    try
+                        set idx to i - 1
+                        set gC to idx mod gridC
+                        set gR to idx div gridC
+                        set x1 to screenX + (screenW * gC div gridC) + pad
+                        set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                        set y1 to screenY + (screenH * gR div gridR) + pad
+                        set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                        set position of item i of wl to {x1, y1}
+                        set size of item i of wl to {x2 - x1, y2 - y1}
+                    end try
+                end repeat
+                if pass = 1 then delay 0.2
+            end repeat
+            set totalArranged to cnt
+        else
+            repeat with dispIdx from 1 to screenCount
+                set dInfo to item dispIdx of displayInfo
+                set screenX to x of dInfo
+                set screenY to y of dInfo
+                set screenW to w of dInfo
+                set screenH to h of dInfo
+
+                set dw to {}
+                repeat with i from 1 to cnt
+                    try
+                        set p to position of item i of wl
+                        set s to size of item i of wl
+                        set cx to (item 1 of p) + (item 1 of s) / 2
+                        set cy to (item 2 of p) + (item 2 of s) / 2
+                        if cx ≥ screenX and cx < (screenX + screenW) and cy ≥ screenY and cy < (screenY + screenH) then
+                            set end of dw to (item i of wl)
+                        end if
+                    end try
+                end repeat
+
+                set dc to count of dw
+                if dc > 0 then
+                    ${asGridCalc('dc', cols, rows)}
+                    repeat with pass from 1 to 2
+                        repeat with j from 1 to dc
+                            try
+                                set idx to j - 1
+                                set gC to idx mod gridC
+                                set gR to idx div gridC
+                                set x1 to screenX + (screenW * gC div gridC) + pad
+                                set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                                set y1 to screenY + (screenH * gR div gridR) + pad
+                                set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                                set position of (item j of dw) to {x1, y1}
+                                set size of (item j of dw) to {x2 - x1, y2 - y1}
+                            end try
+                        end repeat
+                        if pass = 1 then delay 0.15
+                    end repeat
+                    set totalArranged to totalArranged + dc
+                end if
+            end repeat
+        end if
+    end tell
+end tell
+return totalArranged`;
+}
+
+// =========================================================
 // 公開 API
 // =========================================================
 
 async function arrangeTerminalGrid(options = {}) {
   try {
-    const result = await runAppleScript(buildSystemEventsGridScript('Terminal', options), 30000);
+    // windowIds 指定時はフィルタ付きスクリプトを使用
+    const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
+      ? () => buildFilteredTerminalGridScript(options)
+      : () => buildSystemEventsGridScript('Terminal', options);
+    const result = await runAppleScript(scriptFn(), 30000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeTerminalGrid error:', error);
@@ -720,7 +1090,10 @@ async function arrangeTerminalGrid(options = {}) {
 
 async function arrangeFinderGrid(options = {}) {
   try {
-    const result = await runAppleScript(buildFinderGridScript(options), 20000);
+    const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
+      ? () => buildFilteredFinderGridScript(options)
+      : () => buildFinderGridScript(options);
+    const result = await runAppleScript(scriptFn(), 20000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeFinderGrid error:', error);
@@ -730,7 +1103,10 @@ async function arrangeFinderGrid(options = {}) {
 
 async function arrangeGenericGrid(appName, options = {}) {
   try {
-    const result = await runAppleScript(buildSystemEventsGridScript(appName, options), 45000);
+    const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
+      ? () => buildFilteredGenericGridScript(appName, options)
+      : () => buildSystemEventsGridScript(appName, options);
+    const result = await runAppleScript(scriptFn(), 45000);
     return { success: true, arranged: parseInt(result.trim()) || 0 };
   } catch (error) {
     console.error('arrangeGenericGrid error:', error);

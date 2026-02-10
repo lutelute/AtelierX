@@ -286,6 +286,7 @@ export interface GridOptions {
   rows?: number;
   displayIndex?: number;
   padding?: number;
+  windowIds?: string[];  // 対象ウィンドウIDリスト（未指定=全ウィンドウ）
 }
 
 export interface GridResult {
