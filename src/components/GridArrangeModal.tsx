@@ -18,7 +18,7 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
   const [rows, setRows] = useState<number>(2);
   const [padding, setPadding] = useState<number>(5);
   const [isArranging, setIsArranging] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; arranged: number } | null>(null);
+  const [result, setResult] = useState<{ success: boolean; arranged: number; error?: string } | null>(null);
   const [pluginLayouts, setPluginLayouts] = useState<PluginGridLayout[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
@@ -127,8 +127,8 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
       if (res.success) {
         setTimeout(() => setResult(null), 3000);
       }
-    } catch (error) {
-      setResult({ success: false, arranged: 0 });
+    } catch (error: any) {
+      setResult({ success: false, arranged: 0, error: error?.message || String(error) });
     } finally {
       setIsArranging(false);
     }
@@ -413,7 +413,7 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
             <div className={`grid-result ${result.success ? 'success' : 'error'}`}>
               {result.success
                 ? `${result.arranged} 個のウィンドウを配置しました`
-                : '配置に失敗しました'}
+                : `配置に失敗しました${result.error ? `: ${result.error}` : ''}`}
             </div>
           )}
         </div>

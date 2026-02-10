@@ -1117,6 +1117,7 @@ async function arrangeTerminalGrid(options = {}) {
       : () => buildSystemEventsGridScript('Terminal', options);
     const result = await runAppleScript(scriptFn(), 30000);
     const arranged = parseInt(result.trim()) || 0;
+    if (arranged === 0) return { success: false, error: 'ウィンドウが見つかりません', arranged: 0 };
     return { success: true, arranged };
   } catch (error) {
     console.error('arrangeTerminalGrid error:', error);
@@ -1131,6 +1132,7 @@ async function arrangeFinderGrid(options = {}) {
       : () => buildFinderGridScript(options);
     const result = await runAppleScript(scriptFn(), 20000);
     const arranged = parseInt(result.trim()) || 0;
+    if (arranged === 0) return { success: false, error: 'ウィンドウが見つかりません', arranged: 0 };
     return { success: true, arranged };
   } catch (error) {
     console.error('arrangeFinderGrid error:', error);
@@ -1145,6 +1147,7 @@ async function arrangeGenericGrid(appName, options = {}) {
       : () => buildSystemEventsGridScript(appName, options);
     const result = await runAppleScript(scriptFn(), 45000);
     const arranged = parseInt(result.trim()) || 0;
+    if (arranged === 0) return { success: false, error: 'ウィンドウが見つかりません', arranged: 0 };
     return { success: true, arranged };
   } catch (error) {
     console.error('arrangeGenericGrid error:', error);
