@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS%20|%20Windows%20|%20Linux-lightgrey?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/electron-40-47848F?style=flat-square&logo=electron" alt="Electron">
   <img src="https://img.shields.io/badge/react-18-61DAFB?style=flat-square&logo=react" alt="React">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
@@ -15,7 +15,7 @@
 
 ---
 
-Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理するクロスプラットフォームアプリ。プラグインで機能を拡張可能。
+Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理する **macOS 専用** デスクトップアプリ。プラグインで機能を拡張可能。
 
 ## Features
 
@@ -87,8 +87,11 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 | Platform | Format | 対応環境 |
 |----------|--------|---------|
 | **macOS** | `.dmg` (Universal) | Apple Silicon (M1〜) & Intel 両対応 |
+
+<!-- Windows / Linux 対応は現在開発していません
 | **Windows** | `.exe` | Windows 10 以降 |
 | **Linux** | `.AppImage` / `.deb` | Ubuntu 20.04 以降 (X11) |
+-->
 
 > アプリ内の設定画面からアップデートを確認できます。
 
@@ -137,7 +140,7 @@ macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与
 
 > **なぜこうなる？** AtelierX は現在 Apple Developer ID で署名されていません。ローカルビルドでは問題ありませんが、GitHub からダウンロードするとブラウザが隔離フラグを付与します。
 
----
+<!-- Windows / Linux 対応は現在開発していません
 
 ### Windows
 
@@ -162,6 +165,17 @@ macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与
    ```bash
    sudo apt install wmctrl xdotool
    ```
+-->
+
+## Known Issues
+
+| Issue | 内容 | Workaround |
+|-------|------|------------|
+| [#34](https://github.com/lutelute/AtelierX/issues/34) | ターミナルが多いとGrid配置が1回で完了しない | Grid配置を複数回実行する |
+| [#29](https://github.com/lutelute/AtelierX/issues/29) | カードクリック時にターミナルが最前面に来ない場合がある | 手動でターミナルをクリックして前面に出す |
+| [#30](https://github.com/lutelute/AtelierX/issues/30) | アクセシビリティ権限のトグルON/OFFが効かない | 一覧から「−」で削除→「+」で再追加する |
+
+> いずれも macOS 側のウィンドウ管理・権限キャッシュに起因する問題です。
 
 ## Tech Stack
 
@@ -171,8 +185,6 @@ macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与
 | Desktop | Electron 40 |
 | DnD | @dnd-kit |
 | macOS | AppleScript (Terminal / Finder / System Events) |
-| Windows | PowerShell + user32.dll |
-| Linux | wmctrl + xdotool (X11) |
 
 ## Development
 
