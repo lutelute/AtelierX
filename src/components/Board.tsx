@@ -1177,8 +1177,6 @@ export function Board() {
           appType={enabledTabs.find(t => t.id === activeBoard)?.appName || 'Terminal'}
           onClose={() => setShowGridModal(false)}
           onArrange={handleArrangeGrid}
-          columns={currentBoard.columns}
-          cards={currentBoard.cards}
         />
       )}
       {showMultiGridModal && (

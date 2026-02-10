@@ -161,80 +161,12 @@ if screenW > 1920 and gridC < 3 then set gridC to 3`;
 //   Pass 3: position + size → 最終補正
 
 function buildSystemEventsGridScript(processName, options = {}) {
-  const { cols = 0, rows = 0, displayIndex = 0, padding = -5, windowIds } = options;
+  const { cols = 0, rows = 0, displayIndex = 0, padding = -5 } = options;
   const escaped = processName.replace(/"/g, '\\"');
-
-  // windowIds フィルタ: IDベースでウィンドウを選択
-  const hasIdFilter = Array.isArray(windowIds);
-  let idResolveBlock = '';
-  let windowCollectionBlock;
-
-  if (hasIdFilter && processName === 'Terminal') {
-    // Terminal: ID→インデックスベースマッチング
-    // Terminal.appとSystem Eventsはウィンドウを同じz-order順で返すので、
-    // Terminal.appでIDからインデックスを特定し、System Eventsで直接参照
-    const idList = windowIds.filter(id => /^\d+$/.test(id)).join(', ');
-    idResolveBlock = `
-set targetIds to {${idList || '0'}}
-set targetIndices to {}
-tell application "Terminal"
-    set allTermWins to every window
-    repeat with i from 1 to count of allTermWins
-        try
-            if (id of item i of allTermWins) is in targetIds then
-                set end of targetIndices to i
-            end if
-        end try
-    end repeat
-end tell`;
-    windowCollectionBlock = `
-        repeat with idx in targetIndices
-            try
-                if idx ≤ (count of allWindows) then
-                    set wRef to item idx of allWindows
-                    set s to size of wRef
-                    if (item 1 of s) > 50 and (item 2 of s) > 50 then
-                        set end of wl to wRef
-                    end if
-                end if
-            end try
-        end repeat`;
-  } else if (hasIdFilter) {
-    // 汎用アプリ: IDから名前部分を抽出してマッチ (ID形式: "AppName:windowTitle")
-    const names = windowIds.map(id => {
-      const colonIdx = id.indexOf(':');
-      const name = colonIdx >= 0 ? id.substring(colonIdx + 1).replace(/-\d+$/, '') : id;
-      return `"${name.replace(/"/g, '\\"')}"`;
-    });
-    idResolveBlock = `set targetNames to {${names.join(', ')}}`;
-    windowCollectionBlock = `
-        repeat with wRef in allWindows
-            try
-                set n to name of wRef
-                if n is not in targetNames then error "skip"
-                set s to size of wRef
-                if (item 1 of s) > 50 and (item 2 of s) > 50 then
-                    set end of wl to wRef
-                end if
-            end try
-        end repeat`;
-  } else {
-    // フィルタなし: 全ウィンドウ収集
-    windowCollectionBlock = `
-        repeat with wRef in allWindows
-            try
-                set s to size of wRef
-                if (item 1 of s) > 50 and (item 2 of s) > 50 then
-                    set end of wl to wRef
-                end if
-            end try
-        end repeat`;
-  }
 
   return `use framework "AppKit"
 use scripting additions
 ${asDisplayInfo()}
-${idResolveBlock}
 
 set pad to ${padding}
 set totalArranged to 0
@@ -245,10 +177,17 @@ delay 0.3
 
 tell application "System Events"
     tell process "${escaped}"
-        -- ウィンドウ収集
+        -- ウィンドウ収集 (小さすぎるUIパネル等を除外)
         set allWindows to every window
         set wl to {}
-${windowCollectionBlock}
+        repeat with wRef in allWindows
+            try
+                set s to size of wRef
+                if (item 1 of s) > 50 and (item 2 of s) > 50 then
+                    set end of wl to wRef
+                end if
+            end try
+        end repeat
         set cnt to count of wl
         if cnt = 0 then return 0
 
@@ -350,24 +289,7 @@ return totalArranged`;
 // 全ディスプレイで正確に動作するため、1パス・padding=0 で配置。
 
 function buildFinderGridScript(options = {}) {
-  const { cols = 0, rows = 0, displayIndex = 0, padding = 0, windowIds } = options;
-
-  // windowIds フィルタ: Finder window ID でフィルタ
-  const hasIdFilter = Array.isArray(windowIds);
-  const idFilterBlock = hasIdFilter
-    ? (() => {
-        const idList = windowIds.filter(id => /^\d+$/.test(id)).join(', ');
-        return `
-    set targetIds to {${idList || '0'}}
-    set filteredWl to {}
-    repeat with fw in wl
-        if (id of fw) is in targetIds then
-            set end of filteredWl to fw
-        end if
-    end repeat
-    set wl to filteredWl`;
-      })()
-    : '';
+  const { cols = 0, rows = 0, displayIndex = 0, padding = 0 } = options;
 
   return `use framework "AppKit"
 use scripting additions
@@ -379,7 +301,7 @@ set targetDisplay to ${displayIndex}
 
 tell application "Finder"
     activate
-    set wl to every Finder window whose visible is true${idFilterBlock}
+    set wl to every Finder window whose visible is true
     set cnt to count of wl
     if cnt = 0 then return 0
 
