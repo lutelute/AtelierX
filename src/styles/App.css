@@ -9722,3 +9722,102 @@ body.theme-light {
   color: #a1a1aa;
   background: rgba(0, 0, 0, 0.02);
 }
+
+/* ============================================
+   アップデート通知バナー
+   ============================================ */
+.update-banner {
+  position: fixed;
+  top: 52px;
+  left: 56px;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+  backdrop-filter: blur(12px);
+  transform: translateY(-100%);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.update-banner-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.update-banner-text {
+  font-size: 13px;
+  color: #c4b5fd;
+  font-weight: 500;
+}
+
+.update-banner-action {
+  background: rgba(139, 92, 246, 0.25);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #c4b5fd;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.update-banner-action:hover {
+  background: rgba(139, 92, 246, 0.4);
+  border-color: rgba(139, 92, 246, 0.6);
+}
+
+.update-banner-close {
+  background: none;
+  border: none;
+  color: rgba(196, 181, 253, 0.6);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.update-banner-close:hover {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.2);
+}
+
+/* ライトテーマ */
+.theme-light .update-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.theme-light .update-banner-text {
+  color: #6d28d9;
+}
+
+.theme-light .update-banner-action {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #6d28d9;
+}
+
+.theme-light .update-banner-action:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+.theme-light .update-banner-close {
+  color: rgba(109, 40, 217, 0.4);
+}
+
+.theme-light .update-banner-close:hover {
+  color: #6d28d9;
+  background: rgba(139, 92, 246, 0.1);
+}

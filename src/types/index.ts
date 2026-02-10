@@ -517,6 +517,7 @@ declare global {
         cleanup: () => Promise<UpdateCleanupResult>;
         restart: () => Promise<void>;
         onProgress: (callback: (data: UpdateProgress) => void) => () => void;
+        onNotify: (callback: (data: UpdateCheckResult) => void) => () => void;
       };
     };
   }

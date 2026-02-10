@@ -42,6 +42,7 @@ import { AddIdeaModal } from './AddIdeaModal';
 import { TabAddPopover } from './TabAddPopover';
 import { HelpModal } from './HelpModal';
 import { migrateBoardDataToAllBoards } from '../utils/boardUtils';
+import { UpdateBanner } from './UpdateBanner';
 
 export function Board() {
   const [allData, setAllData] = useLocalStorage<AllBoardsData>('kanban-all-boards', initialAllBoardsData);
@@ -928,6 +929,7 @@ export function Board() {
           </div>
         </div>
       </nav>
+      <UpdateBanner onOpenSettings={() => setShowSettingsModal(true)} />
       {activeBoard !== 'ideas' ? (
         <>
           <DndContext

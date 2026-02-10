@@ -67,5 +67,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       // クリーンアップ関数を返す
       return () => ipcRenderer.removeListener('update:progress', listener);
     },
+    onNotify: (callback) => {
+      const listener = (_, data) => callback(data);
+      ipcRenderer.on('update:notify', listener);
+      return () => ipcRenderer.removeListener('update:notify', listener);
+    },
   },
 });

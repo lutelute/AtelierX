@@ -94,6 +94,21 @@ app.whenReady().then(() => {
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
 
+  // 起動時アップデート自動チェック（15秒後）
+  setTimeout(async () => {
+    try {
+      const result = await checkForUpdates();
+      if (result.available) {
+        const wins = BrowserWindow.getAllWindows();
+        if (wins.length > 0) {
+          wins[0].webContents.send('update:notify', result);
+        }
+      }
+    } catch (e) {
+      // サイレントに失敗（起動時チェックはベストエフォート）
+    }
+  }, 15000);
+
   // IPC: ウィンドウ一覧を取得（引数で追加アプリ名を指定可能）
   ipcMain.handle('get-app-windows', async (_, appNames) => {
     return await getAppWindows(appNames);

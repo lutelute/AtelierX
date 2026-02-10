@@ -457,10 +457,14 @@ function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Generic', escapedApp) : '';
 
-  // 対象ウィンドウだけを前面に表示（frontmostは使わずAXRaiseのみ）
+  // 対象ウィンドウだけを前面に表示
   // 名前が変わりやすいアプリ（ブラウザ等）のため3段階で検索:
   //   1. 完全一致  2. 部分一致(contains)  3. ウィンドウインデックス
+  // AXRaise後にactivateWithOptions:2で対象ウィンドウだけAtelierXより前に出す
   const script = `
+use framework "AppKit"
+use scripting additions
+
 set targetWindowName to ""
 set targetW to missing value
 tell application "System Events"
@@ -499,6 +503,16 @@ ${innerSnippet}
     end try
   end tell
 end tell
+if targetW is not missing value then
+  delay 0.05
+  try
+    set bundleId to id of application "${escapedApp}"
+    set targetApps to current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:bundleId
+    if targetApps's |count|() > 0 then
+      (targetApps's objectAtIndex:0)'s activateWithOptions:2
+    end if
+  end try
+end if
 ${outerSnippet}
 `;
 
@@ -657,8 +671,14 @@ end tell`;
   }
 
   // Step 2: System Eventsで名前ベースでウィンドウを検索してAXRaise
-  // window 1 への依存を排除し、名前で正確にマッチする
+  // Step 3: NSRunningApplication.activateWithOptions: で対象ウィンドウだけ前面化
+  //   activateWithOptions:2 = NSApplicationActivateIgnoringOtherApps のみ
+  //   NSApplicationActivateAllWindows を含めないことで、AXRaiseされた
+  //   ウィンドウだけが他アプリのウィンドウより前に出る
   const script = `
+use framework "AppKit"
+use scripting additions
+
 set targetWindowName to ""
 set targetWindowId to 0
 set found to false
@@ -680,6 +700,13 @@ ${innerSnippet}
       end if
     end tell
   end tell
+  delay 0.05
+  try
+    set termApp to (current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.apple.Terminal")'s firstObject()
+    if termApp is not missing value then
+      termApp's activateWithOptions:2
+    end if
+  end try
 ${outerSnippet}
 end if
 return found
@@ -742,6 +769,9 @@ end tell`;
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
   const script = `
+use framework "AppKit"
+use scripting additions
+
 set targetWindowName to ""
 set targetWindowId to 0
 set found to false
@@ -763,6 +793,13 @@ ${innerSnippet}
       end if
     end tell
   end tell
+  delay 0.05
+  try
+    set finderApp to (current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.apple.finder")'s firstObject()
+    if finderApp is not missing value then
+      finderApp's activateWithOptions:2
+    end if
+  end try
 ${outerSnippet}
 end if
 return found
