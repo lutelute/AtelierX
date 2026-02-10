@@ -712,14 +712,14 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
 
   // カラム色 + 優先順位に基づくスタイル計算
   const priorityStyle = useMemo(() => {
-    if (!card.priority) return { opacity: 0.02, borderWidth: 2 };
+    if (!card.priority) return { opacity: 0.03, borderWidth: 3 };
     const idx = allPriorities.findIndex(p => p.id === card.priority);
-    if (idx === -1) return { opacity: 0.02, borderWidth: 2 };
+    if (idx === -1) return { opacity: 0.03, borderWidth: 3 };
     // リスト上位ほど高優先 → 太い/濃い
     const ratio = 1 - idx / Math.max(allPriorities.length - 1, 1);
     return {
-      opacity: 0.02 + ratio * 0.06,
-      borderWidth: 2 + Math.round(ratio * 2),
+      opacity: 0.03 + ratio * 0.07,
+      borderWidth: 3 + Math.round(ratio * 2),
     };
   }, [card.priority, allPriorities]);
 
