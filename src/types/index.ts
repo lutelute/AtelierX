@@ -483,6 +483,8 @@ declare global {
       importCardBackup: () => Promise<{ success: boolean; error?: string; data: CardBackup | null }>;
       // アンインストール
       uninstallApp: () => Promise<{ success: boolean; error?: string }>;
+      // メニューからの設定オープン
+      onOpenSettings: (callback: () => void) => () => void;
       // グリッド配置関連
       getDisplays: () => Promise<DisplayInfo[]>;
       arrangeTerminalGrid: (options?: GridOptions) => Promise<GridResult>;
@@ -516,6 +518,7 @@ declare global {
         install: () => Promise<UpdateInstallResult>;
         cleanup: () => Promise<UpdateCleanupResult>;
         restart: () => Promise<void>;
+        getState: () => Promise<{ status: string; version: string | null; downloadUrl: string | null; progress: UpdateProgress | null; error: string | null }>;
         onProgress: (callback: (data: UpdateProgress) => void) => () => void;
         onNotify: (callback: (data: UpdateCheckResult) => void) => () => void;
       };

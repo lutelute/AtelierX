@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS%20|%20Windows%20|%20Linux-lightgrey?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/electron-40-47848F?style=flat-square&logo=electron" alt="Electron">
   <img src="https://img.shields.io/badge/react-18-61DAFB?style=flat-square&logo=react" alt="React">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
@@ -15,7 +15,9 @@
 
 ---
 
-Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理するクロスプラットフォームアプリ。プラグインで機能を拡張可能。
+> **Note**: AtelierX は現在 **macOS 専用**です。Windows / Linux 版は将来対応を検討中です（[ロードマップ](https://github.com/lutelute/AtelierX/issues/22)）。
+
+Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理する macOS アプリ。プラグインで機能を拡張可能。
 
 ## Features
 
@@ -33,7 +35,7 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 - **Multi-Display** &mdash; ディスプレイごとに配置先を選択
 - **Presets** &mdash; プラグインでカスタムレイアウトを追加可能
 
-### Terminal Color (macOS)
+### Terminal Color
 - **Preset Themes** &mdash; Ocean / Forest / Sunset / Berry / Slate / Rose の6プリセット
 - **Column Color** &mdash; カラムの色に応じてTerminal背景色を一括適用
 - **Priority Color** &mdash; 優先順位に応じた色分け
@@ -86,9 +88,7 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 
 | Platform | Format | 対応環境 |
 |----------|--------|---------|
-| **macOS** | `.dmg` (Universal) | Apple Silicon (M1〜) & Intel 両対応 |
-| **Windows** | `.exe` | Windows 10 以降 |
-| **Linux** | `.AppImage` / `.deb` | Ubuntu 20.04 以降 (X11) |
+| **macOS** | `.dmg` | Apple Silicon (M1〜) |
 
 > アプリ内の設定画面からアップデートを確認できます。
 
@@ -123,7 +123,9 @@ AtelierX はウィンドウの操作・配置に macOS のセキュリティ権�
 | **アクセシビリティ** | システム設定 → プライバシーとセキュリティ → アクセシビリティ | System Events でウィンドウの位置・サイズを制御 |
 | **オートメーション** | システム設定 → プライバシーとセキュリティ → オートメーション | Terminal / Finder / 他アプリの操作 |
 
-> **権限を設定しても動作しない場合**: 権限変更後は AtelierX の再起動が必要です。それでも改善しない場合は、アクセシビリティの一覧から AtelierX を一度削除して再追加してください。
+> **権限を設定しても動作しない場合**: 権限変更後は AtelierX の再起動が必要です。それでも改善しない場合は、アクセシビリティの一覧で AtelierX を**左下の「−」ボタンで一度削除**してから「+」ボタンで再追加してください。**トグルの OFF → ON だけでは macOS が権限をリフレッシュしないため、必ず削除→再追加の手順で行ってください。** アプリを更新した際にも同じ手順が必要になることがあります。
+
+> **ステージマネージャーについて**: macOS の「ステージマネージャー」が有効な場合、ウィンドウの位置・サイズが macOS 側で自動調整されるため、Grid 配置が正しく動作しません。Grid 配置を使用する際は、**システム設定 → デスクトップと Dock → ステージマネージャー を オフ** にしてください。AtelierX は起動時にステージマネージャーの状態を検知し、有効な場合は警告を表示します。
 
 #### 「壊れているため開けません」と表示される場合
 
@@ -137,32 +139,6 @@ macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与
 
 > **なぜこうなる？** AtelierX は現在 Apple Developer ID で署名されていません。ローカルビルドでは問題ありませんが、GitHub からダウンロードするとブラウザが隔離フラグを付与します。
 
----
-
-### Windows
-
-1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.exe` をダウンロード
-2. インストーラーを実行
-3. 「Windows によって PC が保護されました」と表示されたら **「詳細情報」→「実行」** をクリック
-
----
-
-### Linux
-
-1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.AppImage` または `.deb` をダウンロード
-2. インストール:
-   ```bash
-   # AppImage
-   chmod +x AtelierX-*.AppImage && ./AtelierX-*.AppImage
-
-   # deb
-   sudo dpkg -i AtelierX-*.deb
-   ```
-3. ウィンドウ管理機能の前提パッケージ:
-   ```bash
-   sudo apt install wmctrl xdotool
-   ```
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -171,8 +147,6 @@ macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与
 | Desktop | Electron 40 |
 | DnD | @dnd-kit |
 | macOS | AppleScript (Terminal / Finder / System Events) |
-| Windows | PowerShell + user32.dll |
-| Linux | wmctrl + xdotool (X11) |
 
 ## Development
 
@@ -183,7 +157,7 @@ npm install
 # Dev mode
 npm run electron:dev
 
-# Build (macOS)
+# Build
 npm run electron:build:mac
 ```
 
@@ -210,11 +184,9 @@ Release script handles: version bump -> build -> commit -> tag -> push -> GitHub
 │   ├── preload.cjs            # Preload script
 │   ├── pluginManager.cjs      # Plugin lifecycle
 │   ├── pluginAPI.cjs          # Plugin API
-│   └── platforms/             # Platform abstraction layer
-│       ├── index.cjs          # Router (process.platform)
-│       ├── darwin/            # macOS (AppleScript)
-│       ├── win32/             # Windows (PowerShell)
-│       └── linux/             # Linux (wmctrl/xdotool)
+│   └── platforms/
+│       ├── index.cjs          # Platform router
+│       └── darwin/            # macOS (AppleScript)
 ├── src/
 │   ├── components/            # React components
 │   ├── hooks/                 # Custom hooks
@@ -222,9 +194,7 @@ Release script handles: version bump -> build -> commit -> tag -> push -> GitHub
 │   ├── utils/                 # Utilities
 │   └── types/                 # TypeScript types
 └── build/
-    ├── icon.icns              # macOS icon
-    ├── icon.ico               # Windows icon
-    └── icon.png               # Linux icon
+    └── icon.icns              # macOS icon
 ```
 
 ## Plugin Development

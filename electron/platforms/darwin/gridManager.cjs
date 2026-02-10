@@ -19,6 +19,20 @@ const fs = require('fs');
 const os = require('os');
 const { exec } = require('child_process');
 
+// ----- ステージマネージャー検知 -----
+
+function checkStageManager() {
+  return new Promise((resolve) => {
+    exec('defaults read com.apple.WindowManager GloballyEnabled 2>/dev/null', { encoding: 'utf-8', timeout: 3000 }, (error, stdout) => {
+      if (error) {
+        resolve(false);
+        return;
+      }
+      resolve(stdout.trim() === '1');
+    });
+  });
+}
+
 // ----- AppleScript 実行 -----
 
 function runAppleScript(script, timeout = 20000) {
@@ -173,9 +187,6 @@ set totalArranged to 0
 set targetDisplay to ${displayIndex}
 if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 
-tell application "${escaped}" to activate
-delay 0.3
-
 tell application "System Events"
     tell process "${escaped}"
         -- ウィンドウ収集 (小さすぎるUIパネル等を除外)
@@ -229,6 +240,44 @@ tell application "System Events"
                 end repeat
                 if pass = 1 then delay 0.2
             end repeat
+            delay 0.3
+
+            -- Verification: 配置結果を検証し、ずれたウィンドウをリトライ
+            set tolerance to 30
+            repeat with retry from 1 to 2
+                set misplaced to 0
+                repeat with i from 1 to cnt
+                    try
+                        set idx to i - 1
+                        set gC to idx mod gridC
+                        set gR to idx div gridC
+                        set x1 to screenX + (screenW * gC div gridC) + pad
+                        set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                        set y1 to screenY + (screenH * gR div gridR) + pad
+                        set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                        set expectedW to x2 - x1
+                        set expectedH to y2 - y1
+                        set actualPos to position of item i of wl
+                        set actualSize to size of item i of wl
+                        set dx to (item 1 of actualPos) - x1
+                        set dy to (item 2 of actualPos) - y1
+                        if dx < 0 then set dx to -dx
+                        if dy < 0 then set dy to -dy
+                        set dw to (item 1 of actualSize) - expectedW
+                        set dh to (item 2 of actualSize) - expectedH
+                        if dw < 0 then set dw to -dw
+                        if dh < 0 then set dh to -dh
+                        if dx > tolerance or dy > tolerance or dw > tolerance or dh > tolerance then
+                            set position of item i of wl to {x1, y1}
+                            set size of item i of wl to {expectedW, expectedH}
+                            set misplaced to misplaced + 1
+                        end if
+                    end try
+                end repeat
+                if misplaced = 0 then exit repeat
+                delay 0.3
+            end repeat
+
             set totalArranged to cnt
             -- 配置済みウィンドウを前面に
             repeat with i from 1 to cnt
@@ -238,7 +287,7 @@ tell application "System Events"
             end repeat
 
         else
-            -- ===== 自動モード: 各ディスプレイ内のウィンドウを個別に配置 =====
+            -- ===== 自動モード: 各ディスプレイ内のウィンドウを個別に配置（activate不要） =====
             repeat with dispIdx from 1 to screenCount
                 set dInfo to item dispIdx of displayInfo
                 set screenX to x of dInfo
@@ -279,12 +328,60 @@ tell application "System Events"
                         end repeat
                         if pass = 1 then delay 0.15
                     end repeat
+                    delay 0.2
+
+                    -- Verification: 配置結果を検証しリトライ
+                    set tolerance to 30
+                    repeat with retry from 1 to 2
+                        set misplaced to 0
+                        repeat with j from 1 to dc
+                            try
+                                set idx to j - 1
+                                set gC to idx mod gridC
+                                set gR to idx div gridC
+                                set x1 to screenX + (screenW * gC div gridC) + pad
+                                set x2 to screenX + (screenW * (gC + 1) div gridC) - pad
+                                set y1 to screenY + (screenH * gR div gridR) + pad
+                                set y2 to screenY + (screenH * (gR + 1) div gridR) - pad
+                                set expectedW to x2 - x1
+                                set expectedH to y2 - y1
+                                set actualPos to position of (item j of dw)
+                                set actualSize to size of (item j of dw)
+                                set dx to (item 1 of actualPos) - x1
+                                set dy to (item 2 of actualPos) - y1
+                                if dx < 0 then set dx to -dx
+                                if dy < 0 then set dy to -dy
+                                set ddw to (item 1 of actualSize) - expectedW
+                                set ddh to (item 2 of actualSize) - expectedH
+                                if ddw < 0 then set ddw to -ddw
+                                if ddh < 0 then set ddh to -ddh
+                                if dx > tolerance or dy > tolerance or ddw > tolerance or ddh > tolerance then
+                                    set position of (item j of dw) to {x1, y1}
+                                    set size of (item j of dw) to {expectedW, expectedH}
+                                    set misplaced to misplaced + 1
+                                end if
+                            end try
+                        end repeat
+                        if misplaced = 0 then exit repeat
+                        delay 0.2
+                    end repeat
+
                     set totalArranged to totalArranged + dc
                 end if
             end repeat
         end if
     end tell
 end tell
+-- 配置完了後にアプリを前面に（activateWithOptions:2 = AllWindows なし）
+try
+    set allApps to current application's NSWorkspace's sharedWorkspace()'s runningApplications()
+    repeat with a in allApps
+        if (a's localizedName() as text) is "${escaped}" then
+            a's activateWithOptions:2
+            exit repeat
+        end if
+    end repeat
+end try
 return totalArranged`;
 }
 
@@ -446,8 +543,8 @@ function buildSystemEventsMultiCellScript(processName, cellCoords, padding) {
                 end try`;
   }).join('\n');
 
-  return `tell application "${escaped}" to activate
-delay 0.3
+  return `use framework "AppKit"
+use scripting additions
 tell application "System Events"
     tell process "${escaped}"
         set allWindows to every window
@@ -470,6 +567,15 @@ ${posStatements}
 ${pass2Statements}
     end tell
 end tell
+try
+    set allApps to current application's NSWorkspace's sharedWorkspace()'s runningApplications()
+    repeat with a in allApps
+        if (a's localizedName() as text) is "${escaped}" then
+            a's activateWithOptions:2
+            exit repeat
+        end if
+    end repeat
+end try
 return ${cellCoords.length}`;
 }
 
@@ -549,8 +655,8 @@ function buildSystemEventsRegionFillScript(processName, region, padding, subCols
     ? `set gridR to ${subRows}`
     : `set gridR to (cnt + gridC - 1) div gridC`;
 
-  return `tell application "${escaped}" to activate
-delay 0.3
+  return `use framework "AppKit"
+use scripting additions
 tell application "System Events"
     tell process "${escaped}"
         set allWindows to every window
@@ -739,9 +845,6 @@ set targetDisplay to ${displayIndex}
 if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 set targetIds to {${idsArray}}
 
-tell application "Terminal" to activate
-delay 0.3
-
 -- Terminal.app で数値ID→ウィンドウ名を収集
 set targetNames to {}
 tell application "Terminal"
@@ -864,6 +967,13 @@ tell application "System Events"
         end repeat
     end tell
 end tell
+-- 配置完了後にTerminalを前面に（AllWindows なし）
+try
+    set termApp to (current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.apple.Terminal")'s firstObject()
+    if termApp is not missing value then
+        termApp's activateWithOptions:2
+    end if
+end try
 return totalArranged`;
 }
 
@@ -983,9 +1093,6 @@ set targetDisplay to ${displayIndex}
 if targetDisplay = 0 and screenCount = 1 then set targetDisplay to 1
 set targetNames to {${namesArray}}
 
-tell application "${escaped}" to activate
-delay 0.3
-
 tell application "System Events"
     tell process "${escaped}"
         set allWindows to every window
@@ -1092,6 +1199,16 @@ tell application "System Events"
         end repeat
     end tell
 end tell
+-- 配置完了後にアプリを前面に（AllWindows なし）
+try
+    set allApps to current application's NSWorkspace's sharedWorkspace()'s runningApplications()
+    repeat with a in allApps
+        if (a's localizedName() as text) is "${escaped}" then
+            a's activateWithOptions:2
+            exit repeat
+        end if
+    end repeat
+end try
 return totalArranged`;
 }
 
@@ -1099,26 +1216,35 @@ return totalArranged`;
 // 公開 API
 // =========================================================
 
-/** 配置完了後に対象アプリを前面に持ってくる（activate + frontmost のみ） */
+/** 配置完了後に対象アプリを前面に持ってくる（activateWithOptions:2 = AllWindows なし） */
 function bringAppToFront(appName) {
   const escaped = appName.replace(/"/g, '\\"');
   return runAppleScript(`
-tell application "${escaped}" to activate
-delay 0.1
-tell application "System Events"
-    set frontmost of process "${escaped}" to true
-end tell`, 5000).catch(() => {});
+use framework "AppKit"
+use scripting additions
+try
+    set allApps to current application's NSWorkspace's sharedWorkspace()'s runningApplications()
+    repeat with a in allApps
+        if (a's localizedName() as text) is "${escaped}" then
+            a's activateWithOptions:2
+            exit repeat
+        end if
+    end repeat
+end try`, 5000).catch(() => {});
 }
 
 async function arrangeTerminalGrid(options = {}) {
   try {
+    const stageManagerEnabled = await checkStageManager();
     const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
       ? () => buildFilteredTerminalGridScript(options)
       : () => buildSystemEventsGridScript('Terminal', options);
     const result = await runAppleScript(scriptFn(), 30000);
     const arranged = parseInt(result.trim()) || 0;
     if (arranged === 0) return { success: false, error: 'ウィンドウが見つかりません', arranged: 0 };
-    return { success: true, arranged };
+    const res = { success: true, arranged };
+    if (stageManagerEnabled) res.stageManagerWarning = 'ステージマネージャーが有効です。Grid配置が正しく動作しない場合は、システム設定 → デスクトップとDock → ステージマネージャー をオフにしてください。';
+    return res;
   } catch (error) {
     console.error('arrangeTerminalGrid error:', error);
     return { success: false, error: error.message, arranged: 0 };
@@ -1127,13 +1253,16 @@ async function arrangeTerminalGrid(options = {}) {
 
 async function arrangeFinderGrid(options = {}) {
   try {
+    const stageManagerEnabled = await checkStageManager();
     const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
       ? () => buildFilteredFinderGridScript(options)
       : () => buildFinderGridScript(options);
     const result = await runAppleScript(scriptFn(), 20000);
     const arranged = parseInt(result.trim()) || 0;
     if (arranged === 0) return { success: false, error: 'ウィンドウが見つかりません', arranged: 0 };
-    return { success: true, arranged };
+    const res = { success: true, arranged };
+    if (stageManagerEnabled) res.stageManagerWarning = 'ステージマネージャーが有効です。Grid配置が正しく動作しない場合は、システム設定 → デスクトップとDock → ステージマネージャー をオフにしてください。';
+    return res;
   } catch (error) {
     console.error('arrangeFinderGrid error:', error);
     return { success: false, error: error.message, arranged: 0 };
@@ -1142,13 +1271,16 @@ async function arrangeFinderGrid(options = {}) {
 
 async function arrangeGenericGrid(appName, options = {}) {
   try {
+    const stageManagerEnabled = await checkStageManager();
     const scriptFn = Array.isArray(options.windowIds) && options.windowIds.length > 0
       ? () => buildFilteredGenericGridScript(appName, options)
       : () => buildSystemEventsGridScript(appName, options);
     const result = await runAppleScript(scriptFn(), 45000);
     const arranged = parseInt(result.trim()) || 0;
     if (arranged === 0) return { success: false, error: 'ウィンドウが見つかりません', arranged: 0 };
-    return { success: true, arranged };
+    const res = { success: true, arranged };
+    if (stageManagerEnabled) res.stageManagerWarning = 'ステージマネージャーが有効です。Grid配置が正しく動作しない場合は、システム設定 → デスクトップとDock → ステージマネージャー をオフにしてください。';
+    return res;
   } catch (error) {
     console.error('arrangeGenericGrid error:', error);
     return { success: false, error: error.message, arranged: 0 };
@@ -1158,6 +1290,7 @@ async function arrangeGenericGrid(appName, options = {}) {
 module.exports = {
   runAppleScript,
   getDisplayInfo,
+  checkStageManager,
   arrangeTerminalGrid,
   arrangeFinderGrid,
   arrangeGenericGrid,

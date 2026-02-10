@@ -10,20 +10,7 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            platform: mac
-            artifact: 'release/*.dmg'
-          - os: windows-latest
-            platform: win
-            artifact: 'release/*.exe'
-          - os: ubuntu-latest
-            platform: linux
-            artifact: 'release/*.AppImage'
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -38,15 +25,15 @@ jobs:
       - run: npm run build
 
       - name: Build Electron app
-        run: npx electron-builder --${{ matrix.platform }} --publish never
+        run: npx electron-builder --mac --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.platform }}
-          path: ${{ matrix.artifact }}
+          name: build-mac
+          path: 'release/*.dmg'
           retention-days: 7
 
   release:

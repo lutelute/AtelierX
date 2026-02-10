@@ -11,6 +11,21 @@ export function VersionChecker() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const currentVersion = __APP_VERSION__;
 
+  // マウント時にメインプロセスから状態を復元（モーダル再開時にダウンロード進捗が消えないようにする）
+  useEffect(() => {
+    if (window.electronAPI?.update?.getState) {
+      window.electronAPI.update.getState().then((state) => {
+        if (state && state.status !== 'idle') {
+          setUpdateStatus(state.status as UpdateStatus);
+          setLatestVersion(state.version);
+          setDownloadUrl(state.downloadUrl);
+          setDownloadProgress(state.progress);
+          setUpdateError(state.error);
+        }
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (window.electronAPI?.update?.onProgress) {
       const cleanup = window.electronAPI.update.onProgress((data) => {

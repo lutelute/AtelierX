@@ -15,7 +15,7 @@ const os = require('os');
  * @returns {Promise<string>} stdout
  */
 function runAppleScript(script, timeout = 10000) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn('osascript', ['-'], {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout,
@@ -28,7 +28,7 @@ function runAppleScript(script, timeout = 10000) {
         settled = true;
         child.kill('SIGKILL');
         console.error('runAppleScript timeout');
-        resolve('');
+        reject(new Error('AppleScript timeout'));
       }
     }, timeout);
     child.stdout.on('data', (d) => { stdout += d; });
@@ -38,7 +38,10 @@ function runAppleScript(script, timeout = 10000) {
       settled = true;
       clearTimeout(timer);
       if (code !== 0 && stderr) {
-        console.error('runAppleScript error:', stderr.trim().slice(0, 200));
+        const errMsg = stderr.trim().slice(0, 200);
+        console.error('runAppleScript error:', errMsg);
+        reject(new Error(errMsg));
+        return;
       }
       resolve(stdout);
     });
@@ -47,7 +50,7 @@ function runAppleScript(script, timeout = 10000) {
       settled = true;
       clearTimeout(timer);
       console.error('runAppleScript spawn error:', err.message);
-      resolve('');
+      reject(new Error(err.message));
     });
     child.stdin.write(script);
     child.stdin.end();
@@ -193,6 +196,9 @@ return windowList
       } else {
         resolve(windows);
       }
+    }).catch((err) => {
+      console.error('getAppWindows error:', err.message);
+      resolve([]);
     });
   });
 }
@@ -255,6 +261,9 @@ return output
         });
 
       resolve(windows);
+    }).catch((err) => {
+      console.error('getBatchedGenericWindows error:', err.message);
+      resolve([]);
     });
   });
 }
@@ -311,6 +320,9 @@ return ""
         });
 
       resolve(windows);
+    }).catch((err) => {
+      console.error('getGenericAppWindows error:', err.message);
+      resolve([]);
     });
   });
 }
@@ -457,10 +469,9 @@ function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') : '';
   const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Generic', escapedApp) : '';
 
-  // 対象ウィンドウだけを前面に表示
+  // 対象ウィンドウだけを前面に表示（AXRaise + activateWithOptions:2）
   // 名前が変わりやすいアプリ（ブラウザ等）のため3段階で検索:
   //   1. 完全一致  2. 部分一致(contains)  3. ウィンドウインデックス
-  // AXRaise後にactivateWithOptions:2で対象ウィンドウだけAtelierXより前に出す
   const script = `
 use framework "AppKit"
 use scripting additions
@@ -503,16 +514,16 @@ ${innerSnippet}
     end try
   end tell
 end tell
-if targetW is not missing value then
-  delay 0.05
-  try
-    set bundleId to id of application "${escapedApp}"
-    set targetApps to current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:bundleId
-    if targetApps's |count|() > 0 then
-      (targetApps's objectAtIndex:0)'s activateWithOptions:2
+-- activateWithOptions:2 = 対象ウィンドウだけ前面化（AllWindows なし）
+try
+  set allApps to current application's NSWorkspace's sharedWorkspace()'s runningApplications()
+  repeat with a in allApps
+    if (a's localizedName() as text) is "${escapedApp}" then
+      a's activateWithOptions:2
+      exit repeat
     end if
-  end try
-end if
+  end repeat
+end try
 ${outerSnippet}
 `;
 
@@ -559,6 +570,8 @@ return found
     runAppleScript(script).then((stdout) => {
       const found = (stdout || '').trim() === 'true';
       resolve({ success: found, error: found ? undefined : 'Window not found' });
+    }).catch((err) => {
+      resolve({ success: false, error: err.message });
     });
   });
 }
@@ -595,6 +608,8 @@ return windowName
     runAppleScript(script, 15000).then((stdout) => {
       const windowName = (stdout || '').trim();
       resolve({ success: true, windowName: windowName || appName });
+    }).catch((err) => {
+      resolve({ success: false, error: err.message });
     });
   });
 }
@@ -670,11 +685,7 @@ tell application "Terminal"
 end tell`;
   }
 
-  // Step 2: System Eventsで名前ベースでウィンドウを検索してAXRaise
-  // Step 3: NSRunningApplication.activateWithOptions: で対象ウィンドウだけ前面化
-  //   activateWithOptions:2 = NSApplicationActivateIgnoringOtherApps のみ
-  //   NSApplicationActivateAllWindows を含めないことで、AXRaiseされた
-  //   ウィンドウだけが他アプリのウィンドウより前に出る
+  // Step 2: System Eventsで名前ベースでウィンドウを検索してAXRaise + activateWithOptions:2（対象ウィンドウのみ前面化）
   const script = `
 use framework "AppKit"
 use scripting additions
@@ -700,7 +711,9 @@ ${innerSnippet}
       end if
     end tell
   end tell
-  delay 0.05
+  -- activateWithOptions:2 = NSApplicationActivateIgnoringOtherApps のみ（AllWindows なし）
+  -- 対象ウィンドウだけが前面に来る（他のTerminalウィンドウは巻き込まない）
+  delay 0.15
   try
     set termApp to (current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.apple.Terminal")'s firstObject()
     if termApp is not missing value then
@@ -793,7 +806,6 @@ ${innerSnippet}
       end if
     end tell
   end tell
-  delay 0.05
   try
     set finderApp to (current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.apple.finder")'s firstObject()
     if finderApp is not missing value then
@@ -976,6 +988,8 @@ function closeTerminalWindow(windowId, windowName) {
     runAppleScript(script).then((stdout) => {
       const found = (stdout || '').trim() === 'true';
       resolve({ success: found, error: found ? undefined : 'Window not found' });
+    }).catch((err) => {
+      resolve({ success: false, error: err.message });
     });
   });
 }
@@ -991,13 +1005,15 @@ function closeFinderWindow(windowId, windowName) {
     const isNumericId = /^\d+$/.test(windowId);
     const escapedName = (windowName || windowId).replace(/"/g, '\\"');
 
-    // activateFinderWindowと同様に直接アクセス方式を使用
+    // Finder window id X による直接アクセス方式
+    // Finder の id は整数型のため、as integer で明示的に型変換
     let script;
     if (isNumericId) {
       script = `
 tell application "Finder"
+  set targetId to ${windowId} as integer
   try
-    close Finder window id ${windowId}
+    close Finder window id targetId
     return true
   on error
     -- ID で見つからない場合、名前でフォールバック
@@ -1024,6 +1040,8 @@ return false
     runAppleScript(script).then((stdout) => {
       const found = (stdout || '').trim() === 'true';
       resolve({ success: found, error: found ? undefined : 'Window not found' });
+    }).catch((err) => {
+      resolve({ success: false, error: err.message });
     });
   });
 }
@@ -1120,7 +1138,9 @@ end if
 return found
 `;
 
-  runAppleScript(script, 15000);
+  runAppleScript(script, 15000).catch((err) => {
+    console.error('setTerminalColor error:', err.message);
+  });
 }
 
 module.exports = {

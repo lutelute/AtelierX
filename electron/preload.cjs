@@ -54,6 +54,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppIcon: (appName) => ipcRenderer.invoke('get-app-icon', appName),
   // アンインストール
   uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
+  // メニューからの設定オープン
+  onOpenSettings: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('open-settings', listener);
+    return () => ipcRenderer.removeListener('open-settings', listener);
+  },
   // アップデート関連
   update: {
     check: () => ipcRenderer.invoke('update:check'),
@@ -61,6 +67,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     install: () => ipcRenderer.invoke('update:install'),
     cleanup: () => ipcRenderer.invoke('update:cleanup'),
     restart: () => ipcRenderer.invoke('update:restart'),
+    getState: () => ipcRenderer.invoke('update:get-state'),
     onProgress: (callback) => {
       const listener = (_, data) => callback(data);
       ipcRenderer.on('update:progress', listener);

@@ -3558,6 +3558,30 @@ body {
   margin-bottom: 0;
 }
 
+.settings-troubleshoot-hint {
+  margin: 8px 0 4px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #a1a1aa;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.settings-troubleshoot-hint b {
+  color: #d4d4d8;
+}
+
+.theme-light .settings-troubleshoot-hint {
+  color: #71717a;
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+.theme-light .settings-troubleshoot-hint b {
+  color: #3f3f46;
+}
+
 /* 設定2カラムグリッド */
 .settings-grid-2col {
   display: grid;
@@ -4676,6 +4700,40 @@ body {
   text-align: center;
   font-size: 13px;
   color: #71717a;
+}
+
+.grid-preview-visual {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.grid-preview-row {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.grid-preview-cell {
+  width: 28px;
+  height: 18px;
+  border-radius: 3px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.grid-preview-cell-empty {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
+  border-style: dashed;
+}
+
+.grid-preview-ellipsis {
+  font-size: 11px;
+  color: #71717a;
+  padding: 0 4px;
 }
 
 /* プラグインプリセットグリッドリスト */
@@ -7048,6 +7106,20 @@ body.theme-light {
 
 .theme-light .grid-preview {
   color: #64748b;
+}
+
+.theme-light .grid-preview-cell {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.theme-light .grid-preview-cell-empty {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .grid-preview-ellipsis {
+  color: #94a3b8;
 }
 
 .theme-light .grid-result.success {
@@ -9820,4 +9892,42 @@ body.theme-light {
 .theme-light .update-banner-close:hover {
   color: #6d28d9;
   background: rgba(139, 92, 246, 0.1);
+}
+
+/* ===== トースト通知 ===== */
+.toast-notification {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 10001;
+  cursor: pointer;
+  animation: toast-slide-in 0.25s ease-out;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toast-info {
+  background: rgba(59, 130, 246, 0.9);
+  color: #fff;
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }

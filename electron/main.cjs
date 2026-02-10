@@ -11,7 +11,7 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
 
-const { app, BrowserWindow, ipcMain, dialog, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, systemPreferences, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const {
@@ -91,6 +91,42 @@ app.whenReady().then(() => {
   // プラットフォーム固有の app.whenReady 処理（macOS: powerSaveBlocker + .scpt掃除 等）
   onAppReady();
 
+  // macOS: アプリケーションメニュー構築（「設定...」Cmd+, 対応）
+  if (process.platform === 'darwin') {
+    const template = [
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          {
+            label: '設定...',
+            accelerator: 'Cmd+,',
+            click: () => {
+              const wins = BrowserWindow.getAllWindows();
+              if (wins.length > 0) {
+                wins[0].webContents.send('open-settings');
+              }
+            },
+          },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      { role: 'editMenu' },
+      { role: 'viewMenu' },
+      { role: 'windowMenu' },
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+  }
+
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
 
@@ -115,8 +151,14 @@ app.whenReady().then(() => {
   });
 
   // IPC: ウィンドウをアクティブにする
+  // activateWithOptions:2 実行後にElectronが前面に戻る問題を回避するため、
+  // 外部アプリのウィンドウをアクティブにする際はElectronを隠す
   ipcMain.handle('activate-window', async (_, appName, windowId, windowName, animation, windowIndex) => {
-    return await activateWindow(appName, windowId, windowName, animation, windowIndex);
+    const result = await activateWindow(appName, windowId, windowName, animation, windowIndex);
+    if (process.platform === 'darwin') {
+      app.hide();
+    }
+    return result;
   });
 
   // IPC: Terminalウィンドウの色を設定
@@ -732,13 +774,35 @@ ipcMain.handle('get-app-icon', async (_, appName) => {
 // 自動アップデート機能 (updateManager.cjs モジュールを使用)
 // =====================================================
 
+// アップデートのダウンロード状態をメインプロセスで保持
+// （設定モーダルを閉じても状態が失われないようにする）
+let downloadState = {
+  status: 'idle',        // 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'
+  version: null,         // 最新バージョン
+  downloadUrl: null,     // ダウンロードURL
+  progress: null,        // { percent, downloadedMB, totalMB }
+  error: null,           // エラーメッセージ
+};
+
+// IPC: アップデート状態を取得（設定モーダル再マウント時の復元用）
+ipcMain.handle('update:get-state', () => {
+  return downloadState;
+});
+
 // IPC: アップデートを確認
 ipcMain.handle('update:check', async () => {
   try {
+    downloadState = { ...downloadState, status: 'checking', error: null };
     const result = await checkForUpdates();
+    if (result.available) {
+      downloadState = { ...downloadState, status: 'available', version: result.version || null, downloadUrl: result.downloadUrl || null };
+    } else {
+      downloadState = { ...downloadState, status: 'idle' };
+    }
     return { success: true, ...result };
   } catch (error) {
     console.error('update:check error:', error);
+    downloadState = { ...downloadState, status: 'error', error: error.message };
     return { success: false, available: false, error: error.message };
   }
 });
@@ -746,13 +810,21 @@ ipcMain.handle('update:check', async () => {
 // IPC: アップデートをダウンロード（進捗をイベントで送信）
 ipcMain.handle('update:download', async (event, downloadUrl) => {
   try {
+    downloadState = { ...downloadState, status: 'downloading', progress: null, error: null };
     const result = await downloadUpdate(downloadUrl, (percent, downloadedMB, totalMB) => {
+      downloadState = { ...downloadState, progress: { percent, downloadedMB, totalMB } };
       // 進捗をレンダラーに送信
       event.sender.send('update:progress', { percent, downloadedMB, totalMB });
     });
+    if (result.success) {
+      downloadState = { ...downloadState, status: 'downloaded' };
+    } else {
+      downloadState = { ...downloadState, status: 'error', error: result.error || 'Download failed' };
+    }
     return result;
   } catch (error) {
     console.error('update:download error:', error);
+    downloadState = { ...downloadState, status: 'error', error: error.message };
     return { success: false, error: error.message };
   }
 });
@@ -760,9 +832,11 @@ ipcMain.handle('update:download', async (event, downloadUrl) => {
 // IPC: ダウンロード済みファイルをインストール（.dmgを開く）
 ipcMain.handle('update:install', async () => {
   try {
+    downloadState = { ...downloadState, status: 'installing', error: null };
     return await installUpdate();
   } catch (error) {
     console.error('update:install error:', error);
+    downloadState = { ...downloadState, status: 'error', error: error.message };
     return { success: false, error: error.message };
   }
 });
@@ -770,7 +844,9 @@ ipcMain.handle('update:install', async () => {
 // IPC: ダウンロードファイルをクリーンアップ
 ipcMain.handle('update:cleanup', async () => {
   try {
-    return cleanupDownload();
+    const result = cleanupDownload();
+    downloadState = { status: 'idle', version: null, downloadUrl: null, progress: null, error: null };
+    return result;
   } catch (error) {
     console.error('update:cleanup error:', error);
     return { success: false, deleted: 0, error: error.message };

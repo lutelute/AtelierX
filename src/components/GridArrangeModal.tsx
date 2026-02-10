@@ -29,6 +29,19 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
   // カラムデータがあるかどうか（タブ表示の判定）
   const hasColumnData = !!(columns && columns.length > 0 && cards);
 
+  // 全ウィンドウ紐付きカード数
+  const totalWindowCount = useMemo(() => {
+    if (!columns || !cards) return 0;
+    let count = 0;
+    for (const col of columns) {
+      for (const cardId of col.cardIds) {
+        const card = cards[cardId];
+        if (card && !card.archived && card.windowId) count++;
+      }
+    }
+    return count;
+  }, [columns, cards]);
+
   // カラムごとのウィンドウ紐付きカード数を計算
   const columnWindowCounts = useMemo(() => {
     if (!columns || !cards) return {};
@@ -57,6 +70,23 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
     }
     return ids;
   }, [columns, cards, selectedColumnIds]);
+
+  // 自動グリッドサイズ計算（バックエンドの asGridCalc と同じロジック）
+  const autoGrid = useMemo(() => {
+    const n = activeTab === 'column' ? selectedWindowIds.length : totalWindowCount;
+    if (n <= 0) return { cols: 1, rows: 1 };
+    let c: number;
+    if (n <= 1) c = 1;
+    else if (n <= 2) c = 2;
+    else if (n <= 3) c = 3;
+    else if (n <= 6) c = 3;
+    else if (n <= 8) c = 4;
+    else if (n <= 12) c = 4;
+    else if (n <= 20) c = 5;
+    else c = 6;
+    const r = Math.ceil(n / c);
+    return { cols: c, rows: r };
+  }, [totalWindowCount, selectedWindowIds.length, activeTab]);
 
   // ディスプレイ情報とプラグインレイアウトを取得
   useEffect(() => {
@@ -327,13 +357,39 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
               )}
             </div>
 
+            {gridMode === 'auto' && (
+              <div className="custom-grid-inputs">
+                <div className="grid-preview">
+                  {autoGrid.rows}行 x {autoGrid.cols}列（ウィンドウ {activeTab === 'column' ? selectedWindowIds.length : totalWindowCount} 個）
+                </div>
+                <div className="grid-preview-visual">
+                  {Array.from({ length: Math.min(autoGrid.rows, 8) }).map((_, r) => (
+                    <div key={r} className="grid-preview-row">
+                      {Array.from({ length: Math.min(autoGrid.cols, 8) }).map((_, c) => {
+                        const idx = r * autoGrid.cols + c;
+                        const n = activeTab === 'column' ? selectedWindowIds.length : totalWindowCount;
+                        return (
+                          <div
+                            key={c}
+                            className={`grid-preview-cell ${idx < n ? '' : 'grid-preview-cell-empty'}`}
+                          />
+                        );
+                      })}
+                      {autoGrid.cols > 8 && <span className="grid-preview-ellipsis">...</span>}
+                    </div>
+                  ))}
+                  {autoGrid.rows > 8 && <div className="grid-preview-ellipsis">...</div>}
+                </div>
+              </div>
+            )}
+
             {gridMode === 'custom' && (
               <div className="custom-grid-inputs">
                 <div className="grid-input-group">
                   <label>行数</label>
                   <div className="grid-input-row">
                     <div className="grid-input-buttons">
-                      {[1, 2, 3, 4, 5].map((n) => (
+                      {[1, 2, 3, 4, 5, 6].map((n) => (
                         <button
                           key={n}
                           className={`grid-size-btn ${rows === n ? 'active' : ''}`}
@@ -347,11 +403,11 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
                       type="number"
                       className="grid-number-input"
                       min={1}
-                      max={20}
+                      max={50}
                       value={rows}
                       onChange={(e) => {
                         const v = parseInt(e.target.value);
-                        if (v >= 1 && v <= 20) setRows(v);
+                        if (v >= 1 && v <= 50) setRows(v);
                       }}
                     />
                   </div>
@@ -360,7 +416,7 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
                   <label>列数</label>
                   <div className="grid-input-row">
                     <div className="grid-input-buttons">
-                      {[2, 3, 4, 5, 6].map((n) => (
+                      {[1, 2, 3, 4, 5, 6].map((n) => (
                         <button
                           key={n}
                           className={`grid-size-btn ${cols === n ? 'active' : ''}`}
@@ -374,17 +430,28 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
                       type="number"
                       className="grid-number-input"
                       min={1}
-                      max={20}
+                      max={50}
                       value={cols}
                       onChange={(e) => {
                         const v = parseInt(e.target.value);
-                        if (v >= 1 && v <= 20) setCols(v);
+                        if (v >= 1 && v <= 50) setCols(v);
                       }}
                     />
                   </div>
                 </div>
                 <div className="grid-preview">
                   {rows}行 x {cols}列 = 最大 {cols * rows} ウィンドウ
+                </div>
+                <div className="grid-preview-visual">
+                  {Array.from({ length: Math.min(rows, 8) }).map((_, r) => (
+                    <div key={r} className="grid-preview-row">
+                      {Array.from({ length: Math.min(cols, 8) }).map((_, c) => (
+                        <div key={c} className="grid-preview-cell" />
+                      ))}
+                      {cols > 8 && <span className="grid-preview-ellipsis">...</span>}
+                    </div>
+                  ))}
+                  {rows > 8 && <div className="grid-preview-ellipsis">...</div>}
                 </div>
               </div>
             )}

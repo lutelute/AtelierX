@@ -12,8 +12,8 @@ export function useTimerActions({
   currentBoard,
   updateCurrentBoard,
 }: UseTimerActionsParams) {
-  // プラグインカードアクションを実行
-  const handleCardAction = useCallback(async (cardId: string, actionId: string, taskIndex?: number) => {
+  // プラグインカードアクションを実行（結果メッセージを返す）
+  const handleCardAction = useCallback(async (cardId: string, actionId: string, taskIndex?: number): Promise<{ message?: string; error?: string } | undefined> => {
     const card = currentBoard.cards[cardId];
     if (!card || !window.electronAPI?.plugins?.executeCardAction) return;
 
@@ -21,9 +21,13 @@ export function useTimerActions({
       const result = await window.electronAPI.plugins.executeCardAction(actionId, cardId, card, taskIndex);
       if (!result.success) {
         console.error('Card action failed:', result.error);
+        return { error: result.error || 'アクションに失敗しました' };
       }
+      const data = result.data as { message?: string } | undefined;
+      return { message: data?.message };
     } catch (error) {
       console.error('Failed to execute card action:', error);
+      return { error: 'アクションの実行に失敗しました' };
     }
   }, [currentBoard.cards]);
 
@@ -39,7 +43,7 @@ export function useTimerActions({
       const taskLineIndices: number[] = [];
 
       lines.forEach((line, idx) => {
-        if (CHECKBOX_PATTERN.test(line)) {
+        if (CHECKBOX_PATTERN.test(line.trimStart())) {
           taskLineIndices.push(idx);
         }
       });

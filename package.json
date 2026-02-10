@@ -2,7 +2,7 @@
   "name": "atelierx",
   "productName": "AtelierX",
   "private": true,
-  "version": "1.7.5",
+  "version": "1.8.0",
   "description": "Terminal/Finderウィンドウをカンバンボードで管理するmacOSアプリ - あなたの創作空間",
   "author": {
     "name": "lutelute",
@@ -89,13 +89,13 @@
     "dmg": {
       "writeUpdateInfo": false
     },
-    "win": {
+    "_win_future": {
       "target": [
         "nsis"
       ],
       "icon": "build/icon.ico"
     },
-    "linux": {
+    "_linux_future": {
       "target": [
         "AppImage",
         "deb"

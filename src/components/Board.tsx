@@ -58,6 +58,9 @@ export function Board() {
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  // トースト通知
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'info' | 'error' } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
   // 非表示カラム管理
   const hiddenColumns = useMemo(() => new Set(settings.hiddenColumns || []), [settings.hiddenColumns]);
 
@@ -304,10 +307,23 @@ export function Board() {
     setSettings,
   });
 
-  const { handleCardAction, handleTimerAction } = useTimerActions({
+  const { handleCardAction: rawHandleCardAction, handleTimerAction } = useTimerActions({
     currentBoard,
     updateCurrentBoard,
   });
+
+  // カードアクション実行 + 結果メッセージをトースト表示
+  const handleCardAction = useCallback(async (cardId: string, actionId: string, taskIndex?: number) => {
+    const result = await rawHandleCardAction(cardId, actionId, taskIndex);
+    if (result?.message || result?.error) {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setToastMessage({
+        text: result.error || result.message!,
+        type: result.error ? 'error' : 'info',
+      });
+      toastTimerRef.current = setTimeout(() => setToastMessage(null), 3000);
+    }
+  }, [rawHandleCardAction]);
 
   // モーダルが開いているか判定
   const isModalOpen = !!(cardOps.modalColumnId || cardOps.windowSelectColumnId || cardOps.editingCard || showExportModal || showSettingsModal || showNoteSelectModal || showGridModal || showMultiGridModal || cardOps.relinkingCard || cardOps.showAddIdeaModal || showHelpModal);
@@ -387,6 +403,15 @@ export function Board() {
     document.body.classList.remove('theme-dark', 'theme-light');
     document.body.classList.add(`theme-${theme}`);
   }, [settings.theme]);
+
+  // メニューからの「設定...」(Cmd+,) をリッスン
+  useEffect(() => {
+    if (!window.electronAPI?.onOpenSettings) return;
+    const cleanup = window.electronAPI.onOpenSettings(() => {
+      setShowSettingsModal(true);
+    });
+    return cleanup;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // === DnD ===
 
@@ -1212,6 +1237,11 @@ export function Board() {
       )}
       {showHelpModal && (
         <HelpModal onClose={() => setShowHelpModal(false)} />
+      )}
+      {toastMessage && (
+        <div className={`toast-notification toast-${toastMessage.type}`} onClick={() => setToastMessage(null)}>
+          {toastMessage.text}
+        </div>
       )}
     </div>
   );

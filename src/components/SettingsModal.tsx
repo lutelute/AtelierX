@@ -116,6 +116,10 @@ export function SettingsModal({ onClose, onSave, initialSettings, onExportBackup
 
         <VersionChecker />
 
+        <div className="settings-troubleshoot-hint">
+          <b>Grid配置が動作しない場合:</b> システム設定 → アクセシビリティ で AtelierX を「−」で削除 →「+」で再追加してください。
+        </div>
+
         <div className="form-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>キャンセル</button>
           <button type="button" className="btn-primary" onClick={handleSave}>保存</button>

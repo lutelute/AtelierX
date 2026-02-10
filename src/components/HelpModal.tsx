@@ -77,6 +77,12 @@ export function HelpModal({ onClose }: HelpModalProps) {
                   <li><b>単一アプリGrid:</b> 現在のタブのアプリのウィンドウのみを対象に配置</li>
                   <li><b>マルチアプリGrid:</b> 複数のアプリのウィンドウを画面分割で同時配置</li>
                 </ul>
+                <div className="mg-help-note">
+                  <b>注意:</b> macOSの「ステージマネージャー」が有効な場合、Grid配置が正しく動作しないことがあります。システム設定 → デスクトップとDock → ステージマネージャー を<b>オフ</b>にしてください。
+                </div>
+                <div className="mg-help-note">
+                  <b>権限トラブル:</b> Grid配置が動作しない場合、システム設定 → アクセシビリティ で AtelierX を左下の「−」で<b>一度削除</b>してから「+」で再追加してください（オフ→オンの切替だけでは不十分な場合があります）。
+                </div>
               </div>
               <div className="help-feature-detail">
                 <h4>Terminal色変更</h4>
