@@ -17,7 +17,7 @@
 
 > **Note**: AtelierX は現在 **macOS 専用**です。Windows / Linux 版は将来対応を検討中です（[ロードマップ](https://github.com/lutelute/AtelierX/issues/22)）。
 
-Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理する macOS アプリ。プラグインで機能を拡張可能。
+Terminal / Finder / 任意アプリのウィンドウをカンバンボードで管理する **macOS 専用** デスクトップアプリ。プラグインで機能を拡張可能。
 
 ## Features
 
@@ -88,7 +88,12 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 
 | Platform | Format | 対応環境 |
 |----------|--------|---------|
-| **macOS** | `.dmg` | Apple Silicon (M1〜) |
+| **macOS** | `.dmg` (Universal) | Apple Silicon (M1〜) & Intel 両対応 |
+
+<!-- Windows / Linux 対応は現在開発していません
+| **Windows** | `.exe` | Windows 10 以降 |
+| **Linux** | `.AppImage` / `.deb` | Ubuntu 20.04 以降 (X11) |
+-->
 
 > アプリ内の設定画面からアップデートを確認できます。
 
@@ -138,6 +143,43 @@ macOS は未署名アプリに隔離フラグ (`com.apple.quarantine`) を付与
 | **Gatekeeper 無効化** | `sudo spctl --master-disable` → アプリ起動 → `sudo spctl --master-enable` |
 
 > **なぜこうなる？** AtelierX は現在 Apple Developer ID で署名されていません。ローカルビルドでは問題ありませんが、GitHub からダウンロードするとブラウザが隔離フラグを付与します。
+
+<!-- Windows / Linux 対応は現在開発していません
+
+### Windows
+
+1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.exe` をダウンロード
+2. インストーラーを実行
+3. 「Windows によって PC が保護されました」と表示されたら **「詳細情報」→「実行」** をクリック
+
+---
+
+### Linux
+
+1. [Releases](https://github.com/lutelute/AtelierX/releases/latest) から `.AppImage` または `.deb` をダウンロード
+2. インストール:
+   ```bash
+   # AppImage
+   chmod +x AtelierX-*.AppImage && ./AtelierX-*.AppImage
+
+   # deb
+   sudo dpkg -i AtelierX-*.deb
+   ```
+3. ウィンドウ管理機能の前提パッケージ:
+   ```bash
+   sudo apt install wmctrl xdotool
+   ```
+-->
+
+## Known Issues
+
+| Issue | 内容 | Workaround |
+|-------|------|------------|
+| [#34](https://github.com/lutelute/AtelierX/issues/34) | ターミナルが多いとGrid配置が1回で完了しない | Grid配置を複数回実行する |
+| [#29](https://github.com/lutelute/AtelierX/issues/29) | カードクリック時にターミナルが最前面に来ない場合がある | 手動でターミナルをクリックして前面に出す |
+| [#30](https://github.com/lutelute/AtelierX/issues/30) | アクセシビリティ権限のトグルON/OFFが効かない | 一覧から「−」で削除→「+」で再追加する |
+
+> いずれも macOS 側のウィンドウ管理・権限キャッシュに起因する問題です。
 
 ## Tech Stack
 
