@@ -4678,6 +4678,121 @@ body {
   color: #71717a;
 }
 
+/* Grid モーダル タブ切替 */
+.grid-modal-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.grid-modal-tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #71717a;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grid-modal-tab:hover {
+  color: #a1a1aa;
+}
+
+.grid-modal-tab.active {
+  color: #a78bfa;
+  border-bottom-color: #8b5cf6;
+}
+
+.theme-light .grid-modal-tabs {
+  border-bottom-color: #e2e8f0;
+}
+
+.theme-light .grid-modal-tab {
+  color: #94a3b8;
+}
+
+.theme-light .grid-modal-tab:hover {
+  color: #64748b;
+}
+
+.theme-light .grid-modal-tab.active {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+}
+
+/* カラムフィルタリングUI */
+.column-filter-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.column-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.column-filter-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.column-filter-item.checked {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.column-filter-item input[type="checkbox"] {
+  accent-color: #8b5cf6;
+  cursor: pointer;
+}
+
+.column-filter-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.column-filter-name {
+  flex: 1;
+  font-size: 13px;
+  color: #e4e4e7;
+}
+
+.column-filter-count {
+  font-size: 11px;
+  color: #71717a;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.column-filter-summary {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #a1a1aa;
+  text-align: center;
+  padding: 4px 8px;
+}
+
+.column-filter-summary.warning {
+  color: #f59e0b;
+}
+
 /* プラグインプリセットグリッドリスト */
 .preset-grid-list {
   margin-top: 16px;
@@ -7047,6 +7162,31 @@ body.theme-light {
 }
 
 .theme-light .grid-preview {
+  color: #64748b;
+}
+
+.theme-light .column-filter-list {
+  background: #f8fafc;
+}
+
+.theme-light .column-filter-item:hover {
+  background: #f1f5f9;
+}
+
+.theme-light .column-filter-item.checked {
+  background: #eff6ff;
+}
+
+.theme-light .column-filter-name {
+  color: #1e293b;
+}
+
+.theme-light .column-filter-count {
+  color: #64748b;
+  background: #e2e8f0;
+}
+
+.theme-light .column-filter-summary {
   color: #64748b;
 }
 
