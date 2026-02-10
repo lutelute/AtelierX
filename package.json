@@ -88,20 +88,6 @@
     },
     "dmg": {
       "writeUpdateInfo": false
-    },
-    "_win_future": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "build/icon.ico"
-    },
-    "_linux_future": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "build/icon.png",
-      "category": "Utility"
     }
   }
 }
