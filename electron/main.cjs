@@ -151,14 +151,8 @@ app.whenReady().then(() => {
   });
 
   // IPC: ウィンドウをアクティブにする
-  // activateWithOptions:2 実行後にElectronが前面に戻る問題を回避するため、
-  // 外部アプリのウィンドウをアクティブにする際はElectronを隠す
   ipcMain.handle('activate-window', async (_, appName, windowId, windowName, animation, windowIndex) => {
-    const result = await activateWindow(appName, windowId, windowName, animation, windowIndex);
-    if (process.platform === 'darwin') {
-      app.hide();
-    }
-    return result;
+    return await activateWindow(appName, windowId, windowName, animation, windowIndex);
   });
 
   // IPC: Terminalウィンドウの色を設定
