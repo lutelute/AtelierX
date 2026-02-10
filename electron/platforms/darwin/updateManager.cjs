@@ -206,6 +206,7 @@ async function installUpdate() {
       console.log('Mounting DMG:', downloadedFilePath);
       const mountOutput = execSync(`hdiutil attach "${downloadedFilePath}" -nobrowse -readonly`, {
         encoding: 'utf8',
+        timeout: 30000,
       });
 
       // マウントポイントを抽出 (/Volumes/xxx)
@@ -231,10 +232,17 @@ async function installUpdate() {
       console.log('Copying:', sourceApp, '->', destApp);
 
       // 3. 既存のアプリを削除して新しいアプリをコピー
+      // ditto を使用: macOS拡張属性（アイコン等）を完全に保持する
       if (fs.existsSync(destApp)) {
         execSync(`rm -rf "${destApp}"`);
       }
-      execSync(`cp -R "${sourceApp}" "${destApp}"`);
+      execSync(`ditto "${sourceApp}" "${destApp}"`, { timeout: 60000 });
+      // quarantine属性を除去（未署名アプリのGatekeeper対策）
+      try {
+        execSync(`xattr -rd com.apple.quarantine "${destApp}" 2>/dev/null`);
+      } catch (_) {
+        // quarantine属性がない場合は無視
+      }
 
       // 4. DMGをアンマウント
       console.log('Unmounting DMG...');
@@ -247,6 +255,8 @@ async function installUpdate() {
       resolve({ success: true, needsRestart: true });
     } catch (error) {
       console.error('Installation error:', error);
+      console.error('Installation error stderr:', error.stderr?.toString?.() || '');
+      console.error('Installation error stdout:', error.stdout?.toString?.() || '');
       // エラー時もアンマウントを試みる
       if (mountPoint) {
         try {
@@ -255,7 +265,8 @@ async function installUpdate() {
           // 無視
         }
       }
-      resolve({ success: false, error: error.message });
+      const detail = error.stderr?.toString?.() || error.message;
+      resolve({ success: false, error: `インストールエラー: ${detail}` });
     }
   });
 }
