@@ -448,6 +448,99 @@ function dockAnimateSnippet(windowVar) {
 }
 
 /**
+ * 最小化復帰アニメーション（System Events / tell process ブロックの**外**で実行）
+ *
+ * Terminal/Finder はアプリ固有API (miniaturized/collapsed) で最小化→復帰。
+ * 汎用アプリは System Events の AXMinimized 属性で操作。
+ * 復帰後に再度 AXRaise して確実に前面化。
+ *
+ * @param {string} appType - 'Terminal' | 'Finder' | その他
+ * @param {string} appName - アプリ名（汎用アプリ用）
+ * @returns {string} AppleScript スニペット（outerSnippet として使用）
+ */
+function minimizeAnimationOuter(appType, appName) {
+  const escaped = (appName || '').replace(/"/g, '\\"');
+  if (appType === 'Terminal') {
+    return `
+  try
+    if targetWindowId > 0 then
+      tell application "Terminal"
+        set miniaturized of window id targetWindowId to true
+      end tell
+      delay 0.5
+      tell application "Terminal"
+        set miniaturized of window id targetWindowId to false
+        delay 0.1
+        set index of window id targetWindowId to 1
+      end tell
+      delay 0.15
+      tell application "System Events"
+        tell process "Terminal"
+          repeat with w in windows
+            if name of w is targetWindowName then
+              perform action "AXRaise" of w
+              exit repeat
+            end if
+          end repeat
+        end tell
+      end tell
+    end if
+  end try`;
+  }
+  if (appType === 'Finder') {
+    return `
+  try
+    if targetWindowId > 0 then
+      tell application "Finder"
+        set collapsed of Finder window id targetWindowId to true
+      end tell
+      delay 0.5
+      tell application "Finder"
+        set collapsed of Finder window id targetWindowId to false
+        delay 0.1
+        set index of Finder window id targetWindowId to 1
+      end tell
+      delay 0.15
+      tell application "System Events"
+        tell process "Finder"
+          repeat with w in windows
+            if name of w is targetWindowName then
+              perform action "AXRaise" of w
+              exit repeat
+            end if
+          end repeat
+        end tell
+      end tell
+    end if
+  end try`;
+  }
+  // Generic: System Events AXMinimized
+  return `
+  if targetWindowName is not "" then
+    try
+      tell application "System Events"
+        tell process "${escaped}"
+          set targetW to missing value
+          repeat with w in windows
+            if name of w is targetWindowName then
+              set targetW to w
+              exit repeat
+            end if
+          end repeat
+          if targetW is not missing value then
+            set value of attribute "AXMinimized" of targetW to true
+            delay 0.5
+            set value of attribute "AXMinimized" of targetW to false
+            delay 0.15
+            perform action "AXRaise" of targetW
+          end if
+        end tell
+      end tell
+    end try
+  end if`;
+}
+
+/**
  * 汎用アプリのウィンドウを前面に表示 (System Events AXRaise)
  * @param {string} appName - アプリ名
  * @param {string} windowName - ウィンドウ名
@@ -460,10 +553,10 @@ function activateGenericWindow(appName, windowName, windowIndex, animation) {
   const idx = parseInt(windowIndex) || 1;
 
   const anim = animation || 'pop';
-  const isDock = anim === 'minimize' || anim === 'dock';
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') :
-                       isDock ? dockAnimateSnippet('targetW') : '';
-  const preCompute = isDock ? dockPreComputeSnippet() : '';
+                       anim === 'dock' ? dockAnimateSnippet('targetW') : '';
+  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Generic', appName) : '';
+  const preCompute = anim === 'dock' ? dockPreComputeSnippet() : '';
 
   // 対象ウィンドウだけを前面に表示（AXRaise + activateWithOptions:2）
   // 名前が変わりやすいアプリ（ブラウザ等）のため3段階で検索:
@@ -503,14 +596,21 @@ tell application "System Events"
           set targetWindowName to name of targetW
         end if
       end if
-      -- アクティベーション + アニメーション
+      -- 最小化解除 + アクティベーション + アニメーション
       if targetW is not missing value then
+        try
+          if value of attribute "AXMinimized" of targetW is true then
+            set value of attribute "AXMinimized" of targetW to false
+            delay 0.3
+          end if
+        end try
         perform action "AXRaise" of targetW
 ${innerSnippet}
       end if
     end try
   end tell
 end tell
+${outerSnippet}
 -- activateWithOptions:2 = 対象ウィンドウだけ前面化（AllWindows なし）
 try
   set allApps to current application's NSWorkspace's sharedWorkspace()'s runningApplications()
@@ -629,10 +729,10 @@ function activateTerminalWindow(windowId, windowName, animation) {
   const isNumericId = /^\d+$/.test(windowId);
   const escapedName = (windowName || '').replace(/"/g, '\\"');
   const anim = animation || 'minimize';
-  const isDock = anim === 'minimize' || anim === 'dock';
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') :
-                       isDock ? dockAnimateSnippet('targetW') : '';
-  const preCompute = isDock ? dockPreComputeSnippet() : '';
+                       anim === 'dock' ? dockAnimateSnippet('targetW') : '';
+  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Terminal', 'Terminal') : '';
+  const preCompute = anim === 'dock' ? dockPreComputeSnippet() : '';
 
   // Step 1: Terminal.appで対象ウィンドウを特定し、nameを取得
   // numeric window ID → tty → 名前 の優先順でマッチ
@@ -644,6 +744,7 @@ tell application "Terminal"
     if id of w is ${windowId} then
       set targetWindowName to name of w
       set targetWindowId to id of w
+      if miniaturized of w then set miniaturized of w to false
       set index of w to 1
       set found to true
       exit repeat
@@ -659,6 +760,7 @@ tell application "Terminal"
       if tty of selected tab of w is equal to "${escapedTty}" then
         set targetWindowName to name of w
         set targetWindowId to id of w
+        if miniaturized of w then set miniaturized of w to false
         set index of w to 1
         set found to true
         exit repeat
@@ -674,6 +776,7 @@ tell application "Terminal"
       if name of w is "${escapedName}" or name of w starts with "${escapedName}" then
         set targetWindowName to name of w
         set targetWindowId to id of w
+        if miniaturized of w then set miniaturized of w to false
         set index of w to 1
         set found to true
         exit repeat
@@ -710,6 +813,7 @@ ${innerSnippet}
       end if
     end tell
   end tell
+${outerSnippet}
   -- activateWithOptions:2 = NSApplicationActivateIgnoringOtherApps のみ（AllWindows なし）
   -- 対象ウィンドウだけが前面に来る（他のTerminalウィンドウは巻き込まない）
   delay 0.15
@@ -750,16 +854,20 @@ function activateFinderWindow(windowId, windowName, animation) {
     findWindow = `
 tell application "Finder"
   try
-    set targetWindowName to name of Finder window id ${windowId}
+    set w to Finder window id ${windowId}
+    if collapsed of w then set collapsed of w to false
+    set targetWindowName to name of w
     set targetWindowId to ${windowId}
-    set index of Finder window id ${windowId} to 1
+    set index of w to 1
     set found to true
   end try
   if not found and "${escapedName}" is not "" then
     try
-      set targetWindowName to name of Finder window "${escapedName}"
-      set targetWindowId to id of Finder window "${escapedName}"
-      set index of Finder window "${escapedName}" to 1
+      set w to Finder window "${escapedName}"
+      if collapsed of w then set collapsed of w to false
+      set targetWindowName to name of w
+      set targetWindowId to id of w
+      set index of w to 1
       set found to true
     end try
   end if
@@ -768,19 +876,21 @@ end tell`;
     findWindow = `
 tell application "Finder"
   try
-    set targetWindowName to name of Finder window "${escapedName}"
-    set targetWindowId to id of Finder window "${escapedName}"
-    set index of Finder window "${escapedName}" to 1
+    set w to Finder window "${escapedName}"
+    if collapsed of w then set collapsed of w to false
+    set targetWindowName to name of w
+    set targetWindowId to id of w
+    set index of w to 1
     set found to true
   end try
 end tell`;
   }
 
   const anim = animation || 'minimize';
-  const isDock = anim === 'minimize' || anim === 'dock';
   const innerSnippet = anim === 'pop' ? popAnimationSnippet('targetW') :
-                       isDock ? dockAnimateSnippet('targetW') : '';
-  const preCompute = isDock ? dockPreComputeSnippet() : '';
+                       anim === 'dock' ? dockAnimateSnippet('targetW') : '';
+  const outerSnippet = anim === 'minimize' ? minimizeAnimationOuter('Finder', 'Finder') : '';
+  const preCompute = anim === 'dock' ? dockPreComputeSnippet() : '';
   const script = `
 use framework "AppKit"
 use scripting additions
@@ -807,6 +917,7 @@ ${innerSnippet}
       end if
     end tell
   end tell
+${outerSnippet}
   try
     set finderApp to (current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.apple.finder")'s firstObject()
     if finderApp is not missing value then
