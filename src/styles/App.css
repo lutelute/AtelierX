@@ -1940,6 +1940,11 @@ body {
   color: #3b82f6;
 }
 
+.reminder-app-badge.generic {
+  background: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+}
+
 .reminder-window-name {
   color: #e4e4e7;
   font-size: 12px;

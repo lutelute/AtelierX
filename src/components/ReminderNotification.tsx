@@ -80,7 +80,7 @@ export function ReminderNotification({
               unaddedWindows.map((window, index) => (
                 <div key={`unadded-${window.app}-${window.id}-${index}`} className="reminder-item">
                   <div className="reminder-item-info">
-                    <span className={`reminder-app-badge ${window.app === 'Terminal' ? 'terminal' : 'finder'}`}>
+                    <span className={`reminder-app-badge ${window.app === 'Terminal' ? 'terminal' : window.app === 'Finder' ? 'finder' : 'generic'}`}>
                       {window.app}
                     </span>
                     <span className="reminder-window-name">{window.name.split(' — ')[0]}</span>
@@ -98,7 +98,7 @@ export function ReminderNotification({
               brokenLinkCards.map((card) => (
                 <div key={`broken-${card.id}`} className="reminder-item broken">
                   <div className="reminder-item-info">
-                    <span className={`reminder-app-badge ${card.windowApp === 'Terminal' ? 'terminal' : 'finder'}`}>
+                    <span className={`reminder-app-badge ${card.windowApp === 'Terminal' ? 'terminal' : card.windowApp === 'Finder' ? 'finder' : 'generic'}`}>
                       {card.windowApp || card.tag}
                     </span>
                     <span className="reminder-window-name">{card.title}</span>

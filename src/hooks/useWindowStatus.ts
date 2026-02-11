@@ -178,6 +178,12 @@ export function useWindowStatus({
 
   // 定期的にチェック（10秒間隔、非表示時はスキップ）+ フォーカス復帰時にデバウンス付きチェック
   useEffect(() => {
+    // タブ切替時に前のタブのデータを即座にクリア
+    setUnaddedWindows([]);
+    setBrokenLinkCards([]);
+    prevWindowIdsRef.current = '';
+    prevBrokenIdsRef.current = '';
+
     checkWindowStatus();
 
     const interval = setInterval(() => {

@@ -1078,7 +1078,7 @@ export function Board() {
         <WindowSelectModal
           onClose={() => cardOps.setWindowSelectColumnId(null)}
           onSelect={cardOps.handleSelectWindow}
-          appFilter={enabledTabs.find(t => t.id === activeBoard)?.appName || 'Terminal'}
+          appFilter={enabledTabs.find(t => t.id === activeBoard)?.appName}
         />
       )}
       {cardOps.editingCard && (
