@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { BoardData, AllBoardsData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, WindowHistory, Idea, IdeaCategory, AppTabConfig, Priority, getTabIdForApp } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, CardStatusMarker, TagType, SubTagType, AppWindow, BoardType, ActivityLog, WindowHistory, Idea, IdeaCategory, AppTabConfig, Priority, WindowRef, getTabIdForApp } from '../types';
 import { createDefaultBoard } from '../utils/boardUtils';
 
 interface UseCardOperationsParams {
@@ -248,6 +248,12 @@ export function useCardOperations({
     const cardId = `card-${Date.now()}`;
     const tag: TagType = getTabIdForApp(appWindow.app, enabledTabs) || activeBoard;
     const displayName = appWindow.name.split(' — ')[0];
+    const windowRef: WindowRef = {
+      app: appWindow.app,
+      id: appWindow.id,
+      name: appWindow.name,
+      ...(appWindow.path ? { path: appWindow.path } : {}),
+    };
     const newCard: CardType = {
       id: cardId,
       title: displayName,
@@ -258,6 +264,7 @@ export function useCardOperations({
       windowId: appWindow.id,
       windowName: appWindow.name,
       windowPath: appWindow.path,
+      windows: [windowRef],
     };
 
     updateCurrentBoard((prev) => ({
@@ -277,24 +284,48 @@ export function useCardOperations({
     setWindowSelectColumnId(null);
   }, [windowSelectColumnId, activeBoard, enabledTabs, updateCurrentBoard]);
 
-  const handleUnlinkWindow = useCallback((cardId: string) => {
+  const handleUnlinkWindow = useCallback((cardId: string, windowRefId?: string) => {
     const card = currentBoard.cards[cardId];
     if (!card) return;
 
     addToWindowHistory(card);
 
-    updateCurrentBoard((prev) => ({
-      ...prev,
-      cards: {
-        ...prev.cards,
-        [cardId]: {
-          ...prev.cards[cardId],
-          windowApp: undefined,
-          windowId: undefined,
-          windowName: undefined,
+    if (windowRefId && card.windows && card.windows.length > 1) {
+      // 特定ウィンドウだけ解除（複数ウィンドウカードの場合）
+      const updatedWindows = card.windows.filter(w => w.id !== windowRefId);
+      const primary = updatedWindows[0];
+      updateCurrentBoard((prev) => ({
+        ...prev,
+        cards: {
+          ...prev.cards,
+          [cardId]: {
+            ...prev.cards[cardId],
+            windows: updatedWindows,
+            // 旧フィールドを最初のウィンドウに同期
+            windowApp: primary?.app,
+            windowId: primary?.id,
+            windowName: primary?.name,
+            windowPath: primary?.path,
+          },
         },
-      },
-    }));
+      }));
+    } else {
+      // 全ウィンドウ解除
+      updateCurrentBoard((prev) => ({
+        ...prev,
+        cards: {
+          ...prev.cards,
+          [cardId]: {
+            ...prev.cards[cardId],
+            windowApp: undefined,
+            windowId: undefined,
+            windowName: undefined,
+            windowPath: undefined,
+            windows: undefined,
+          },
+        },
+      }));
+    }
   }, [currentBoard.cards, addToWindowHistory, updateCurrentBoard]);
 
   const handleCardClick = useCallback(async (cardId: string, jumpToWindow: (card: CardType, setRelinkingCard: (card: CardType | null) => void) => Promise<void>, cardClickBehavior: string) => {
@@ -416,24 +447,79 @@ export function useCardOperations({
     });
   }, [currentBoard.cards, activeBoard, setAllData]);
 
+  // 既存カードにウィンドウを追加
+  const handleAddWindowToCard = useCallback((cardId: string, appWindow: AppWindow) => {
+    const card = currentBoard.cards[cardId];
+    if (!card) return;
+
+    const newRef: WindowRef = {
+      app: appWindow.app,
+      id: appWindow.id,
+      name: appWindow.name,
+      ...(appWindow.path ? { path: appWindow.path } : {}),
+    };
+
+    // 重複チェック
+    const existingWindows = card.windows || [];
+    if (existingWindows.some(w => w.id === appWindow.id)) return;
+
+    const updatedWindows = [...existingWindows, newRef];
+    const primary = updatedWindows[0];
+
+    updateCurrentBoard((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [cardId]: {
+          ...prev.cards[cardId],
+          windows: updatedWindows,
+          // 旧フィールドは最初のウィンドウに同期
+          windowApp: primary.app,
+          windowId: primary.id,
+          windowName: primary.name,
+          windowPath: primary.path,
+        },
+      },
+    }));
+  }, [currentBoard.cards, updateCurrentBoard]);
+
+  // 既存カードへのウィンドウ追加用の状態
+  const [addWindowTargetCardId, setAddWindowTargetCardId] = useState<string | null>(null);
+
   // 再リンク操作
   const handleRelinkSelectCurrent = useCallback((appWindow: AppWindow) => {
     if (!relinkingCard) return;
 
     addToWindowHistory(relinkingCard);
 
-    updateCurrentBoard((prev) => ({
-      ...prev,
-      cards: {
-        ...prev.cards,
-        [relinkingCard.id]: {
-          ...prev.cards[relinkingCard.id],
-          windowId: appWindow.id,
-          windowName: appWindow.name,
-          windowPath: appWindow.path,
+    const newRef: WindowRef = {
+      app: appWindow.app,
+      id: appWindow.id,
+      name: appWindow.name,
+      ...(appWindow.path ? { path: appWindow.path } : {}),
+    };
+
+    updateCurrentBoard((prev) => {
+      const prevCard = prev.cards[relinkingCard.id];
+      if (!prevCard) return prev;
+      // windows配列の最初のエントリを更新（または新規作成）
+      const updatedWindows = prevCard.windows && prevCard.windows.length > 0
+        ? [newRef, ...prevCard.windows.slice(1)]
+        : [newRef];
+      return {
+        ...prev,
+        cards: {
+          ...prev.cards,
+          [relinkingCard.id]: {
+            ...prevCard,
+            windowId: appWindow.id,
+            windowName: appWindow.name,
+            windowPath: appWindow.path,
+            windows: updatedWindows,
+          },
         },
-      },
-    }));
+      };
+    });
 
     setRelinkingCard(null);
 
@@ -516,6 +602,8 @@ export function useCardOperations({
           windowApp: undefined,
           windowId: undefined,
           windowName: undefined,
+          windowPath: undefined,
+          windows: undefined,
         },
       },
     }));
@@ -549,6 +637,9 @@ export function useCardOperations({
     handleDropWindow,
     handleSelectWindow,
     handleUnlinkWindow,
+    handleAddWindowToCard,
+    addWindowTargetCardId,
+    setAddWindowTargetCardId,
     handleCardClick,
     handleAddIdea,
     handleRestoreIdeaToBoard,

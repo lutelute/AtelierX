@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, TagType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow, AppTabConfig, BUILTIN_APPS, getAppNameForTab, PriorityConfig, DEFAULT_PRIORITIES } from '../types';
+import { Card, TagType, SubTagType, SUBTAG_LABELS, SUBTAG_COLORS, CustomSubtag, DefaultSubtagSettings, AppWindow, AppTabConfig, BUILTIN_APPS, getAppNameForTab, PriorityConfig, DEFAULT_PRIORITIES, WindowRef, getCardWindows, shortenAppName } from '../types';
 import { computeTerminalBgColorFromHex, buildPriorityColorMap } from '../utils/terminalColor';
 
 // プリセットカラー
@@ -40,10 +40,8 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
   const [newSubtagColor, setNewSubtagColor] = useState(PRESET_COLORS[0]);
   const [editingSubtagId, setEditingSubtagId] = useState<string | null>(null);
 
-  // ウィンドウ紐付け用の状態
-  const [windowApp, setWindowApp] = useState<string | undefined>(card.windowApp);
-  const [windowId, setWindowId] = useState<string | undefined>(card.windowId);
-  const [windowName, setWindowName] = useState<string | undefined>(card.windowName);
+  // ウィンドウ紐付け用の状態（複数ウィンドウ対応）
+  const [windows, setWindows] = useState<WindowRef[]>(() => getCardWindows(card));
   const [showWindowSelect, setShowWindowSelect] = useState(false);
   const [availableWindows, setAvailableWindows] = useState<AppWindow[]>([]);
   const [loadingWindows, setLoadingWindows] = useState(false);
@@ -113,13 +111,22 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
     activateWindowSafe(availableWindows[prevIndex]);
   };
 
-  // 現在のウィンドウを選択
+  // 現在のウィンドウを選択（配列に追加）
   const handleConfirmWindow = () => {
     if (availableWindows.length === 0) return;
     const win = availableWindows[currentWindowIndex];
-    setWindowApp(win.app);
-    setWindowId(win.id);
-    setWindowName(win.name);
+    const newRef: WindowRef = {
+      app: win.app,
+      id: win.id,
+      name: win.name,
+      ...(win.path ? { path: win.path } : {}),
+    };
+    // 重複チェック
+    if (windows.some(w => w.id === newRef.id && w.id !== '')) {
+      setShowWindowSelect(false);
+      return;
+    }
+    setWindows(prev => [...prev, newRef]);
     setShowWindowSelect(false);
   };
 
@@ -137,19 +144,17 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
     try {
       const result = await window.electronAPI.openNewTerminal();
       if (result.success && result.windowName) {
-        setWindowApp('Terminal');
-        setWindowName(result.windowName);
+        const newRef: WindowRef = { app: 'Terminal', id: '', name: result.windowName };
+        setWindows(prev => [...prev, newRef]);
       }
     } finally {
       setOpeningNewTerminal(false);
     }
   };
 
-  // ウィンドウ紐付けを解除
-  const handleUnlinkWindow = () => {
-    setWindowApp(undefined);
-    setWindowId(undefined);
-    setWindowName(undefined);
+  // ウィンドウ紐付けを解除（個別）
+  const handleUnlinkSingleWindow = (index: number) => {
+    setWindows(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleAddSubtag = () => {
@@ -192,6 +197,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim()) {
+      const primary = windows.length > 0 ? windows[0] : undefined;
       onSave({
         ...card,
         title: title.trim(),
@@ -200,15 +206,17 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
         tag,
         subtag: undefined, // 旧形式は削除
         subtags: subtags.length > 0 ? subtags : undefined,
-        windowApp,
-        windowId,
-        windowName,
+        windows: windows.length > 0 ? windows : undefined,
+        windowApp: primary?.app,
+        windowId: primary?.id,
+        windowName: primary?.name,
+        windowPath: primary?.path,
       });
       onClose();
     }
   };
 
-  const canJump = windowApp && windowName;
+  const canJump = windows.length > 0;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -546,82 +554,85 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
               </div>
             )}
           </div>
-          {/* ウィンドウ紐付けセクション */}
+          {/* ウィンドウ紐付けセクション（複数ウィンドウ対応） */}
           <div className="form-group">
-            <label>ウィンドウ紐付け</label>
-            {windowApp && windowName ? (
-              <div className="linked-window-info">
-                <span className={`window-app-badge window-app-${windowApp.toLowerCase()}`}>
-                  {windowApp}
-                </span>
-                <span className="linked-window-name">
-                  {windowName.split(' — ')[0]}
-                  {windowId && <span className="linked-window-id"> (ID: {windowId.slice(-8)})</span>}
-                </span>
-                <button
-                  type="button"
-                  className="btn-unlink"
-                  onClick={handleUnlinkWindow}
-                  title="紐付け解除"
-                >
-                  ×
-                </button>
+            <label>ウィンドウ紐付け ({windows.length}件)</label>
+            {windows.length > 0 && (
+              <div className="edit-modal-windows-list">
+                {windows.map((ref, idx) => (
+                  <div key={ref.id || `${ref.app}-${idx}`} className="edit-modal-window-item">
+                    <span className={`window-app-badge window-app-${ref.app.toLowerCase()}`}>
+                      {shortenAppName(ref.app)}
+                    </span>
+                    <span className="edit-modal-window-name" title={ref.name}>
+                      {ref.name.split(' — ')[0]}
+                      {ref.id && <span className="linked-window-id"> (ID: {ref.id.slice(-8)})</span>}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-unlink"
+                      onClick={() => handleUnlinkSingleWindow(idx)}
+                      title="紐付け解除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <div className="window-link-actions">
-                {tag === 'terminal' && (
-                  <button
-                    type="button"
-                    className="btn-link-terminal"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      handleOpenNewTerminal();
-                    }}
-                    disabled={openingNewTerminal}
-                  >
-                    {openingNewTerminal ? '開いています...' : '+ 新しい Terminal を開く'}
-                  </button>
-                )}
-                {tag !== 'terminal' && tag !== 'finder' && (
-                  <button
-                    type="button"
-                    className="btn-link-terminal"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      const appName = getAppNameForTab(tag, enabledTabs);
-                      if (appName && window.electronAPI?.openNewGenericWindow) {
-                        setOpeningNewTerminal(true);
-                        try {
-                          const result = await window.electronAPI.openNewGenericWindow(appName);
-                          if (result.success && result.windowName) {
-                            setWindowApp(appName);
-                            setWindowName(result.windowName);
-                          }
-                        } finally {
-                          setOpeningNewTerminal(false);
-                        }
-                      }
-                    }}
-                    disabled={openingNewTerminal}
-                  >
-                    {openingNewTerminal ? '開いています...' : `+ 新しい ${getAppNameForTab(tag, enabledTabs) || ''} を開く`}
-                  </button>
-                )}
+            )}
+            <div className="window-link-actions">
+              {tag === 'terminal' && (
                 <button
                   type="button"
-                  className="btn-link-existing"
+                  className="btn-link-terminal"
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    setShowWindowSelect(!showWindowSelect);
+                    handleOpenNewTerminal();
                   }}
+                  disabled={openingNewTerminal}
                 >
-                  既存のウィンドウを選択
+                  {openingNewTerminal ? '開いています...' : '+ 新しい Terminal を開く'}
                 </button>
-              </div>
-            )}
+              )}
+              {tag !== 'terminal' && tag !== 'finder' && (
+                <button
+                  type="button"
+                  className="btn-link-terminal"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const appName = getAppNameForTab(tag, enabledTabs);
+                    if (appName && window.electronAPI?.openNewGenericWindow) {
+                      setOpeningNewTerminal(true);
+                      try {
+                        const result = await window.electronAPI.openNewGenericWindow(appName);
+                        if (result.success && result.windowName) {
+                          const newRef: WindowRef = { app: appName, id: '', name: result.windowName };
+                          setWindows(prev => [...prev, newRef]);
+                        }
+                      } finally {
+                        setOpeningNewTerminal(false);
+                      }
+                    }
+                  }}
+                  disabled={openingNewTerminal}
+                >
+                  {openingNewTerminal ? '開いています...' : `+ 新しい ${getAppNameForTab(tag, enabledTabs) || ''} を開く`}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-link-existing"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setShowWindowSelect(!showWindowSelect);
+                }}
+              >
+                既存のウィンドウを選択
+              </button>
+            </div>
             {showWindowSelect && (
               <div className="window-select-inline">
                 {loadingWindows && <div className="window-loading">読み込み中...</div>}
@@ -721,71 +732,74 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                   onJump();
                 }}
               >
-                {windowApp} ウィンドウを開く
+                {windows[0]?.app} ウィンドウを開く
               </button>
             </div>
           )}
-          {windowApp === 'Terminal' && windowId && window.electronAPI?.platform === 'darwin' && (
-            <div className="form-group">
-              <label>Terminal 背景色</label>
-              <div className="terminal-color-section">
-                <div className="terminal-color-presets">
-                  {columnColor && (
-                    <button
-                      type="button"
-                      className="terminal-color-action-btn"
-                      onClick={() => {
-                        const bgColor = computeTerminalBgColorFromHex(columnColor);
-                        window.electronAPI?.setTerminalColor(windowId, { bgColor });
-                      }}
-                    >
-                      <span className="terminal-color-dot" style={{ background: columnColor }} />
-                      カラム色
-                    </button>
-                  )}
-                  {card.priority && (() => {
-                    const colorMap = buildPriorityColorMap([...DEFAULT_PRIORITIES, ...customPriorities]);
-                    const pColor = colorMap[card.priority];
-                    return pColor ? (
+          {(() => {
+            const terminalWindows = windows.filter(w => w.app === 'Terminal' && w.id);
+            return terminalWindows.length > 0 && window.electronAPI?.platform === 'darwin' ? (
+              <div className="form-group">
+                <label>Terminal 背景色 ({terminalWindows.length})</label>
+                <div className="terminal-color-section">
+                  <div className="terminal-color-presets">
+                    {columnColor && (
                       <button
                         type="button"
                         className="terminal-color-action-btn"
                         onClick={() => {
-                          const bgColor = computeTerminalBgColorFromHex(pColor);
-                          window.electronAPI?.setTerminalColor(windowId, { bgColor });
+                          const bgColor = computeTerminalBgColorFromHex(columnColor);
+                          terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
                         }}
                       >
-                        <span className="terminal-color-dot" style={{ background: pColor }} />
-                        優先順位色
+                        <span className="terminal-color-dot" style={{ background: columnColor }} />
+                        カラム色
                       </button>
-                    ) : null;
-                  })()}
-                  <button
-                    type="button"
-                    className="terminal-color-action-btn terminal-color-reset-btn"
-                    onClick={() => {
-                      window.electronAPI?.setTerminalColor(windowId, { bgColor: { r: 0, g: 0, b: 0 } });
-                    }}
-                  >
-                    <span className="terminal-color-dot" style={{ background: '#000' }} />
-                    リセット
-                  </button>
-                </div>
-                <div className="terminal-color-custom">
-                  <input
-                    type="color"
-                    className="terminal-color-picker-input"
-                    defaultValue="#1a1a2e"
-                    onChange={(e) => {
-                      const bgColor = computeTerminalBgColorFromHex(e.target.value, 0.35);
-                      window.electronAPI?.setTerminalColor(windowId, { bgColor });
-                    }}
-                  />
-                  <span className="terminal-color-picker-text">カスタムカラー</span>
+                    )}
+                    {card.priority && (() => {
+                      const colorMap = buildPriorityColorMap([...DEFAULT_PRIORITIES, ...customPriorities]);
+                      const pColor = colorMap[card.priority];
+                      return pColor ? (
+                        <button
+                          type="button"
+                          className="terminal-color-action-btn"
+                          onClick={() => {
+                            const bgColor = computeTerminalBgColorFromHex(pColor);
+                            terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
+                          }}
+                        >
+                          <span className="terminal-color-dot" style={{ background: pColor }} />
+                          優先順位色
+                        </button>
+                      ) : null;
+                    })()}
+                    <button
+                      type="button"
+                      className="terminal-color-action-btn terminal-color-reset-btn"
+                      onClick={() => {
+                        terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor: { r: 0, g: 0, b: 0 } }));
+                      }}
+                    >
+                      <span className="terminal-color-dot" style={{ background: '#000' }} />
+                      リセット
+                    </button>
+                  </div>
+                  <div className="terminal-color-custom">
+                    <input
+                      type="color"
+                      className="terminal-color-picker-input"
+                      defaultValue="#1a1a2e"
+                      onChange={(e) => {
+                        const bgColor = computeTerminalBgColorFromHex(e.target.value, 0.35);
+                        terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
+                      }}
+                    />
+                    <span className="terminal-color-picker-text">カスタムカラー</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            ) : null;
+          })()}
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>
               キャンセル

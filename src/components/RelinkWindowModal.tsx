@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, AppWindow, WindowHistory } from '../types';
+import { Card, AppWindow, WindowHistory, getPrimaryWindow } from '../types';
 
 interface RelinkWindowModalProps {
   card: Card;
@@ -25,9 +25,12 @@ export function RelinkWindowModal({
   const [opening, setOpening] = useState(false);
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
 
-  // 同じアプリの履歴をフィルタ
+  // 同じアプリの履歴をフィルタ（複数ウィンドウ対応）
+  const primaryWindow = getPrimaryWindow(card);
+  const cardApp = primaryWindow?.app || card.windowApp;
+  const cardWindowId = primaryWindow?.id || card.windowId;
   const relevantHistory = windowHistory.filter(
-    (h) => h.app === card.windowApp && h.windowId !== card.windowId
+    (h) => h.app === cardApp && h.windowId !== cardWindowId
   );
 
   // 現在のウィンドウ一覧を取得
@@ -40,7 +43,7 @@ export function RelinkWindowModal({
       try {
         const windows = await window.electronAPI.getAppWindows();
         const filtered = windows.filter(
-          (w: AppWindow) => w.app === card.windowApp
+          (w: AppWindow) => w.app === cardApp
         );
         setCurrentWindows(filtered);
       } finally {
@@ -48,7 +51,7 @@ export function RelinkWindowModal({
       }
     };
     fetchWindows();
-  }, [card.windowApp]);
+  }, [cardApp]);
 
   // 新しいターミナルを開く
   const handleOpenNew = async () => {
@@ -74,8 +77,8 @@ export function RelinkWindowModal({
             <strong>{card.title}</strong> にリンクされていたウィンドウが見つかりませんでした。
           </p>
           <p className="relink-old-info">
-            元のウィンドウ: {card.windowName?.split(' — ')[0]}
-            {card.windowId && <span className="relink-old-id"> (ID: {card.windowId.slice(-8)})</span>}
+            元のウィンドウ: {(primaryWindow?.name || card.windowName || '').split(' — ')[0]}
+            {cardWindowId && <span className="relink-old-id"> (ID: {cardWindowId.slice(-8)})</span>}
           </p>
         </div>
 
@@ -100,7 +103,7 @@ export function RelinkWindowModal({
               {loading && <div className="relink-empty">読み込み中...</div>}
               {!loading && currentWindows.length === 0 && (
                 <div className="relink-empty">
-                  {card.windowApp} のウィンドウがありません
+                  {cardApp} のウィンドウがありません
                 </div>
               )}
               {!loading && currentWindows.map((w) => (
@@ -154,7 +157,7 @@ export function RelinkWindowModal({
         </div>
 
         <div className="relink-actions">
-          {card.windowApp === 'Terminal' && (
+          {cardApp === 'Terminal' && (
             <button
               className="btn-relink-new"
               onClick={handleOpenNew}

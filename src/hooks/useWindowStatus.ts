@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { BoardData, AllBoardsData, Card as CardType, AppWindow, AppTabConfig, TagType, BoardType, getTabIdForApp } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, AppWindow, AppTabConfig, TagType, BoardType, WindowRef, getTabIdForApp, getCardWindows, hasWindows } from '../types';
 import { createDefaultBoard } from '../utils/boardUtils';
 
 interface UseWindowStatusParams {
@@ -63,8 +63,9 @@ export function useWindowStatus({
 
       const registeredWindowIds = new Set(
         Object.values(cards)
-          .filter((card) => card.windowId && !card.archived)
-          .map((card) => card.windowId)
+          .filter((card) => !card.archived)
+          .flatMap((card) => getCardWindows(card).map(w => w.id))
+          .filter(Boolean)
       );
 
       const unadded = currentWindows.filter((win: AppWindow) => {
@@ -73,74 +74,102 @@ export function useWindowStatus({
       });
 
       const potentiallyBroken = Object.values(cards).filter((card) => {
-        if (!card.windowApp || card.archived) return false;
-        const matchesActiveBoard =
-          card.windowApp === activeTab.appName || card.tag === activeBoard;
+        if (!hasWindows(card) && !card.windowApp) return false;
+        if (card.archived) return false;
+
+        const cardWins = getCardWindows(card);
+        if (cardWins.length === 0) return false;
+
+        // このカードのウィンドウがアクティブボードに関連するかチェック
+        const matchesActiveBoard = cardWins.some(w => w.app === activeTab.appName) || card.tag === activeBoard;
         if (!matchesActiveBoard) return false;
 
-        if (!card.windowId) return true;
+        // 全ウィンドウの生存チェック: 1つでも生きていれば broken ではない
+        let allMissing = true;
+        for (const ref of cardWins) {
+          if (!ref.id) continue;
 
-        if (currentWindowIds.has(card.windowId)) {
-          missCountRef.current[card.id] = 0;
-          if (card.windowApp === 'Finder') {
-            const matchedWin = currentWindows.find((w: AppWindow) => w.id === card.windowId);
-            if (matchedWin && (matchedWin.name !== card.windowName || matchedWin.path !== card.windowPath)) {
-              updateCurrentBoard((prev) => ({
+          if (currentWindowIds.has(ref.id)) {
+            allMissing = false;
+            // Finder名前更新
+            if (ref.app === 'Finder') {
+              const matchedWin = currentWindows.find((w: AppWindow) => w.id === ref.id);
+              if (matchedWin && (matchedWin.name !== ref.name || matchedWin.path !== ref.path)) {
+                updateCurrentBoard((prev) => {
+                  const prevCard = prev.cards[card.id];
+                  if (!prevCard) return prev;
+                  const updatedWindows = (prevCard.windows || []).map(wr =>
+                    wr.id === ref.id ? { ...wr, name: matchedWin.name, ...(matchedWin.path ? { path: matchedWin.path } : {}) } : wr
+                  );
+                  return {
+                    ...prev,
+                    cards: {
+                      ...prev.cards,
+                      [card.id]: {
+                        ...prevCard,
+                        windows: updatedWindows,
+                        // 旧フィールドも同期
+                        ...(prevCard.windowId === ref.id ? { windowName: matchedWin.name, ...(matchedWin.path ? { windowPath: matchedWin.path } : {}) } : {}),
+                      },
+                    },
+                  };
+                });
+              }
+            }
+            continue;
+          }
+
+          // ID不一致: 名前マッチを試行
+          const appWins = currentWindows.filter((w: AppWindow) => w.app === ref.app);
+          let nameMatch: AppWindow | undefined;
+          if (ref.name) {
+            nameMatch = appWins.find((w: AppWindow) => w.name === ref.name);
+          }
+          if (!nameMatch && ref.app !== 'Terminal' && ref.app !== 'Finder' && ref.name) {
+            nameMatch = appWins.find((w: AppWindow) =>
+              w.name.includes(ref.name) || ref.name.includes(w.name)
+            );
+          }
+          if (!nameMatch && ref.app !== 'Terminal' && ref.app !== 'Finder' && appWins.length === 1) {
+            nameMatch = appWins[0];
+          }
+          if (!nameMatch && ref.app === 'Finder' && ref.path) {
+            nameMatch = appWins.find((w: AppWindow) => w.path && w.path === ref.path);
+          }
+          if (!nameMatch && ref.app === 'Finder' && appWins.length === 1) {
+            nameMatch = appWins[0];
+          }
+          if (nameMatch) {
+            allMissing = false;
+            updateCurrentBoard((prev) => {
+              const prevCard = prev.cards[card.id];
+              if (!prevCard) return prev;
+              const updatedWindows = (prevCard.windows || []).map(wr =>
+                wr.id === ref.id ? { ...wr, id: nameMatch!.id, name: nameMatch!.name, ...(nameMatch!.path ? { path: nameMatch!.path } : {}) } : wr
+              );
+              return {
                 ...prev,
                 cards: {
                   ...prev.cards,
                   [card.id]: {
-                    ...prev.cards[card.id],
-                    windowName: matchedWin.name,
-                    ...(matchedWin.path ? { windowPath: matchedWin.path } : {}),
+                    ...prevCard,
+                    windows: updatedWindows,
+                    // 旧フィールドも同期
+                    ...(prevCard.windowId === ref.id ? { windowId: nameMatch!.id, windowName: nameMatch!.name, ...(nameMatch!.path ? { windowPath: nameMatch!.path } : {}) } : {}),
                   },
                 },
-              }));
-            }
+              };
+            });
           }
+        }
+
+        if (allMissing) {
+          missCountRef.current[card.id] = (missCountRef.current[card.id] || 0) + 1;
+          return true;
+        } else {
+          missCountRef.current[card.id] = 0;
           return false;
         }
-
-        {
-          const appWins = currentWindows.filter((w: AppWindow) => w.app === card.windowApp);
-          let nameMatch: AppWindow | undefined;
-          if (card.windowName) {
-            nameMatch = appWins.find((w: AppWindow) => w.name === card.windowName);
-          }
-          if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && card.windowName) {
-            nameMatch = appWins.find((w: AppWindow) =>
-              w.name.includes(card.windowName!) || card.windowName!.includes(w.name)
-            );
-          }
-          if (!nameMatch && card.windowApp !== 'Terminal' && card.windowApp !== 'Finder' && appWins.length === 1) {
-            nameMatch = appWins[0];
-          }
-          if (!nameMatch && card.windowApp === 'Finder' && card.windowPath) {
-            nameMatch = appWins.find((w: AppWindow) => w.path && w.path === card.windowPath);
-          }
-          if (!nameMatch && card.windowApp === 'Finder' && appWins.length === 1) {
-            nameMatch = appWins[0];
-          }
-          if (nameMatch) {
-            missCountRef.current[card.id] = 0;
-            updateCurrentBoard((prev) => ({
-              ...prev,
-              cards: {
-                ...prev.cards,
-                [card.id]: {
-                  ...prev.cards[card.id],
-                  windowId: nameMatch!.id,
-                  windowName: nameMatch!.name,
-                  ...(nameMatch!.path ? { windowPath: nameMatch!.path } : {}),
-                },
-              },
-            }));
-            return false;
-          }
-        }
-
-        missCountRef.current[card.id] = (missCountRef.current[card.id] || 0) + 1;
-        return true;
       });
 
       const broken = potentiallyBroken.filter((card) => {
@@ -297,10 +326,15 @@ export function useWindowStatus({
     }
   }, []);
 
-  // ウィンドウへジャンプ
-  const handleJumpToWindow = useCallback(async (card: CardType, setRelinkingCard: (card: CardType | null) => void) => {
-    if (!card.windowApp || !card.windowId) return;
+  // ウィンドウへジャンプ（windowRefId指定で特定ウィンドウ、省略で最初のウィンドウ）
+  const handleJumpToWindow = useCallback(async (card: CardType, setRelinkingCard: (card: CardType | null) => void, windowRefId?: string) => {
+    const cardWins = getCardWindows(card);
+    const targetRef = windowRefId ? cardWins.find(w => w.id === windowRefId) : cardWins[0];
+    if (!targetRef || !targetRef.app) return;
     if (!window.electronAPI?.activateWindow) return;
+
+    // 後方互換: targetRefの情報で一時的なcardオブジェクトを作成してキャッシュ検索
+    const pseudoCard: CardType = { ...card, windowApp: targetRef.app, windowId: targetRef.id, windowName: targetRef.name, windowPath: targetRef.path };
 
     const now = Date.now();
     if (now - lastJumpTimeRef.current < 300) return;
@@ -308,35 +342,49 @@ export function useWindowStatus({
 
     const anim = settings.activateAnimation || 'pop';
 
-    const cached = findWindowInCache(card);
+    const cached = findWindowInCache(pseudoCard);
     if (cached) {
-      addToWindowHistory(card);
+      addToWindowHistory(pseudoCard);
       flashJumpingCard(card.id);
-      if (card.windowApp === 'Finder' && (cached.id !== card.windowId || cached.name !== card.windowName)) {
-        updateCurrentBoard((prev) => ({
-          ...prev,
-          cards: {
-            ...prev.cards,
-            [card.id]: { ...prev.cards[card.id], windowId: cached.id, windowName: cached.name },
-          },
-        }));
+      if (targetRef.app === 'Finder' && (cached.id !== targetRef.id || cached.name !== targetRef.name)) {
+        updateCurrentBoard((prev) => {
+          const prevCard = prev.cards[card.id];
+          if (!prevCard) return prev;
+          const updatedWindows = (prevCard.windows || []).map(wr =>
+            wr.id === targetRef.id ? { ...wr, id: cached.id, name: cached.name } : wr
+          );
+          return {
+            ...prev,
+            cards: {
+              ...prev.cards,
+              [card.id]: { ...prevCard, windows: updatedWindows, ...(prevCard.windowId === targetRef.id ? { windowId: cached.id, windowName: cached.name } : {}) },
+            },
+          };
+        });
       }
       window.electronAPI.activateWindow(cached.app, cached.id, cached.name, anim, (cached as any).windowIndex);
       return;
     }
 
     flashJumpingCard(card.id);
-    const matchedWindow = await findMatchingWindow(card);
+    const matchedWindow = await findMatchingWindow(pseudoCard);
     if (matchedWindow) {
-      addToWindowHistory(card);
-      if (card.windowApp === 'Finder' && (matchedWindow.id !== card.windowId || matchedWindow.name !== card.windowName)) {
-        updateCurrentBoard((prev) => ({
-          ...prev,
-          cards: {
-            ...prev.cards,
-            [card.id]: { ...prev.cards[card.id], windowId: matchedWindow.id, windowName: matchedWindow.name },
-          },
-        }));
+      addToWindowHistory(pseudoCard);
+      if (targetRef.app === 'Finder' && (matchedWindow.id !== targetRef.id || matchedWindow.name !== targetRef.name)) {
+        updateCurrentBoard((prev) => {
+          const prevCard = prev.cards[card.id];
+          if (!prevCard) return prev;
+          const updatedWindows = (prevCard.windows || []).map(wr =>
+            wr.id === targetRef.id ? { ...wr, id: matchedWindow.id, name: matchedWindow.name } : wr
+          );
+          return {
+            ...prev,
+            cards: {
+              ...prev.cards,
+              [card.id]: { ...prevCard, windows: updatedWindows, ...(prevCard.windowId === targetRef.id ? { windowId: matchedWindow.id, windowName: matchedWindow.name } : {}) },
+            },
+          };
+        });
       }
       window.electronAPI.activateWindow(matchedWindow.app, matchedWindow.id, matchedWindow.name, anim, (matchedWindow as any).windowIndex);
     } else {
@@ -344,12 +392,15 @@ export function useWindowStatus({
     }
   }, [findWindowInCache, findMatchingWindow, addToWindowHistory, flashJumpingCard, updateCurrentBoard, settings.activateAnimation]);
 
-  // ウィンドウを閉じる
-  const handleCloseWindowCard = useCallback(async (card: CardType) => {
-    if (!card?.windowApp || !card?.windowId) return;
+  // ウィンドウを閉じる（windowRefId指定で特定ウィンドウ、省略で最初のウィンドウ）
+  const handleCloseWindowCard = useCallback(async (card: CardType, windowRefId?: string) => {
     if (!window.electronAPI?.closeWindow) return;
+    const cardWins = getCardWindows(card);
+    const targetRef = windowRefId ? cardWins.find(w => w.id === windowRefId) : cardWins[0];
+    if (!targetRef || !targetRef.app || !targetRef.id) return;
 
-    const matchedWindow = await findMatchingWindow(card);
+    const pseudoCard: CardType = { ...card, windowApp: targetRef.app, windowId: targetRef.id, windowName: targetRef.name, windowPath: targetRef.path };
+    const matchedWindow = await findMatchingWindow(pseudoCard);
     if (matchedWindow) {
       const result = await window.electronAPI.closeWindow(
         matchedWindow.app,
@@ -367,6 +418,12 @@ export function useWindowStatus({
     const cardId = `card-${Date.now()}`;
     const tag: TagType = getTabIdForApp(appWindow.app, enabledTabs) || activeBoard;
     const displayName = appWindow.name.split(' — ')[0];
+    const windowRef: WindowRef = {
+      app: appWindow.app,
+      id: appWindow.id,
+      name: appWindow.name,
+      ...(appWindow.path ? { path: appWindow.path } : {}),
+    };
     const newCard: CardType = {
       id: cardId,
       title: displayName,
@@ -377,6 +434,7 @@ export function useWindowStatus({
       windowId: appWindow.id,
       windowName: appWindow.name,
       windowPath: appWindow.path,
+      windows: [windowRef],
     };
 
     updateCurrentBoard((prev) => ({
@@ -407,6 +465,12 @@ export function useWindowStatus({
       const cardId = `card-${Date.now()}-${index}`;
       const tag: TagType = getTabIdForApp(appWindow.app, enabledTabs) || activeBoard;
       const displayName = appWindow.name.split(' — ')[0];
+      const windowRef: WindowRef = {
+        app: appWindow.app,
+        id: appWindow.id,
+        name: appWindow.name,
+        ...(appWindow.path ? { path: appWindow.path } : {}),
+      };
       newCards[cardId] = {
         id: cardId,
         title: displayName,
@@ -417,6 +481,7 @@ export function useWindowStatus({
         windowId: appWindow.id,
         windowName: appWindow.name,
         windowPath: appWindow.path,
+        windows: [windowRef],
       };
       newCardIds.push(cardId);
     });

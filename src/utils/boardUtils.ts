@@ -1,4 +1,4 @@
-import { BoardData, AllBoardsData, Card as CardType } from '../types';
+import { BoardData, AllBoardsData, Card as CardType, WindowRef } from '../types';
 
 // デフォルトカラム色マップ
 export const DEFAULT_COLUMN_COLORS: Record<string, string> = {
@@ -33,6 +33,24 @@ export function migrateColumnColors(data: AllBoardsData): AllBoardsData {
     for (const col of board.columns) {
       if (!col.color && DEFAULT_COLUMN_COLORS[col.id]) {
         col.color = DEFAULT_COLUMN_COLORS[col.id];
+      }
+    }
+  }
+  return data;
+}
+
+// 単一ウィンドウ(windowApp)→複数ウィンドウ(windows[])マイグレーション（べき等）
+export function migrateCardWindows(data: AllBoardsData): AllBoardsData {
+  for (const board of Object.values(data.boards)) {
+    for (const card of Object.values(board.cards)) {
+      if (card.windowApp && !card.windows) {
+        const ref: WindowRef = {
+          app: card.windowApp,
+          id: card.windowId || '',
+          name: card.windowName || '',
+          ...(card.windowPath ? { path: card.windowPath } : {}),
+        };
+        card.windows = [ref];
       }
     }
   }

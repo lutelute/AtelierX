@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AppWindow, Card } from '../types';
+import { AppWindow, Card, getCardWindows } from '../types';
 
 interface ReminderNotificationProps {
   unaddedWindows: AppWindow[];
@@ -98,9 +98,16 @@ export function ReminderNotification({
               brokenLinkCards.map((card) => (
                 <div key={`broken-${card.id}`} className="reminder-item broken">
                   <div className="reminder-item-info">
-                    <span className={`reminder-app-badge ${card.windowApp === 'Terminal' ? 'terminal' : card.windowApp === 'Finder' ? 'finder' : 'generic'}`}>
-                      {card.windowApp || card.tag}
-                    </span>
+                    {(() => {
+                      const wins = getCardWindows(card);
+                      const appName = wins.length > 0 ? wins[0].app : (card.windowApp || card.tag);
+                      const badgeClass = appName === 'Terminal' ? 'terminal' : appName === 'Finder' ? 'finder' : 'generic';
+                      return (
+                        <span className={`reminder-app-badge ${badgeClass}`}>
+                          {appName}{wins.length > 1 ? ` (${wins.length})` : ''}
+                        </span>
+                      );
+                    })()}
                     <span className="reminder-window-name">{card.title}</span>
                   </div>
                   <button

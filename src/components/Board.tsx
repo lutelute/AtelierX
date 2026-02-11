@@ -21,8 +21,8 @@ import { useTabManagement } from '../hooks/useTabManagement';
 import { useExport } from '../hooks/useExport';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTimerActions } from '../hooks/useTimerActions';
-import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES, MultiGridLayout } from '../types';
-import { createDefaultBoard, initialAllBoardsData, DEFAULT_COLUMN_COLORS } from '../utils/boardUtils';
+import { BoardData, AllBoardsData, Card as CardType, BoardType, ActivityLog, Settings, WindowHistory, PluginCardActionInfo, BUILTIN_APPS, PriorityConfig, DEFAULT_PRIORITIES, MultiGridLayout, getCardWindows } from '../types';
+import { createDefaultBoard, initialAllBoardsData, DEFAULT_COLUMN_COLORS, migrateCardWindows } from '../utils/boardUtils';
 import { computeTerminalBgColorFromHex, buildPriorityColorMap, generateGradientColors, withAutoTextColor, TERMINAL_PRESETS } from '../utils/terminalColor';
 import { Column } from './Column';
 import { Card } from './Card';
@@ -127,6 +127,29 @@ export function Board() {
           }
         }
       }
+      return updated;
+    });
+  }, [allData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 単一→複数ウィンドウマイグレーション（起動時1回）
+  const hasWindowMigrated = useRef(false);
+  useEffect(() => {
+    if (hasWindowMigrated.current) return;
+    let needsMigration = false;
+    for (const board of Object.values(allData.boards)) {
+      for (const card of Object.values(board.cards)) {
+        if (card.windowApp && !card.windows) {
+          needsMigration = true;
+          break;
+        }
+      }
+      if (needsMigration) break;
+    }
+    if (!needsMigration) { hasWindowMigrated.current = true; return; }
+    hasWindowMigrated.current = true;
+    setAllData(prev => {
+      const updated = JSON.parse(JSON.stringify(prev)) as AllBoardsData;
+      migrateCardWindows(updated);
       return updated;
     });
   }, [allData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -695,20 +718,29 @@ export function Board() {
   const isMac = window.electronAPI?.platform === 'darwin';
   const isTerminalTab = activeBoard === 'terminal' && isMac;
 
+  // カードからTerminalウィンドウIDを全て取得するヘルパー
+  const getTerminalWindowIds = useCallback((card: CardType): string[] => {
+    return getCardWindows(card)
+      .filter(w => w.app === 'Terminal' && w.id)
+      .map(w => w.id);
+  }, []);
+
   const handleBatchApplyColumnColor = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
     for (const column of currentBoard.columns) {
-      if (column.id === 'todo') continue; // 未着手カラムはスキップ
+      if (column.id === 'todo') continue;
       if (!column.color) continue;
       const bgColor = computeTerminalBgColorFromHex(column.color);
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
-        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
-          window.electronAPI.setTerminalColor(card.windowId, withAutoTextColor(bgColor));
+        if (card && !card.archived) {
+          for (const wid of getTerminalWindowIds(card)) {
+            window.electronAPI.setTerminalColor(wid, withAutoTextColor(bgColor));
+          }
         }
       }
     }
-  }, [currentBoard]);
+  }, [currentBoard, getTerminalWindowIds]);
 
   const handleBatchApplyPriorityColor = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
@@ -716,18 +748,18 @@ export function Board() {
     for (const column of currentBoard.columns) {
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
-        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
+        if (card && !card.archived) {
+          const wids = getTerminalWindowIds(card);
+          if (wids.length === 0) continue;
           const pColor = card.priority ? priorityColorMap[card.priority] : undefined;
-          if (pColor) {
-            const bgColor = computeTerminalBgColorFromHex(pColor);
-            window.electronAPI.setTerminalColor(card.windowId, withAutoTextColor(bgColor));
-          } else {
-            window.electronAPI.setTerminalColor(card.windowId, withAutoTextColor(black));
+          const colorObj = pColor ? withAutoTextColor(computeTerminalBgColorFromHex(pColor)) : withAutoTextColor(black);
+          for (const wid of wids) {
+            window.electronAPI.setTerminalColor(wid, colorObj);
           }
         }
       }
     }
-  }, [currentBoard, priorityColorMap]);
+  }, [currentBoard, priorityColorMap, getTerminalWindowIds]);
 
   const handleBatchResetColor = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
@@ -736,12 +768,14 @@ export function Board() {
     for (const column of currentBoard.columns) {
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
-        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
-          window.electronAPI.setTerminalColor(card.windowId, { bgColor: black, textColor: white });
+        if (card && !card.archived) {
+          for (const wid of getTerminalWindowIds(card)) {
+            window.electronAPI.setTerminalColor(wid, { bgColor: black, textColor: white });
+          }
         }
       }
     }
-  }, [currentBoard]);
+  }, [currentBoard, getTerminalWindowIds]);
 
   const handleBatchApplyPreset = useCallback((presetId: string) => {
     if (!window.electronAPI?.setTerminalColor) return;
@@ -750,46 +784,52 @@ export function Board() {
     for (const column of currentBoard.columns) {
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
-        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
-          window.electronAPI.setTerminalColor(card.windowId, { bgColor: preset.bg, textColor: preset.text });
+        if (card && !card.archived) {
+          for (const wid of getTerminalWindowIds(card)) {
+            window.electronAPI.setTerminalColor(wid, { bgColor: preset.bg, textColor: preset.text });
+          }
         }
       }
     }
-  }, [currentBoard]);
+  }, [currentBoard, getTerminalWindowIds]);
 
   const handleBatchApplyGradient = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
-    // 未着手以外の Terminal カードを集める
-    const termCards: { windowId: string }[] = [];
+    const termWindowIds: string[] = [];
     for (const column of currentBoard.columns) {
-      if (column.id === 'todo') continue; // 未着手カラムはスキップ
+      if (column.id === 'todo') continue;
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
-        if (card && card.windowApp === 'Terminal' && card.windowId && !card.archived) {
-          termCards.push({ windowId: card.windowId });
+        if (card && !card.archived) {
+          termWindowIds.push(...getTerminalWindowIds(card));
         }
       }
     }
-    const colors = generateGradientColors(termCards.length);
-    termCards.forEach((tc, i) => {
-      window.electronAPI!.setTerminalColor(tc.windowId, withAutoTextColor(colors[i]));
+    const colors = generateGradientColors(termWindowIds.length);
+    termWindowIds.forEach((wid, i) => {
+      window.electronAPI!.setTerminalColor(wid, withAutoTextColor(colors[i]));
     });
-  }, [currentBoard]);
+  }, [currentBoard, getTerminalWindowIds]);
 
   // === ジャンプ・クリックハンドラ ===
 
-  const handleJumpCard = async (cardId: string) => {
+  const handleJumpCard = async (cardId: string, windowRefId?: string) => {
     const card = currentBoard.cards[cardId];
     if (card) {
-      await handleJumpToWindow(card, cardOps.setRelinkingCard);
+      await handleJumpToWindow(card, cardOps.setRelinkingCard, windowRefId);
     }
   };
 
-  const handleCloseWindowCardById = async (cardId: string) => {
+  const handleCloseWindowCardById = async (cardId: string, windowRefId?: string) => {
     const card = currentBoard.cards[cardId];
     if (card) {
-      await handleCloseWindowCard(card);
+      await handleCloseWindowCard(card, windowRefId);
     }
+  };
+
+  const handleAddWindowToCardById = (cardId: string) => {
+    cardOps.setAddWindowTargetCardId(cardId);
+    cardOps.setWindowSelectColumnId('__add-to-card__');
   };
 
   const handleCardClickById = async (cardId: string) => {
@@ -977,6 +1017,7 @@ export function Board() {
                   onJumpCard={handleJumpCard}
                   onCloseWindowCard={handleCloseWindowCardById}
                   onUnlinkWindowCard={cardOps.handleUnlinkWindow}
+                  onAddWindowToCard={handleAddWindowToCardById}
                   onDropWindow={cardOps.handleDropWindow}
                   onUpdateDescription={cardOps.handleUpdateDescription}
                   onUpdateComment={cardOps.handleUpdateComment}
@@ -1076,9 +1117,21 @@ export function Board() {
       )}
       {cardOps.windowSelectColumnId && (
         <WindowSelectModal
-          onClose={() => cardOps.setWindowSelectColumnId(null)}
-          onSelect={cardOps.handleSelectWindow}
-          appFilter={enabledTabs.find(t => t.id === activeBoard)?.appName}
+          onClose={() => {
+            cardOps.setWindowSelectColumnId(null);
+            cardOps.setAddWindowTargetCardId(null);
+          }}
+          onSelect={(appWindow) => {
+            if (cardOps.addWindowTargetCardId) {
+              // 既存カードへのウィンドウ追加モード
+              cardOps.handleAddWindowToCard(cardOps.addWindowTargetCardId, appWindow);
+              cardOps.setAddWindowTargetCardId(null);
+              cardOps.setWindowSelectColumnId(null);
+            } else {
+              cardOps.handleSelectWindow(appWindow);
+            }
+          }}
+          appFilter={cardOps.addWindowTargetCardId ? undefined : enabledTabs.find(t => t.id === activeBoard)?.appName}
         />
       )}
       {cardOps.editingCard && (

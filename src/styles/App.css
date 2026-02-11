@@ -1325,6 +1325,61 @@ body {
   flex-direction: column;
 }
 
+/* Window Select Tabs */
+.window-select-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.window-select-tab {
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.window-select-tab:hover {
+  color: #f4f4f5;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.window-select-tab.active {
+  color: #f4f4f5;
+  border-bottom-color: #a1a1aa;
+}
+
+.window-select-tab-terminal.active {
+  color: #22c55e;
+  border-bottom-color: #22c55e;
+}
+
+.window-select-tab-finder.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.window-select-tab-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  font-weight: 600;
+}
+
 .window-list {
   padding: 16px;
   overflow-y: auto;
@@ -6027,6 +6082,39 @@ body.theme-light {
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* Window Select Tabs Light Theme */
+.theme-light .window-select-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .window-select-tab {
+  color: #71717a;
+}
+
+.theme-light .window-select-tab:hover {
+  color: #1a1a1a;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.theme-light .window-select-tab.active {
+  color: #1a1a1a;
+  border-bottom-color: #71717a;
+}
+
+.theme-light .window-select-tab-terminal.active {
+  color: #16a34a;
+  border-bottom-color: #16a34a;
+}
+
+.theme-light .window-select-tab-finder.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.theme-light .window-select-tab-count {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 /* Form Light Theme */
 .theme-light .form-group label {
   color: #3d3d3d;
@@ -9935,4 +10023,224 @@ body.theme-light {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
+}
+
+/* === 複数ウィンドウ: カード内ウィンドウリスト === */
+.card-windows-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 0 2px;
+  margin-top: 4px;
+}
+
+.card-window-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.card-window-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.card-window-row:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.card-window-row-icon {
+  font-size: 11px;
+  font-weight: 700;
+  color: #71717a;
+  width: 20px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.card-window-row-icon.window-app-terminal {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  font-family: monospace;
+  font-size: 9px;
+}
+
+.card-window-row-icon.window-app-finder,
+.card-window-row-icon.window-app-file-explorer {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.card-window-row-name {
+  flex: 1;
+  color: #d4d4d8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.card-window-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.card-window-row:hover .card-window-row-actions {
+  opacity: 1;
+}
+
+.card-window-row-sep {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+}
+
+.theme-light .card-window-row-sep {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.card-window-row-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 11px;
+  border-radius: 3px;
+  color: #a1a1aa;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.card-window-row-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+}
+
+.card-window-row-close:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.card-window-row-unlink:hover {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.card-window-add-btn {
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  color: #71717a;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.card-window-add-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
+/* === 複数ウィンドウ: EditCardModal ウィンドウリスト === */
+.edit-modal-windows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.edit-modal-window-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+.edit-modal-window-name {
+  flex: 1;
+  font-size: 13px;
+  color: #d4d4d8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ライトテーマ対応 */
+.theme-light .card-windows-section {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .card-window-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.theme-light .card-window-row:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .card-window-row-icon {
+  color: #6b7280;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.theme-light .card-window-row-icon.window-app-terminal {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.theme-light .card-window-row-icon.window-app-finder,
+.theme-light .card-window-row-icon.window-app-file-explorer {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.theme-light .card-window-row-name {
+  color: #374151;
+}
+
+.theme-light .card-window-row-btn {
+  color: #6b7280;
+}
+
+.theme-light .card-window-row-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1f2937;
+}
+
+.theme-light .card-window-add-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #9ca3af;
+}
+
+.theme-light .card-window-add-btn:hover {
+  background: rgba(99, 102, 241, 0.06);
+  border-color: rgba(99, 102, 241, 0.2);
+  color: #6366f1;
+}
+
+.theme-light .edit-modal-window-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .edit-modal-window-name {
+  color: #374151;
 }

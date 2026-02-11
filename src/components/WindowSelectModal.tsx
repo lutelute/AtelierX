@@ -8,9 +8,10 @@ interface WindowSelectModalProps {
 }
 
 export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelectModalProps) {
-  const [windows, setWindows] = useState<AppWindow[]>([]);
+  const [allWindows, setAllWindows] = useState<AppWindow[]>([]);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>(appFilter ?? null); // null = すべて
 
   const fetchWindows = async () => {
     try {
@@ -20,14 +21,11 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
           ? [appFilter]
           : undefined;
         const appWindows = await window.electronAPI.getAppWindows(extraApps);
-        console.log('[WindowSelectModal] All windows:', appWindows.length);
-        console.log('[WindowSelectModal] appFilter:', appFilter);
         // フィルタが指定されていればフィルタリング
         const filtered = appFilter
           ? appWindows.filter((w: AppWindow) => w.app === appFilter)
           : appWindows;
-        console.log('[WindowSelectModal] Filtered:', filtered.length);
-        setWindows(filtered);
+        setAllWindows(filtered);
       }
     } finally {
       setLoading(false);
@@ -37,6 +35,15 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
   useEffect(() => {
     fetchWindows();
   }, [appFilter]);
+
+  // アプリ別タブ用: ユニークなアプリ名を抽出
+  const appNames = Array.from(new Set(allWindows.map(w => w.app)));
+  const showTabs = !appFilter && appNames.length > 1;
+
+  // activeTabでフィルタリング
+  const windows = activeTab
+    ? allWindows.filter(w => w.app === activeTab)
+    : allWindows;
 
   // 新しいターミナルを開く
   const handleOpenNewTerminal = async () => {
@@ -125,11 +132,11 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
     }
   };
 
-  const isTerminal = appFilter === 'Terminal';
-  const isFinder = appFilter === 'Finder';
-  const isGeneric = appFilter && !isTerminal && !isFinder;
-  const showTerminalButton = !appFilter || isTerminal;
-  const showFinderButton = !appFilter || isFinder;
+  // 現在のタブに基づいた表示判定
+  const effectiveFilter = appFilter ?? activeTab;
+  const isTerminal = effectiveFilter === 'Terminal';
+  const isFinder = effectiveFilter === 'Finder';
+  const isGeneric = effectiveFilter && !isTerminal && !isFinder;
   const noWindows = !loading && windows.length === 0;
 
   return (
@@ -139,12 +146,34 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
           <h2>ウィンドウを選択</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
+
+        {/* アプリ切り替えタブ */}
+        {showTabs && (
+          <div className="window-select-tabs">
+            <button
+              className={`window-select-tab${activeTab === null ? ' active' : ''}`}
+              onClick={() => setActiveTab(null)}
+            >
+              すべて <span className="window-select-tab-count">{allWindows.length}</span>
+            </button>
+            {appNames.map(app => (
+              <button
+                key={app}
+                className={`window-select-tab window-select-tab-${app.toLowerCase().replace(/\s+/g, '-')}${activeTab === app ? ' active' : ''}`}
+                onClick={() => setActiveTab(app)}
+              >
+                {app} <span className="window-select-tab-count">{allWindows.filter(w => w.app === app).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="window-list">
           {loading && <div className="window-empty">読み込み中...</div>}
           {noWindows && (
             <div className="window-empty">
-              {appFilter
-                ? `${appFilter} のウィンドウが開いていません`
+              {effectiveFilter
+                ? `${effectiveFilter} のウィンドウが開いていません`
                 : 'ウィンドウが開いていません'}
             </div>
           )}
@@ -174,7 +203,7 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
 
         {/* 新規ウィンドウを開くボタン */}
         <div className="window-open-new-section">
-          {showTerminalButton && isTerminal && (
+          {isTerminal && (
             <button
               className="btn-open-new btn-open-new-terminal"
               onClick={handleOpenNewTerminal}
@@ -183,7 +212,7 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
               {opening ? '開いています...' : '新しい Terminal を開く'}
             </button>
           )}
-          {showFinderButton && isFinder && noWindows && (
+          {isFinder && noWindows && (
             <button
               className="btn-open-new btn-open-new-finder"
               onClick={handleOpenNewFinder}
@@ -198,7 +227,7 @@ export function WindowSelectModal({ onClose, onSelect, appFilter }: WindowSelect
               onClick={handleOpenNewGeneric}
               disabled={opening}
             >
-              {opening ? '開いています...' : `新しい ${appFilter} ウィンドウを開く`}
+              {opening ? '開いています...' : `新しい ${effectiveFilter} ウィンドウを開く`}
             </button>
           )}
         </div>

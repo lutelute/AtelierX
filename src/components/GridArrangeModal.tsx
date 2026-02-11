@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DisplayInfo, GridOptions, PluginGridLayout, Column as ColumnType, Card as CardType } from '../types';
+import { DisplayInfo, GridOptions, PluginGridLayout, Column as ColumnType, Card as CardType, getCardWindows } from '../types';
 
 interface GridArrangeModalProps {
   appType: string;
@@ -29,33 +29,39 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
   // カラムデータがあるかどうか（タブ表示の判定）
   const hasColumnData = !!(columns && columns.length > 0 && cards);
 
-  // 全ウィンドウ紐付きカード数
+  // 全ウィンドウID数（複数ウィンドウ対応）
   const totalWindowCount = useMemo(() => {
     if (!columns || !cards) return 0;
     let count = 0;
     for (const col of columns) {
       for (const cardId of col.cardIds) {
         const card = cards[cardId];
-        if (card && !card.archived && card.windowId) count++;
+        if (card && !card.archived) {
+          count += getCardWindows(card).filter(w => w.id).length;
+        }
       }
     }
     return count;
   }, [columns, cards]);
 
-  // カラムごとのウィンドウ紐付きカード数を計算
+  // カラムごとのウィンドウ数を計算（複数ウィンドウ対応）
   const columnWindowCounts = useMemo(() => {
     if (!columns || !cards) return {};
     const counts: Record<string, number> = {};
     for (const col of columns) {
-      counts[col.id] = col.cardIds.filter(cardId => {
+      let count = 0;
+      for (const cardId of col.cardIds) {
         const card = cards[cardId];
-        return card && !card.archived && card.windowId;
-      }).length;
+        if (card && !card.archived) {
+          count += getCardWindows(card).filter(w => w.id).length;
+        }
+      }
+      counts[col.id] = count;
     }
     return counts;
   }, [columns, cards]);
 
-  // 選択されたカラムのウィンドウIDリストを取得
+  // 選択されたカラムのウィンドウIDリストを取得（複数ウィンドウ対応）
   const selectedWindowIds = useMemo(() => {
     if (!columns || !cards || selectedColumnIds.size === 0) return [];
     const ids: string[] = [];
@@ -63,8 +69,10 @@ export function GridArrangeModal({ appType, onClose, onArrange, columns, cards }
       if (!selectedColumnIds.has(col.id)) continue;
       for (const cardId of col.cardIds) {
         const card = cards[cardId];
-        if (card && !card.archived && card.windowId) {
-          ids.push(card.windowId);
+        if (card && !card.archived) {
+          for (const w of getCardWindows(card)) {
+            if (w.id) ids.push(w.id);
+          }
         }
       }
     }

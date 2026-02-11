@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig, DEFAULT_PRIORITIES, getTagColor, getTagLabel, Settings } from '../types';
+import { Card as CardType, CardStatusMarker, SUBTAG_COLORS, SUBTAG_LABELS, CustomSubtag, DefaultSubtagSettings, PluginCardActionInfo, TimerAction, Priority, PriorityConfig, DEFAULT_PRIORITIES, getTagColor, getTagLabel, Settings, getCardWindows } from '../types';
 import { CHECKBOX_EXTRACT, CHECKBOX_DISPLAY, CHECKBOX_GROUPS, CARD_STATUS_MARKERS } from '../utils/checkboxConstants';
 
 interface CardProps {
@@ -11,9 +11,10 @@ interface CardProps {
   columnColor?: string;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
-  onJump?: (id: string) => void;
-  onCloseWindow?: (id: string) => void;
-  onUnlinkWindow?: (id: string) => void;
+  onJump?: (id: string, windowRefId?: string) => void;
+  onCloseWindow?: (id: string, windowRefId?: string) => void;
+  onUnlinkWindow?: (id: string, windowRefId?: string) => void;
+  onAddWindowToCard?: (id: string) => void;
   onUpdateDescription?: (id: string, description: string) => void;
   onUpdateComment?: (id: string, comment: string) => void;
   onUpdateStatusMarker?: (id: string, marker: CardStatusMarker) => void;
@@ -664,7 +665,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority, settings, onUpdateSettings }: CardProps) {
+export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onAddWindowToCard, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority, settings, onUpdateSettings }: CardProps) {
   const {
     attributes,
     listeners,
@@ -865,8 +866,11 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
   const footerActions = useMemo(() => cardActions.filter(a => a.position === 'card-footer'), [cardActions]);
   const taskActions = useMemo(() => cardActions.filter(a => a.position === 'task'), [cardActions]);
 
+  // 複数ウィンドウ対応
+  const cardWindows = useMemo(() => getCardWindows(card), [card]);
+
   // ウィンドウリンクの状態でクラスを追加
-  const hasWindowLink = !!card.windowApp;
+  const hasWindowLink = cardWindows.length > 0;
   const linkClass = isBrokenLink ? 'card-broken-link' : hasWindowLink ? 'card-linked' : 'card-unlinked';
 
   // カードステータスマーカーの表示
@@ -997,49 +1001,62 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
           />
         </div>
       )}
-      {card.windowApp && onJump && (
-        <div className="card-window-actions">
-          {onUnlinkWindow && (
-            <button
-              className="card-unlink-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUnlinkWindow(card.id);
-              }}
-              title="リンク解除"
+      {cardWindows.length > 0 && onJump && (
+        <div className="card-windows-section" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>
+          {cardWindows.map((ref) => (
+            <div
+              key={ref.id || ref.name}
+              className={`card-window-row window-app-row-${ref.app.toLowerCase().replace(/\s+/g, '-')}`}
+              onClick={() => onJump(card.id, ref.id)}
+              title={`${ref.app} を開く: ${ref.name}`}
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 6l-4 4" />
-                <path d="M6 6l4 4" />
-              </svg>
-            </button>
-          )}
-          <button
-            className="card-jump-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onJump(card.id);
-            }}
-            title={card.windowId ? `ID: ${card.windowId}` : undefined}
-          >
-            {card.windowApp} を開く
-            {card.windowId && <span className="jump-button-id"> ({card.windowId.slice(-8)})</span>}
-          </button>
-          {onCloseWindow && (
+              <span className={`card-window-row-icon window-app-${ref.app.toLowerCase().replace(/\s+/g, '-')}`}>
+                {ref.app === 'Terminal' ? '>_' : ref.app === 'Finder' ? '📁' : '◻'}
+              </span>
+              <span className="card-window-row-name">{ref.name.split(' — ')[0]}</span>
+              <div className="card-window-row-actions">
+                {onUnlinkWindow && (
+                  <button
+                    className="card-window-row-btn card-window-row-unlink"
+                    onClick={(e) => { e.stopPropagation(); onUnlinkWindow(card.id, ref.id); }}
+                    title="リンク解除"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M11 5L5 11" /><path d="M5 5l6 6" />
+                    </svg>
+                  </button>
+                )}
+                <span className="card-window-row-sep" />
+                {onCloseWindow && (
+                  <button
+                    className="card-window-row-btn card-window-row-close"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const needConfirm = settings?.confirmCloseWindow !== false;
+                      if (needConfirm) {
+                        setShowCloseConfirm(true);
+                      } else {
+                        onCloseWindow(card.id, ref.id);
+                      }
+                    }}
+                    title="ウィンドウを閉じる"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <rect x="2" y="2" width="12" height="12" rx="2" />
+                      <path d="M6 6l4 4" /><path d="M10 6l-4 4" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {onAddWindowToCard && (
             <button
-              className="card-close-window-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                const needConfirm = settings?.confirmCloseWindow !== false;
-                if (needConfirm) {
-                  setShowCloseConfirm(true);
-                } else {
-                  onCloseWindow(card.id);
-                }
-              }}
-              title={`${card.windowApp} を閉じる`}
+              className="card-window-add-btn"
+              onClick={(e) => { e.stopPropagation(); onAddWindowToCard(card.id); }}
+              title="ウィンドウ追加"
             >
-              ✕
+              ＋ ウィンドウ追加
             </button>
           )}
         </div>
@@ -1142,7 +1159,7 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
                 <span className="context-action-icon">✏️</span>
                 <span>編集</span>
               </button>
-              {onJump && card.windowApp && (
+              {onJump && cardWindows.length > 0 && (
                 <button
                   className="context-menu-action"
                   onClick={() => {
@@ -1151,10 +1168,10 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
                   }}
                 >
                   <span className="context-action-icon">↗️</span>
-                  <span>{card.windowApp} を開く</span>
+                  <span>{cardWindows[0].app} を開く</span>
                 </button>
               )}
-              {onCloseWindow && card.windowApp && (
+              {onCloseWindow && cardWindows.length > 0 && (
                 <button
                   className="context-menu-action"
                   onClick={() => {
@@ -1163,7 +1180,7 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
                   }}
                 >
                   <span className="context-action-icon">✕</span>
-                  <span>{card.windowApp} を閉じる</span>
+                  <span>{cardWindows[0].app} を閉じる</span>
                 </button>
               )}
               {onArchive && (

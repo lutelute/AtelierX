@@ -148,6 +148,14 @@ export interface CustomSubtag {
   color: string;
 }
 
+// カードに紐づくウィンドウ参照（複数ウィンドウ対応）
+export interface WindowRef {
+  app: string;    // "Terminal", "Finder", "Obsidian" etc.
+  id: string;     // ウィンドウID
+  name: string;   // ウィンドウ名
+  path?: string;  // Finderフォルダパス
+}
+
 // アプリウィンドウ情報
 export interface AppWindow {
   app: string;            // アプリ名 (string に拡張)
@@ -571,11 +579,13 @@ export interface Card {
   completedAt?: number;  // 完了時刻
   archived?: boolean;    // アーカイブ済みフラグ
   archivedAt?: number;   // アーカイブ時刻
-  // ウィンドウ情報（ジャンプ用）
+  // ウィンドウ情報（後方互換のため旧フィールドも残す）
   windowApp?: string;    // アプリ名 (string に拡張)
   windowId?: string;     // ウィンドウID（一意識別用）
   windowName?: string;
   windowPath?: string;   // Finderのフォルダパス（安定識別用）
+  // 複数ウィンドウ対応
+  windows?: WindowRef[];
   // 優先順位
   priority?: Priority;
   // 時間記録
@@ -675,4 +685,42 @@ export function getTabIdForApp(appName: string, enabledTabs?: AppTabConfig[]): s
   const found = allApps.find(a => a.appName === appName);
   if (found) return found.id;
   return undefined;
+}
+
+// === 複数ウィンドウヘルパー関数 ===
+
+// 旧形式・新形式どちらでもWindowRef[]を返す
+export function getCardWindows(card: Card): WindowRef[] {
+  if (card.windows && card.windows.length > 0) {
+    return card.windows;
+  }
+  // 旧形式フォールバック
+  if (card.windowApp && card.windowId) {
+    return [{
+      app: card.windowApp,
+      id: card.windowId,
+      name: card.windowName || '',
+      path: card.windowPath,
+    }];
+  }
+  if (card.windowApp && card.windowName) {
+    return [{
+      app: card.windowApp,
+      id: '',
+      name: card.windowName,
+      path: card.windowPath,
+    }];
+  }
+  return [];
+}
+
+// ウィンドウ紐づけがあるか
+export function hasWindows(card: Card): boolean {
+  return getCardWindows(card).length > 0;
+}
+
+// 最初のウィンドウを返す（後方互換用）
+export function getPrimaryWindow(card: Card): WindowRef | undefined {
+  const wins = getCardWindows(card);
+  return wins.length > 0 ? wins[0] : undefined;
 }
