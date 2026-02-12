@@ -1148,6 +1148,12 @@ body {
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  bottom: 0;
+  background: #1e1e2e;
+  z-index: 10;
+  margin: 0 -24px -24px;
+  width: calc(100% + 48px);
   background: #1e1e2e;
   border-radius: 0 0 16px 16px;
   flex-shrink: 0;
