@@ -841,6 +841,14 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
     return false;
   }, [card.description]);
 
+  // カラム色でパルスするためのCSS変数を追加
+  const cardStyle = useMemo(() => {
+    if (isCardInProgress && columnColor) {
+      return { ...style, '--pulse-color': columnColor } as React.CSSProperties;
+    }
+    return style;
+  }, [style, isCardInProgress, columnColor]);
+
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     // ボタンやタスクチェックボックスからのクリックは無視
     if ((e.target as HTMLElement).closest('button, .task-item, .card-status-marker')) {
@@ -881,7 +889,7 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={cardStyle}
       className={`card ${onCardClick ? 'card-clickable' : ''} ${linkClass} ${columnColor ? 'card-column-colored' : ''} ${card.priority && allPriorities.length > 0 && card.priority === allPriorities[0].id ? 'card-priority-high' : ''} ${isCardInProgress ? 'card-in-progress' : ''}`}
       data-card-id={card.id}
       onClick={handleCardClick}

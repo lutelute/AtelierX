@@ -575,19 +575,17 @@ body {
   background: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
 }
-/* カード個別の進行中パルス（カラム単位ではなくカード単位で適用） */
+/* カード個別の進行中パルス（カラム色でグロー） */
 .card.card-in-progress {
-  border-left: 4px solid rgba(59, 130, 246, 0.6);
-  animation: card-pulse-border 1.8s ease-in-out infinite;
+  --pulse-color: #3b82f6;
+  animation: card-pulse-glow 2s ease-in-out infinite;
 }
-@keyframes card-pulse-border {
+@keyframes card-pulse-glow {
   0%, 100% {
-    border-left-color: rgba(59, 130, 246, 0.4);
-    box-shadow: -2px 0 6px rgba(59, 130, 246, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
   50% {
-    border-left-color: rgba(59, 130, 246, 1);
-    box-shadow: -3px 0 14px rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 14px 3px var(--pulse-color, #3b82f6);
   }
 }
 
