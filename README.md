@@ -43,6 +43,16 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 - **Gradient** &mdash; 色相を均等分割したグラデーション
 - **Auto Text Color** &mdash; 背景に応じてテキスト色を自動調整
 
+### Timer & Pulse
+- **Task Timer** &mdash; 右クリックメニューからタスクにタイマーを設定、作業時間を自動記録
+- **Pulse Animation** &mdash; タイマー実行中のカードがカラム色でグロー発光
+- **Status Sync** &mdash; タイマー開始で自動的に「進行中」ステータスに変更
+
+### Multi-Window Card
+- **Window Linking** &mdash; 1枚のカードにTerminal / Finder など複数ウィンドウを紐づけ
+- **Batch Jump** &mdash; カードクリックで関連ウィンドウをまとめて前面に表示
+- **Individual Control** &mdash; 各ウィンドウを個別にジャンプ・削除可能
+
 ### Daily Report & Logging
 - **Activity Log** &mdash; カードの移動・完了を自動記録
 - **Export** &mdash; Markdown / JSON / テキスト / プラグインフォーマットで出力
@@ -115,7 +125,15 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 6種のプリセットテーマやカラム色・グラデーションで、ターミナルの背景色を一括変更。
 
 <p align="center">
-  <img src="docs/assets/screenshot-terminal-color.png" alt="Terminal Color" width="720">
+  <img src="docs/assets/demo-terminal-color.gif" alt="Terminal Color - Colored Terminals" width="720">
+</p>
+
+### Timer Pulse
+
+タイマー実行中のカードがカラム色でパルスアニメーション。作業中のタスクが一目でわかる。
+
+<p align="center">
+  <img src="docs/assets/demo-timer-pulse.gif" alt="Timer Pulse Animation" width="400">
 </p>
 
 ### Multi-Window Card
