@@ -183,6 +183,7 @@ export const TabAddPopover = memo(function TabAddPopover({ enabledTabs, onAddTab
                     value={customAppName}
                     onChange={(e) => setCustomAppName(e.target.value)}
                     onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         handleAddCustomTab();

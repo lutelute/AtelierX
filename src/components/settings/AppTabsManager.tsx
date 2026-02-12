@@ -161,14 +161,14 @@ export function AppTabsManager({ settings, onSettingsChange }: AppTabsManagerPro
             placeholder="macOSアプリ名 (例: Notion)"
             value={customAppName}
             onChange={(e) => setCustomAppName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomApp(); } }}
+            onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); addCustomApp(); } }}
           />
           <input
             type="text"
             placeholder="表示名 (任意)"
             value={customDisplayName}
             onChange={(e) => setCustomDisplayName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomApp(); } }}
+            onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); addCustomApp(); } }}
           />
           <button type="button" className="btn-add-custom-app" onClick={addCustomApp} disabled={!customAppName.trim()}>追加</button>
         </div>

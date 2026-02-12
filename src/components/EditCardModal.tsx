@@ -528,6 +528,7 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                   value={newSubtagName}
                   onChange={(e) => setNewSubtagName(e.target.value)}
                   onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return;
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleAddSubtag();

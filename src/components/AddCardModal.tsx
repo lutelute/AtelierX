@@ -197,6 +197,7 @@ export function AddCardModal({ onClose, onAdd, onAddWithNewTerminal, customSubta
                   value={newSubtagName}
                   onChange={(e) => setNewSubtagName(e.target.value)}
                   onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return;
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleAddSubtag();

@@ -118,6 +118,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
   };
 
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') {
       handleTitleConfirm();
     } else if (e.key === 'Escape') {

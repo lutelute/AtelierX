@@ -1177,11 +1177,12 @@ body {
 }
 
 .btn-primary {
-  padding: 10px 24px;
+  padding: 12px 32px;
   background: #6366f1;
   border: none;
   border-radius: 8px;
   color: #fff;
+  min-width: 100px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;

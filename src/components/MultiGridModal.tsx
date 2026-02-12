@@ -567,7 +567,7 @@ export function MultiGridModal({
                           placeholder="レイアウト名"
                           value={saveName}
                           onChange={e => setSaveName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setShowSaveInput(false); }}
+                          onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setShowSaveInput(false); }}
                           autoFocus
                         />
                         <button className="mg-save-confirm" onClick={handleSave} disabled={!saveName.trim()}>保存</button>

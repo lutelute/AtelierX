@@ -257,7 +257,7 @@ const PriorityMenu = memo(function PriorityMenu({
               placeholder="ラベル"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+              onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
               autoFocus
             />
             <div className="priority-add-colors">
@@ -454,6 +454,7 @@ const MarkdownContent = memo(function MarkdownContent({
   }, [newTaskText, onAddTask]);
 
   const handleAddTaskKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();

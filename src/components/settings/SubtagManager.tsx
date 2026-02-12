@@ -186,7 +186,7 @@ export function SubtagManager({ settings, onSettingsChange }: SubtagManagerProps
       <div className="form-group">
         <label>新しいタグを追加</label>
         <div className="add-subtag-form">
-          <input type="text" placeholder="タグ名" value={newSubtagName} onChange={(e) => setNewSubtagName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubtag(); } }} />
+          <input type="text" placeholder="タグ名" value={newSubtagName} onChange={(e) => setNewSubtagName(e.target.value)} onKeyDown={(e) => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') { e.preventDefault(); handleAddSubtag(); } }} />
           <div className="color-picker-inline">
             {PRESET_COLORS.map((color) => (
               <button key={color} type="button" className={`color-option ${newSubtagColor === color ? 'selected' : ''}`} style={{ backgroundColor: color }} onClick={() => setNewSubtagColor(color)} />
