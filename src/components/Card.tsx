@@ -476,9 +476,14 @@ const MarkdownContent = memo(function MarkdownContent({
   const handleTimerAction = useCallback((action: TimerAction) => {
     if (contextMenu && onTimerAction) {
       onTimerAction(contextMenu.taskIndex, action);
-      // タイマー状態を更新してメニューは開いたまま
+      // タイマー状態とマーカーを更新してメニューは開いたまま
       const newIsRunning = action === 'start';
-      setContextMenu(prev => prev ? { ...prev, isTimerRunning: newIsRunning } : null);
+      setContextMenu(prev => {
+        if (!prev) return null;
+        // タイマー開始時、未完了マーカーなら進行中に同期
+        const newMarker = action === 'start' && prev.marker === ' ' ? '/' : prev.marker;
+        return { ...prev, isTimerRunning: newIsRunning, marker: newMarker };
+      });
     }
   }, [contextMenu, onTimerAction]);
 

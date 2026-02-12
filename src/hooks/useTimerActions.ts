@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { BoardData, TimerAction } from '../types';
+import { BoardData, TimerAction, CardStatusMarker } from '../types';
 import { formatDuration, formatDateTime, parseTimerStartTime } from '../utils/timerUtils';
 import { CHECKBOX_PATTERN, CHECKBOX_EXTRACT } from '../utils/checkboxConstants';
 
@@ -67,6 +67,7 @@ export function useTimerActions({
       }
 
       const updatedLines = [...lines];
+      let newStatusMarker: CardStatusMarker | undefined;
 
       switch (action) {
         case 'start': {
@@ -81,6 +82,10 @@ export function useTimerActions({
             updatedLines[runningTimerLineIndex] = timeStr;
           } else {
             updatedLines.splice(targetLineIndex + 1, 0, timeStr);
+          }
+          // カードのステータスマーカーも進行中に更新（未設定 or 未完了の場合）
+          if (!card.statusMarker || card.statusMarker === ' ') {
+            newStatusMarker = '/';
           }
           break;
         }
@@ -111,6 +116,7 @@ export function useTimerActions({
           [cardId]: {
             ...card,
             description: updatedLines.join('\n'),
+            ...(newStatusMarker !== undefined ? { statusMarker: newStatusMarker } : {}),
           },
         },
       };
