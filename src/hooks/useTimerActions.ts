@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { BoardData, TimerAction } from '../types';
 import { formatDuration, formatDateTime, parseTimerStartTime } from '../utils/timerUtils';
-import { CHECKBOX_PATTERN } from '../utils/checkboxConstants';
+import { CHECKBOX_PATTERN, CHECKBOX_EXTRACT } from '../utils/checkboxConstants';
 
 interface UseTimerActionsParams {
   currentBoard: BoardData;
@@ -70,6 +70,12 @@ export function useTimerActions({
 
       switch (action) {
         case 'start': {
+          // チェックボックスが未完了なら進行中に変更
+          const taskLine = updatedLines[targetLineIndex];
+          const taskMatch = taskLine.trimStart().match(CHECKBOX_EXTRACT);
+          if (taskMatch && taskMatch[1] === ' ') {
+            updatedLines[targetLineIndex] = taskLine.replace('- [ ]', '- [/]');
+          }
           const timeStr = `  ⏱ ${formatDateTime(now)}開始`;
           if (runningTimerLineIndex >= 0) {
             updatedLines[runningTimerLineIndex] = timeStr;

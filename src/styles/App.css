@@ -704,11 +704,16 @@ body {
   border: none;
   color: #71717a;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
   padding: 4px;
   border-radius: 4px;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
 
 .card-edit:hover {
@@ -1252,9 +1257,20 @@ body {
 }
 
 .terminal-color-custom {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.terminal-color-custom:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .terminal-color-action-btn {
@@ -10183,6 +10199,29 @@ body.theme-light {
   white-space: nowrap;
 }
 
+.edit-modal-window-name:hover {
+  color: #f4f4f5;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.edit-modal-window-name-input {
+  flex: 1;
+  font-size: 13px;
+  color: #f4f4f5;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 4px;
+  padding: 2px 6px;
+  outline: none;
+}
+
+.edit-modal-window-name-input:focus {
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ライトテーマ対応 */
 .theme-light .card-windows-section {
   border-top-color: rgba(0, 0, 0, 0.06);
@@ -10243,4 +10282,25 @@ body.theme-light {
 
 .theme-light .edit-modal-window-name {
   color: #374151;
+}
+
+.theme-light .edit-modal-window-name-input {
+  color: #1f2937;
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .edit-modal-window-name-input:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .terminal-color-custom {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .terminal-color-custom:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.2);
 }

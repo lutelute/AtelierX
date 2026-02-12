@@ -157,6 +157,12 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
     setWindows(prev => prev.filter((_, i) => i !== index));
   };
 
+  // ウィンドウ名を編集
+  const [editingWindowIndex, setEditingWindowIndex] = useState<number | null>(null);
+  const handleRenameWindow = (index: number, newName: string) => {
+    setWindows(prev => prev.map((w, i) => i === index ? { ...w, name: newName } : w));
+  };
+
   const handleAddSubtag = () => {
     if (!newSubtagName.trim() || !onAddSubtag) return;
     const newSubtag: CustomSubtag = {
@@ -564,10 +570,27 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                     <span className={`window-app-badge window-app-${ref.app.toLowerCase()}`}>
                       {shortenAppName(ref.app)}
                     </span>
-                    <span className="edit-modal-window-name" title={ref.name}>
-                      {ref.name.split(' — ')[0]}
-                      {ref.id && <span className="linked-window-id"> (ID: {ref.id.slice(-8)})</span>}
-                    </span>
+                    {editingWindowIndex === idx ? (
+                      <input
+                        type="text"
+                        className="edit-modal-window-name-input"
+                        value={ref.name}
+                        onChange={(e) => handleRenameWindow(idx, e.target.value)}
+                        onBlur={() => setEditingWindowIndex(null)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') setEditingWindowIndex(null); }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span
+                        className="edit-modal-window-name"
+                        title={`${ref.name} (クリックで編集)`}
+                        onClick={() => setEditingWindowIndex(idx)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {ref.name.split(' — ')[0]}
+                        {ref.id && <span className="linked-window-id"> (ID: {ref.id.slice(-8)})</span>}
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="btn-unlink"

@@ -966,7 +966,10 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
             }}
             title="編集"
           >
-            ...
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11.5 1.5l3 3-9 9H2.5v-3l9-9z" />
+              <path d="M9.5 3.5l3 3" />
+            </svg>
           </button>
           <button
             className="card-delete"
