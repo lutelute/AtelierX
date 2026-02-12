@@ -34,6 +34,7 @@ interface ColumnProps {
   onUpdateStatusMarker?: (cardId: string, marker: CardStatusMarker) => void;
   onCardClick?: (cardId: string) => void;
   onArchiveCard?: (cardId: string) => void;
+  onDuplicateCard?: (cardId: string) => void;
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
   brokenLinkCardIds?: Set<string>;
@@ -53,7 +54,7 @@ interface ColumnProps {
   onUpdateSettings?: (updater: (prev: Settings) => Settings) => void;
 }
 
-export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onAddWindowToCard, onDropWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onCardClick, onArchiveCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority, onHideColumn, settings, onUpdateSettings }: ColumnProps) {
+export const Column = memo(function Column({ column, cards, onAddCard, onDeleteCard, onEditCard, onJumpCard, onCloseWindowCard, onUnlinkWindowCard, onAddWindowToCard, onDropWindow, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onCardClick, onArchiveCard, onDuplicateCard, customSubtags = [], defaultSubtagSettings, brokenLinkCardIds = new Set(), cardActions = [], onCardAction, onTimerAction, onUpdatePriority, onRenameColumn, onDeleteColumn, onChangeColumnColor, allColumns = [], canDelete = false, priorityConfigs, onAddPriority, onHideColumn, settings, onUpdateSettings }: ColumnProps) {
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -297,6 +298,7 @@ export const Column = memo(function Column({ column, cards, onAddCard, onDeleteC
               onUpdatePriority={onUpdatePriority ? (priority) => onUpdatePriority(card.id, priority) : undefined}
               onCardClick={onCardClick}
               onArchive={column.id === 'done' ? onArchiveCard : undefined}
+              onDuplicate={onDuplicateCard}
               customSubtags={customSubtags}
               defaultSubtagSettings={defaultSubtagSettings}
               isBrokenLink={brokenLinkCardIds.has(card.id)}

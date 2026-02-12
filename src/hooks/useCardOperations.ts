@@ -149,6 +149,54 @@ export function useCardOperations({
     }));
   }, [updateCurrentBoard]);
 
+  const handleDuplicateCard = useCallback((cardId: string) => {
+    const card = currentBoard.cards[cardId];
+    if (!card) return;
+
+    const newId = `card-${Date.now()}`;
+    const newCard: CardType = {
+      ...card,
+      id: newId,
+      title: `${card.title} (複製)`,
+      createdAt: Date.now(),
+      completedAt: undefined,
+      archived: undefined,
+      archivedAt: undefined,
+      statusMarker: undefined,
+      timeRecords: undefined,
+      activeTimerId: undefined,
+      windows: card.windows?.map(w => ({ ...w })),
+    };
+
+    // 元カードと同じカラムに挿入
+    const sourceColumn = currentBoard.columns.find(col => col.cardIds.includes(cardId));
+
+    addLog({
+      type: 'create',
+      cardTitle: newCard.title,
+      cardDescription: newCard.description,
+      cardTag: newCard.tag,
+      toColumn: sourceColumn?.id || 'todo',
+    });
+
+    updateCurrentBoard((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [newId]: newCard,
+      },
+      columns: prev.columns.map((col) => {
+        if (col.id === sourceColumn?.id) {
+          const idx = col.cardIds.indexOf(cardId);
+          const newCardIds = [...col.cardIds];
+          newCardIds.splice(idx + 1, 0, newId);
+          return { ...col, cardIds: newCardIds };
+        }
+        return col;
+      }),
+    }));
+  }, [currentBoard.cards, currentBoard.columns, addLog, updateCurrentBoard]);
+
   const handleRestoreCard = useCallback((cardId: string) => {
     updateCurrentBoard((prev) => ({
       ...prev,
@@ -627,6 +675,7 @@ export function useCardOperations({
     handleCreateCardWithNewTerminal,
     handleDeleteCard,
     handleArchiveCard,
+    handleDuplicateCard,
     handleRestoreCard,
     handleEditCard,
     handleSaveCard,

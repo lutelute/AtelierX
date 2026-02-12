@@ -807,18 +807,19 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                       <span className="terminal-color-dot" style={{ background: '#000' }} />
                       リセット
                     </button>
-                  </div>
-                  <div className="terminal-color-custom">
-                    <input
-                      type="color"
-                      className="terminal-color-picker-input"
-                      defaultValue="#1a1a2e"
-                      onChange={(e) => {
-                        const bgColor = computeTerminalBgColorFromHex(e.target.value, 0.35);
-                        terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
-                      }}
-                    />
-                    <span className="terminal-color-picker-text">カスタムカラー</span>
+                    <label className="terminal-color-action-btn terminal-color-custom-btn">
+                      <input
+                        type="color"
+                        className="terminal-color-custom-input"
+                        defaultValue="#1a1a2e"
+                        onChange={(e) => {
+                          const bgColor = computeTerminalBgColorFromHex(e.target.value, 0.35);
+                          terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
+                        }}
+                      />
+                      <span className="terminal-color-dot terminal-color-custom-dot" />
+                      カスタムカラー
+                    </label>
                   </div>
                 </div>
               </div>

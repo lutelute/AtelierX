@@ -27,6 +27,7 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 - **Window Jump** &mdash; カードクリックで対象ウィンドウを前面に表示
 - **Tab Switching** &mdash; Terminal / Finder / カスタムアプリをタブで切り替え
 - **Auto-Detect** &mdash; 未登録ウィンドウを自動検出して通知
+- **Real-time Tracking** &mdash; ウィンドウの開閉状態をリアルタイムで追跡
 
 ### Grid Layout
 - **Auto-Arrange** &mdash; ウィンドウをグリッド状に自動配置
@@ -35,7 +36,7 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 - **Multi-Display** &mdash; ディスプレイごとに配置先を選択
 - **Presets** &mdash; プラグインでカスタムレイアウトを追加可能
 
-### Terminal Color
+### Terminal Color <sup>macOS only</sup>
 - **Preset Themes** &mdash; Ocean / Forest / Sunset / Berry / Slate / Rose の6プリセット
 - **Column Color** &mdash; カラムの色に応じてTerminal背景色を一括適用
 - **Priority Color** &mdash; 優先順位に応じた色分け
@@ -47,10 +48,29 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 - **Export** &mdash; Markdown / JSON / テキスト / プラグインフォーマットで出力
 - **Obsidian Integration** &mdash; デイリーノートに日報を直接差し込み
 
+### Data Backup
+- **Auto Backup** &mdash; 1分ごとに自動保存 + ローテーション保護
+- **Manual Export/Import** &mdash; JSON形式で任意のタイミングで保存・復元
+- **Rollback** &mdash; 保存時に前回データを `.prev.json` に自動退避
+
 ### Plugin System
 - **GitHub Install** &mdash; `owner/repo` 形式でプラグインをインストール
+- **Plugin Types** &mdash; grid-layout / export / utility / integration の4タイプ
 - **Extensible API** &mdash; グリッドレイアウト、エクスポートフォーマット、カードアクション
 - **Local Dev** &mdash; テンプレートからプラグインを開発・テスト
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd + ,` | 設定を開く |
+| `Cmd + W` | ウィンドウを閉じる |
+| `Cmd + Z` | 元に戻す |
+| `Esc` | モーダルを閉じる |
+| Click | ウィンドウにジャンプ / 編集 |
+| Drag | カードを移動 |
+| `Enter` | 編集モーダルで保存 |
+| `Tab` / `Shift+Tab` | インデント追加 / 削除 |
 
 ## Demo
 
@@ -81,6 +101,51 @@ Terminal / Finder / 任意アプリのウィンドウをカンバンボードで
 <p align="center">
   <img src="docs/assets/demo-grid.gif" alt="Grid Layout" width="720">
 </p>
+
+### Terminal Naming
+
+ターミナルごとに名前をつけて、どのウィンドウが何の作業かを一目で把握。
+
+<p align="center">
+  <img src="docs/assets/screenshot-board.png" alt="Terminal Naming" width="720">
+</p>
+
+### Terminal Color
+
+6種のプリセットテーマやカラム色・グラデーションで、ターミナルの背景色を一括変更。
+
+<p align="center">
+  <img src="docs/assets/screenshot-terminal-color.png" alt="Terminal Color" width="720">
+</p>
+
+### Multi-Window Card
+
+1枚のカードに Terminal / Finder など複数のウィンドウを紐づけて、関連ウィンドウをまとめて管理。
+
+<p align="center">
+  <img src="docs/assets/screenshot-multi-window.png" alt="Multi-Window Card" width="400">
+</p>
+
+## Screenshots
+
+<!-- npm run capture:screenshots で自動生成 -->
+
+<p align="center">
+  <img src="docs/assets/screenshot-board.png" alt="Main Board" width="720">
+</p>
+
+<details>
+<summary>Help Modal</summary>
+
+| Overview | Features |
+|----------|----------|
+| <img src="docs/assets/screenshot-help-overview.png" alt="Help - Overview" width="360"> | <img src="docs/assets/screenshot-help-features.png" alt="Help - Features" width="360"> |
+
+| Plugins | Shortcuts |
+|---------|-----------|
+| <img src="docs/assets/screenshot-help-plugins.png" alt="Help - Plugins" width="360"> | <img src="docs/assets/screenshot-help-shortcuts.png" alt="Help - Shortcuts" width="360"> |
+
+</details>
 
 ## Install
 

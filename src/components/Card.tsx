@@ -21,6 +21,7 @@ interface CardProps {
   onUpdatePriority?: (priority: Priority | undefined) => void;
   onCardClick?: (id: string) => void;
   onArchive?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   customSubtags?: CustomSubtag[];
   defaultSubtagSettings?: DefaultSubtagSettings;
   isBrokenLink?: boolean;
@@ -671,7 +672,7 @@ const MarkdownContent = memo(function MarkdownContent({
   );
 });
 
-export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onAddWindowToCard, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority, settings, onUpdateSettings }: CardProps) {
+export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, onJump, onCloseWindow, onUnlinkWindow, onAddWindowToCard, onUpdateDescription, onUpdateComment, onUpdateStatusMarker, onUpdatePriority, onCardClick, onArchive, onDuplicate, customSubtags = [], defaultSubtagSettings, isBrokenLink = false, columnId: _columnId, cardActions = [], onCardAction, onTimerAction, priorityConfigs, onAddPriority, settings, onUpdateSettings }: CardProps) {
   const {
     attributes,
     listeners,
@@ -1198,6 +1199,18 @@ export const Card = memo(function Card({ card, columnColor, onDelete, onEdit, on
                 >
                   <span className="context-action-icon">✕</span>
                   <span>{cardWindows[0].app} を閉じる</span>
+                </button>
+              )}
+              {onDuplicate && (
+                <button
+                  className="context-menu-action"
+                  onClick={() => {
+                    onDuplicate(card.id);
+                    closeCardMenu();
+                  }}
+                >
+                  <span className="context-action-icon">📋</span>
+                  <span>複製</span>
                 </button>
               )}
               {onArchive && (

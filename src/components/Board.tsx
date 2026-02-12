@@ -1024,6 +1024,7 @@ export function Board() {
                   onUpdateStatusMarker={cardOps.handleUpdateStatusMarker}
                   onCardClick={handleCardClickById}
                   onArchiveCard={cardOps.handleArchiveCard}
+                  onDuplicateCard={cardOps.handleDuplicateCard}
                   customSubtags={settings.customSubtags}
                   defaultSubtagSettings={settings.defaultSubtagSettings}
                   brokenLinkCardIds={brokenLinkCardIds}

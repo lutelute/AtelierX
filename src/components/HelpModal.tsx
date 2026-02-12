@@ -40,7 +40,7 @@ export function HelpModal({ onClose }: HelpModalProps) {
           {activeTab === 'overview' && (
             <div className="help-tab-content">
               <div className="help-intro">
-                <h3>AtelierX <span className="help-version">v1.6.0</span></h3>
+                <h3>AtelierX <span className="help-version">v{__APP_VERSION__}</span></h3>
                 <p>ウィンドウをカンバンボードで管理し、作業状況を可視化するデスクトップアプリです。</p>
               </div>
               <div className="help-feature-grid">
