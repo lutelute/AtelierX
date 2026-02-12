@@ -76,6 +76,14 @@ npm run release:major   # メジャー: 0.7.2 → 1.0.0
 ```
 `scripts/release.sh` がバージョン更新→ビルド→コミット→タグ→push→GitHub Release（DMG添付）まで一括実行する。
 
+> **既知の問題: DMGアップロード404エラー**
+> `release.sh` でDMGアップロードが404になることがある（`gh release create`とDMGアップロードの間にタイミング問題）。
+> この場合、Release作成とDMGアップロードを手動で分けて実行すること:
+> ```bash
+> gh release create v{VERSION} --title "v{VERSION}" --notes "リリースノート"
+> gh release upload v{VERSION} release/AtelierX-{VERSION}-arm64.dmg --clobber
+> ```
+
 ### CI/CD 自動ビルド
 `v*` タグのpushで `.github/workflows/build.yml` が起動し、macOS/Windows/Linux の全プラットフォームでビルド→GitHub Releaseにアーティファクトを添付する。
 
