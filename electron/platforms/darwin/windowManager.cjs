@@ -1175,6 +1175,510 @@ function closeWindow(appName, windowId, windowName) {
   }
 }
 
+// =========================================================
+// Terminal ガラス効果（マルチプロファイル方式）
+// 色ごとに固有プロファイルを生成→一括import→ウィンドウ別に適用
+// =========================================================
+
+const GLASS_PROFILE_PREFIX = 'atelierx-glass';
+let glassGenBinaryPath = null;
+let glassGenCompiling = false;
+const glassGenWaiters = [];
+
+// ガラス適用前のオリジナル背景色キャッシュ (windowId → {r, g, b} 16bit)
+const originalBgColors = new Map();
+// 現在ガラスが適用されているウィンドウ
+const glassActiveWindows = new Set();
+// インポート済みプロファイル (hexKey → profileName)
+const importedGlassProfiles = new Map();
+// インポート中のPromise (hexKey → Promise)
+const importingProfiles = new Map();
+
+/**
+ * 8bit RGB → hexキー (例: "0d0d14")
+ */
+function rgb8ToHexKey(r, g, b) {
+  return `${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
+ * float RGB → hexキー
+ */
+function rgbFloatToHexKey(r, g, b) {
+  return rgb8ToHexKey(
+    Math.round(parseFloat(r) * 255),
+    Math.round(parseFloat(g) * 255),
+    Math.round(parseFloat(b) * 255)
+  );
+}
+
+/**
+ * ガラスプロファイル生成用Swiftバイナリを事前コンパイル（初回のみ）
+ * args: bgR bgG bgB profileName
+ */
+function ensureGlassGenBinary() {
+  if (glassGenBinaryPath && fs.existsSync(glassGenBinaryPath)) {
+    return Promise.resolve(glassGenBinaryPath);
+  }
+  return new Promise((resolve) => {
+    if (glassGenCompiling) {
+      glassGenWaiters.push(resolve);
+      return;
+    }
+    glassGenCompiling = true;
+
+    const binPath = path.join(os.tmpdir(), 'atelierx-glass-gen4');
+    const srcPath = path.join(os.tmpdir(), 'atelierx-glass-gen4.swift');
+    const src = `import Cocoa
+import Foundation
+let args = CommandLine.arguments
+let r = args.count > 1 ? Double(args[1]) ?? 0.05 : 0.05
+let g = args.count > 2 ? Double(args[2]) ?? 0.05 : 0.05
+let b = args.count > 3 ? Double(args[3]) ?? 0.08 : 0.08
+let profileName = args.count > 4 ? args[4] : "atelierx-glass"
+let bgColor = NSColor(calibratedRed: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 0.7)
+let bgData = try! NSKeyedArchiver.archivedData(withRootObject: bgColor, requiringSecureCoding: false)
+let textColor = NSColor(calibratedRed: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)
+let textData = try! NSKeyedArchiver.archivedData(withRootObject: textColor, requiringSecureCoding: false)
+let cursorColor = NSColor(calibratedRed: 0.8, green: 0.8, blue: 0.8, alpha: 1.0)
+let cursorData = try! NSKeyedArchiver.archivedData(withRootObject: cursorColor, requiringSecureCoding: false)
+let profile: [String: Any] = [
+    "name": profileName,
+    "BackgroundColor": bgData,
+    "TextColor": textData,
+    "TextBoldColor": textData,
+    "CursorColor": cursorData,
+    "type": "Window Settings",
+    "ProfileCurrentVersion": 2.07 as Double,
+    "BackgroundBlur": 0.4 as Double,
+]
+let plistData = try! PropertyListSerialization.data(fromPropertyList: profile, format: .xml, options: 0)
+let outPath = NSTemporaryDirectory() + profileName + ".terminal"
+try! plistData.write(to: URL(fileURLWithPath: outPath))
+`;
+    fs.writeFileSync(srcPath, src);
+    try { fs.unlinkSync(binPath); } catch (_) {}
+    execFile('swiftc', ['-o', binPath, srcPath], { timeout: 60000 }, (err) => {
+      glassGenCompiling = false;
+      if (err) {
+        console.error('ensureGlassGenBinary: compile error:', err.message);
+        resolve(null);
+        glassGenWaiters.forEach(w => w(null));
+      } else {
+        glassGenBinaryPath = binPath;
+        resolve(binPath);
+        glassGenWaiters.forEach(w => w(binPath));
+      }
+      glassGenWaiters.length = 0;
+    });
+  });
+}
+
+/**
+ * 既存の atelierx-glass* プロファイルを全て削除
+ */
+function deleteAllGlassProfiles() {
+  importedGlassProfiles.clear();
+  return runAppleScript(`tell application "Terminal"
+  set profileNames to name of every settings set
+  repeat with pName in profileNames
+    if pName starts with "atelierx-glass" then
+      try
+        delete settings set pName
+      end try
+    end if
+  end repeat
+end tell`, 10000).catch(() => {});
+}
+
+/**
+ * ガラスプロファイルを事前準備（Swiftバイナリのコンパイル + デフォルトプロファイルimport）
+ */
+function preloadGlassProfile() {
+  ensureGlassGenBinary().then((bin) => {
+    if (!bin) return;
+    ensureGlassProfile('0.0500', '0.0500', '0.0800');
+  });
+}
+
+/**
+ * 指定色のガラスプロファイルが存在することを保証し、プロファイル名を返す
+ * @param {string} bgR - 0.0-1.0 float
+ * @param {string} bgG
+ * @param {string} bgB
+ * @returns {Promise<string|null>} profileName or null
+ */
+function ensureGlassProfile(bgR, bgG, bgB) {
+  const hexKey = rgbFloatToHexKey(bgR, bgG, bgB);
+  const profileName = `${GLASS_PROFILE_PREFIX}-${hexKey}`;
+
+  // 既にインポート済み
+  if (importedGlassProfiles.has(hexKey)) {
+    return Promise.resolve(profileName);
+  }
+  // 現在インポート中 → 同じPromiseを返す
+  if (importingProfiles.has(hexKey)) {
+    return importingProfiles.get(hexKey);
+  }
+
+  const importPromise = (async () => {
+    const bin = await ensureGlassGenBinary();
+    if (!bin) return null;
+
+    // .terminal ファイル生成
+    await new Promise((resolve) => {
+      execFile(bin, [bgR, bgG, bgB, profileName], { timeout: 15000 }, (err) => {
+        if (err) console.error('glass gen error:', err.message);
+        resolve();
+      });
+    });
+
+    const terminalFile = path.join(os.tmpdir(), `${profileName}.terminal`);
+    if (!fs.existsSync(terminalFile)) return null;
+
+    // インポート前のウィンドウID一覧
+    let beforeIds = new Set();
+    try {
+      const result = await runAppleScript(
+        'tell application "Terminal" to get id of every window', 5000
+      );
+      result.trim().split(', ').forEach(s => { if (s.trim()) beforeIds.add(s.trim()); });
+    } catch (_) {}
+
+    // open -g でバックグラウンドインポート
+    await new Promise((resolve) => {
+      exec(`open -g "${terminalFile}"`, { timeout: 10000 }, () => resolve());
+    });
+    await new Promise(r => setTimeout(r, 1200));
+
+    // インポートで生成された新しいウィンドウを閉じる
+    try {
+      const result = await runAppleScript(
+        'tell application "Terminal" to get id of every window', 5000
+      );
+      const afterIds = result.trim().split(', ').map(s => s.trim()).filter(Boolean);
+      for (const id of afterIds) {
+        if (!beforeIds.has(id)) {
+          await runAppleScript(
+            `tell application "Terminal" to close window id ${id}`, 5000
+          ).catch(() => {});
+          break;
+        }
+      }
+    } catch (_) {}
+
+    importedGlassProfiles.set(hexKey, profileName);
+    importingProfiles.delete(hexKey);
+    return profileName;
+  })();
+
+  importingProfiles.set(hexKey, importPromise);
+  return importPromise;
+}
+
+/**
+ * 複数色のプロファイルを一括インポート（未インポート分のみ）
+ * @param {Array<{bgR: string, bgG: string, bgB: string}>} colorSpecs
+ * @returns {Promise<Map<string, string>>} hexKey → profileName
+ */
+async function ensureGlassProfilesBatch(colorSpecs) {
+  const result = new Map();
+  const toImport = [];
+
+  for (const spec of colorSpecs) {
+    const hexKey = rgbFloatToHexKey(spec.bgR, spec.bgG, spec.bgB);
+    const profileName = `${GLASS_PROFILE_PREFIX}-${hexKey}`;
+    result.set(hexKey, profileName);
+    if (!importedGlassProfiles.has(hexKey) && !importingProfiles.has(hexKey)) {
+      toImport.push({ ...spec, hexKey, profileName });
+    }
+  }
+
+  if (toImport.length === 0) return result;
+
+  const bin = await ensureGlassGenBinary();
+  if (!bin) return result;
+
+  // 全 .terminal ファイルを並列生成
+  await Promise.all(toImport.map(spec =>
+    new Promise((resolve) => {
+      execFile(bin, [spec.bgR, spec.bgG, spec.bgB, spec.profileName], { timeout: 15000 }, (err) => {
+        if (err) console.error('glass gen error:', err.message);
+        resolve();
+      });
+    })
+  ));
+
+  // インポート前のウィンドウID一覧
+  let beforeIds = new Set();
+  try {
+    const result2 = await runAppleScript(
+      'tell application "Terminal" to get id of every window', 5000
+    );
+    result2.trim().split(', ').forEach(s => { if (s.trim()) beforeIds.add(s.trim()); });
+  } catch (_) {}
+
+  // 全ファイルを一括 open -g
+  const files = toImport
+    .map(spec => `"${path.join(os.tmpdir(), `${spec.profileName}.terminal`)}"`)
+    .join(' ');
+  await new Promise((resolve) => {
+    exec(`open -g ${files}`, { timeout: 15000 }, () => resolve());
+  });
+  await new Promise(r => setTimeout(r, 1500));
+
+  // インポートで生成された新しいウィンドウを全て閉じる
+  try {
+    const result2 = await runAppleScript(
+      'tell application "Terminal" to get id of every window', 5000
+    );
+    const afterIds = result2.trim().split(', ').map(s => s.trim()).filter(Boolean);
+    for (const id of afterIds) {
+      if (!beforeIds.has(id)) {
+        runAppleScript(`tell application "Terminal" to close window id ${id}`, 5000).catch(() => {});
+      }
+    }
+  } catch (_) {}
+  await new Promise(r => setTimeout(r, 300));
+
+  for (const spec of toImport) {
+    importedGlassProfiles.set(spec.hexKey, spec.profileName);
+  }
+  return result;
+}
+
+/**
+ * Terminal ウィンドウの背景色を取得
+ * @returns {Promise<{r: number, g: number, b: number} | null>} 16-bit RGB
+ */
+function readTerminalBgColor(windowId) {
+  const isNumericId = /^\d+$/.test(windowId);
+  const isTtyPath = windowId.startsWith('/dev/');
+  let script;
+  if (isNumericId) {
+    script = `tell application "Terminal"\n  repeat with w in windows\n    if id of w is ${windowId} then\n      return background color of selected tab of w\n    end if\n  end repeat\nend tell\nreturn ""`;
+  } else if (isTtyPath) {
+    const esc = windowId.replace(/"/g, '\\"');
+    script = `tell application "Terminal"\n  repeat with w in windows\n    try\n      if tty of selected tab of w is equal to "${esc}" then\n        return background color of selected tab of w\n      end if\n    end try\n  end repeat\nend tell\nreturn ""`;
+  } else {
+    return Promise.resolve(null);
+  }
+  return runAppleScript(script, 10000).then((out) => {
+    const parts = out.trim().split(',').map(s => parseInt(s.trim()));
+    return parts.length >= 3 && !isNaN(parts[0]) ? { r: parts[0], g: parts[1], b: parts[2] } : null;
+  }).catch(() => null);
+}
+
+/**
+ * 指定プロファイルをウィンドウに適用
+ */
+function applyProfileToWindow(windowId, profileName) {
+  const isTtyPath = windowId.startsWith('/dev/');
+  const isNumericId = /^\d+$/.test(windowId);
+  let script;
+  if (isNumericId) {
+    script = `tell application "Terminal"\n  repeat with w in windows\n    if id of w is ${windowId} then\n      set current settings of selected tab of w to settings set "${profileName}"\n      exit repeat\n    end if\n  end repeat\nend tell`;
+  } else if (isTtyPath) {
+    const esc = windowId.replace(/"/g, '\\"');
+    script = `tell application "Terminal"\n  repeat with w in windows\n    try\n      if tty of selected tab of w is equal to "${esc}" then\n        set current settings of selected tab of w to settings set "${profileName}"\n        exit repeat\n      end if\n    end try\n  end repeat\nend tell`;
+  } else {
+    return;
+  }
+  runAppleScript(script, 15000).catch((err) => {
+    console.error('applyProfileToWindow error:', err.message);
+  });
+}
+
+/**
+ * 16bit色 → ガラス用 float 文字列（白背景はダーク色にフォールバック）
+ */
+function colorToGlassParams(color16bit) {
+  const isLight = color16bit && (color16bit.r + color16bit.g + color16bit.b) > 150000;
+  return {
+    bgR: isLight ? '0.0500' : (color16bit ? (color16bit.r / 65535).toFixed(4) : '0.0500'),
+    bgG: isLight ? '0.0500' : (color16bit ? (color16bit.g / 65535).toFixed(4) : '0.0500'),
+    bgB: isLight ? '0.0800' : (color16bit ? (color16bit.b / 65535).toFixed(4) : '0.0800'),
+  };
+}
+
+/**
+ * Terminal ウィンドウにガラス効果を適用/解除
+ * @param {string} windowId
+ * @param {boolean} enable
+ * @param {{r: number, g: number, b: number}|null} [color8bit] - 8bit RGB色
+ */
+function setTerminalGlass(windowId, enable, color8bit) {
+  const isTtyPath = windowId.startsWith('/dev/');
+  const isNumericId = /^\d+$/.test(windowId);
+  if (!isTtyPath && !isNumericId) return;
+
+  if (!enable) {
+    glassActiveWindows.delete(windowId);
+    const cached = originalBgColors.get(windowId);
+    if (cached) {
+      const to8bit = (v) => Math.round(v / 257);
+      setTerminalColor(windowId, {
+        bgColor: { r: to8bit(cached.r), g: to8bit(cached.g), b: to8bit(cached.b) },
+        textColor: { r: 230, g: 230, b: 235 },
+      });
+      originalBgColors.delete(windowId);
+    } else {
+      setTerminalColor(windowId, {
+        bgColor: { r: 0, g: 0, b: 0 },
+        textColor: { r: 230, g: 230, b: 235 },
+      });
+    }
+    return;
+  }
+
+  // ガラスON
+  const applyGlass = (color16bit) => {
+    const { bgR, bgG, bgB } = colorToGlassParams(color16bit);
+    ensureGlassProfile(bgR, bgG, bgB).then((profileName) => {
+      if (profileName) {
+        glassActiveWindows.add(windowId);
+        setTimeout(() => applyProfileToWindow(windowId, profileName), 300);
+      }
+    });
+  };
+
+  if (color8bit) {
+    const color16 = { r: color8bit.r * 257, g: color8bit.g * 257, b: color8bit.b * 257 };
+    if (!glassActiveWindows.has(windowId)) {
+      readTerminalBgColor(windowId).then((origColor) => {
+        if (origColor) originalBgColors.set(windowId, origColor);
+        applyGlass(color16);
+      });
+    } else {
+      applyGlass(color16);
+    }
+  } else if (glassActiveWindows.has(windowId)) {
+    const cached = originalBgColors.get(windowId);
+    applyGlass(cached || null);
+  } else {
+    readTerminalBgColor(windowId).then((color) => {
+      if (color) originalBgColors.set(windowId, color);
+      applyGlass(color);
+    });
+  }
+}
+
+/**
+ * 複数ウィンドウに一括でガラス効果を適用/解除
+ * windowColorMap がある場合、各ウィンドウに個別の色を適用
+ * @param {string[]} windowIds
+ * @param {boolean} enable
+ * @param {{r: number, g: number, b: number}|null} [color8bit] - 全ウィンドウ共通の8bit色
+ * @param {Object|null} [windowColorMap] - windowId → {r,g,b} 8bit の個別色マップ
+ */
+function setTerminalGlassBatch(windowIds, enable, color8bit, windowColorMap) {
+  const valid = windowIds.filter(id => /^\d+$/.test(id) || id.startsWith('/dev/'));
+  if (valid.length === 0) return;
+
+  if (!enable) {
+    valid.forEach(wid => setTerminalGlass(wid, false));
+    return;
+  }
+
+  // 個別色マップがある場合 → 各ウィンドウを個別処理
+  if (windowColorMap) {
+    const uncached = valid.filter(wid => !glassActiveWindows.has(wid));
+    const cachePromise = uncached.length > 0
+      ? Promise.all(uncached.map(wid =>
+          readTerminalBgColor(wid).then(c => { if (c) originalBgColors.set(wid, c); })
+        ))
+      : Promise.resolve();
+
+    cachePromise.then(() => {
+      // 必要な色を全て収集
+      const colorSpecs = [];
+      const widToSpec = new Map();
+      for (const wid of valid) {
+        const c = windowColorMap[wid] || color8bit;
+        const color16 = c
+          ? { r: c.r * 257, g: c.g * 257, b: c.b * 257 }
+          : (originalBgColors.get(wid) || null);
+        const { bgR, bgG, bgB } = colorToGlassParams(color16);
+        const hexKey = rgbFloatToHexKey(bgR, bgG, bgB);
+        widToSpec.set(wid, { bgR, bgG, bgB, hexKey });
+        if (!colorSpecs.find(s => s.hexKey === hexKey)) {
+          colorSpecs.push({ bgR, bgG, bgB, hexKey });
+        }
+      }
+
+      // 一括インポート
+      ensureGlassProfilesBatch(colorSpecs).then((profileMap) => {
+        // 各ウィンドウに対応するプロファイルを適用
+        setTimeout(() => {
+          for (const wid of valid) {
+            glassActiveWindows.add(wid);
+            const spec = widToSpec.get(wid);
+            const profileName = profileMap.get(spec.hexKey) || `${GLASS_PROFILE_PREFIX}-${spec.hexKey}`;
+            applyProfileToWindow(wid, profileName);
+          }
+        }, 300);
+      });
+    });
+    return;
+  }
+
+  // 共通色 or 各ウィンドウの現在色を保持して半透明化
+  const uncached = valid.filter(wid => !glassActiveWindows.has(wid));
+  const cachePromise = uncached.length > 0
+    ? Promise.all(uncached.map(wid =>
+        readTerminalBgColor(wid).then(c => { if (c) originalBgColors.set(wid, c); })
+      ))
+    : Promise.resolve();
+
+  cachePromise.then(() => {
+    if (color8bit) {
+      // 共通色指定あり → 全ウィンドウ同じプロファイル
+      const color16 = { r: color8bit.r * 257, g: color8bit.g * 257, b: color8bit.b * 257 };
+      const { bgR, bgG, bgB } = colorToGlassParams(color16);
+      ensureGlassProfile(bgR, bgG, bgB).then((profileName) => {
+        if (!profileName) return;
+        valid.forEach(wid => glassActiveWindows.add(wid));
+        const conditions = valid.map(wid => {
+          if (/^\d+$/.test(wid)) {
+            return `          if id of w is ${wid} then\n            set current settings of selected tab of w to settings set "${profileName}"\n          end if`;
+          } else if (wid.startsWith('/dev/')) {
+            const esc = wid.replace(/"/g, '\\"');
+            return `          try\n            if tty of selected tab of w is equal to "${esc}" then\n              set current settings of selected tab of w to settings set "${profileName}"\n            end if\n          end try`;
+          }
+          return '';
+        }).filter(Boolean).join('\n');
+        const script = `tell application "Terminal"\n  repeat with w in windows\n${conditions}\n  end repeat\nend tell`;
+        setTimeout(() => {
+          runAppleScript(script, 15000).catch(err => console.error('batch apply error:', err.message));
+        }, 300);
+      });
+    } else {
+      // 色指定なし → 各ウィンドウの現在色を個別に半透明化
+      const colorSpecs = [];
+      const widToSpec = new Map();
+      for (const wid of valid) {
+        const color16 = originalBgColors.get(wid) || null;
+        const { bgR, bgG, bgB } = colorToGlassParams(color16);
+        const hexKey = rgbFloatToHexKey(bgR, bgG, bgB);
+        widToSpec.set(wid, { bgR, bgG, bgB, hexKey });
+        if (!colorSpecs.find(s => s.hexKey === hexKey)) {
+          colorSpecs.push({ bgR, bgG, bgB, hexKey });
+        }
+      }
+      ensureGlassProfilesBatch(colorSpecs).then((profileMap) => {
+        setTimeout(() => {
+          for (const wid of valid) {
+            glassActiveWindows.add(wid);
+            const spec = widToSpec.get(wid);
+            const profileName = profileMap.get(spec.hexKey) || `${GLASS_PROFILE_PREFIX}-${spec.hexKey}`;
+            applyProfileToWindow(wid, profileName);
+          }
+        }, 300);
+      });
+    }
+  });
+}
+
 /**
  * Terminalウィンドウの背景色・テキスト色を設定
  * macOS Terminal.appは16bit色（0-65535）を使用するため、RGB 0-255を×257で変換
@@ -1254,6 +1758,17 @@ return found
   });
 }
 
+/**
+ * ガラス状態のキャッシュだけクリア（AppleScript実行なし）
+ * リセット時に setTerminalColor と競合しないようにするため
+ */
+function clearTerminalGlassState(windowIds) {
+  for (const wid of windowIds) {
+    glassActiveWindows.delete(wid);
+    originalBgColors.delete(wid);
+  }
+}
+
 module.exports = {
   getAppWindows,
   activateWindow,
@@ -1263,4 +1778,8 @@ module.exports = {
   closeWindow,
   getGenericAppWindows,
   setTerminalColor,
+  setTerminalGlass,
+  setTerminalGlassBatch,
+  preloadGlassProfile,
+  clearTerminalGlassState,
 };

@@ -471,6 +471,9 @@ declare global {
       openNewFinder: (targetPath?: string) => Promise<{ success: boolean; windowName?: string; path?: string; error?: string }>;
       openNewGenericWindow: (appName: string) => Promise<{ success: boolean; windowName?: string; error?: string }>;
       setTerminalColor: (windowId: string, options: TerminalColorOptions) => Promise<boolean>;
+      setTerminalGlass: (windowId: string, enable: boolean, color?: { r: number; g: number; b: number }) => Promise<boolean>;
+      setTerminalGlassBatch: (windowIds: string[], enable: boolean, color?: { r: number; g: number; b: number }) => Promise<boolean>;
+      clearTerminalGlassState: (windowIds: string[]) => Promise<boolean>;
       closeWindow: (appName: string, windowId: string, windowName?: string) => Promise<{ success: boolean; error?: string }>;
       exportLog: (content: string, filename: string) => Promise<boolean>;
       selectFolder: () => Promise<string | null>;

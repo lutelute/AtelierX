@@ -1321,6 +1321,56 @@ body {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+/* Terminal Glass */
+.terminal-glass-section {
+  padding: 2px 0;
+}
+
+.terminal-glass-icon {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(139,92,246,0.3));
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(2px);
+}
+
+.terminal-glass-btn {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.terminal-glass-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.terminal-glass-btn.active {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.3);
+}
+
+.terminal-glass-btn.active .terminal-glass-icon {
+  background: rgba(139, 92, 246, 0.5);
+  border-color: rgba(139, 92, 246, 0.7);
+}
+
+.terminal-glass-beta {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(139, 92, 246, 0.9);
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 3px;
+  padding: 0 3px;
+  margin-left: 4px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
 
 /* Edit Modal */
 .edit-modal {
@@ -5933,6 +5983,22 @@ body.theme-light {
 .theme-light .terminal-color-custom-btn:hover {
   background: rgba(0, 0, 0, 0.08);
   border-color: rgba(0, 0, 0, 0.2);
+}
+
+.theme-light .terminal-glass-btn {
+  background: rgba(109, 40, 217, 0.06);
+  border-color: rgba(109, 40, 217, 0.15);
+}
+
+.theme-light .terminal-glass-btn:hover {
+  background: rgba(109, 40, 217, 0.12);
+  border-color: rgba(109, 40, 217, 0.3);
+}
+
+.theme-light .terminal-glass-btn.active {
+  background: rgba(109, 40, 217, 0.18);
+  border-color: rgba(109, 40, 217, 0.5);
+  box-shadow: 0 0 6px rgba(109, 40, 217, 0.2);
 }
 
 .theme-light .nav-action:hover {

@@ -58,6 +58,7 @@ export function Board() {
   const [cardActions, setCardActions] = useState<PluginCardActionInfo[]>([]);
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [batchGlassEnabled, setBatchGlassEnabled] = useState(false);
   // トースト通知
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'info' | 'error' } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -735,12 +736,16 @@ export function Board() {
         const card = currentBoard.cards[cardId];
         if (card && !card.archived) {
           for (const wid of getTerminalWindowIds(card)) {
-            window.electronAPI.setTerminalColor(wid, withAutoTextColor(bgColor));
+            if (batchGlassEnabled) {
+              window.electronAPI.setTerminalGlass(wid, true, bgColor);
+            } else {
+              window.electronAPI.setTerminalColor(wid, withAutoTextColor(bgColor));
+            }
           }
         }
       }
     }
-  }, [currentBoard, getTerminalWindowIds]);
+  }, [currentBoard, getTerminalWindowIds, batchGlassEnabled]);
 
   const handleBatchApplyPriorityColor = useCallback(() => {
     if (!window.electronAPI?.setTerminalColor) return;
@@ -752,28 +757,38 @@ export function Board() {
           const wids = getTerminalWindowIds(card);
           if (wids.length === 0) continue;
           const pColor = card.priority ? priorityColorMap[card.priority] : undefined;
-          const colorObj = pColor ? withAutoTextColor(computeTerminalBgColorFromHex(pColor)) : withAutoTextColor(black);
+          const bgColor = pColor ? computeTerminalBgColorFromHex(pColor) : black;
           for (const wid of wids) {
-            window.electronAPI.setTerminalColor(wid, colorObj);
+            if (batchGlassEnabled) {
+              window.electronAPI.setTerminalGlass(wid, true, bgColor);
+            } else {
+              window.electronAPI.setTerminalColor(wid, withAutoTextColor(bgColor));
+            }
           }
         }
       }
     }
-  }, [currentBoard, priorityColorMap, getTerminalWindowIds]);
+  }, [currentBoard, priorityColorMap, getTerminalWindowIds, batchGlassEnabled]);
 
   const handleBatchResetColor = useCallback(() => {
-    if (!window.electronAPI?.setTerminalColor) return;
+    setBatchGlassEnabled(false);
     const black = { r: 0, g: 0, b: 0 };
     const white = { r: 230, g: 230, b: 235 };
+    const allWids: string[] = [];
     for (const column of currentBoard.columns) {
       for (const cardId of column.cardIds) {
         const card = currentBoard.cards[cardId];
         if (card && !card.archived) {
-          for (const wid of getTerminalWindowIds(card)) {
-            window.electronAPI.setTerminalColor(wid, { bgColor: black, textColor: white });
-          }
+          allWids.push(...getTerminalWindowIds(card));
         }
       }
+    }
+    // ガラスキャッシュをクリア（AppleScript無し）→ デフォルト色を設定（AppleScript 1回ずつ）
+    if (allWids.length > 0) {
+      window.electronAPI?.clearTerminalGlassState(allWids);
+      allWids.forEach(wid => {
+        window.electronAPI?.setTerminalColor(wid, { bgColor: black, textColor: white });
+      });
     }
   }, [currentBoard, getTerminalWindowIds]);
 
@@ -786,10 +801,32 @@ export function Board() {
         const card = currentBoard.cards[cardId];
         if (card && !card.archived) {
           for (const wid of getTerminalWindowIds(card)) {
-            window.electronAPI.setTerminalColor(wid, { bgColor: preset.bg, textColor: preset.text });
+            if (batchGlassEnabled) {
+              window.electronAPI.setTerminalGlass(wid, true, preset.bg);
+            } else {
+              window.electronAPI.setTerminalColor(wid, { bgColor: preset.bg, textColor: preset.text });
+            }
           }
         }
       }
+    }
+  }, [currentBoard, getTerminalWindowIds, batchGlassEnabled]);
+
+  const handleBatchApplyGlass = useCallback((enable: boolean) => {
+    const allWids: string[] = [];
+    for (const column of currentBoard.columns) {
+      for (const cardId of column.cardIds) {
+        const card = currentBoard.cards[cardId];
+        if (card && !card.archived) {
+          allWids.push(...getTerminalWindowIds(card));
+        }
+      }
+    }
+    if (allWids.length === 0) return;
+    if (window.electronAPI?.setTerminalGlassBatch) {
+      window.electronAPI.setTerminalGlassBatch(allWids, enable);
+    } else if (window.electronAPI?.setTerminalGlass) {
+      allWids.forEach(wid => window.electronAPI!.setTerminalGlass(wid, enable));
     }
   }, [currentBoard, getTerminalWindowIds]);
 
@@ -807,9 +844,13 @@ export function Board() {
     }
     const colors = generateGradientColors(termWindowIds.length);
     termWindowIds.forEach((wid, i) => {
-      window.electronAPI!.setTerminalColor(wid, withAutoTextColor(colors[i]));
+      if (batchGlassEnabled) {
+        window.electronAPI!.setTerminalGlass(wid, true, colors[i]);
+      } else {
+        window.electronAPI!.setTerminalColor(wid, withAutoTextColor(colors[i]));
+      }
     });
-  }, [currentBoard, getTerminalWindowIds]);
+  }, [currentBoard, getTerminalWindowIds, batchGlassEnabled]);
 
   // === ジャンプ・クリックハンドラ ===
 
@@ -961,6 +1002,20 @@ export function Board() {
                       </button>
                     ))}
                   </div>
+                  <div className="color-menu-divider" />
+                  <button
+                    className={`color-menu-item ${batchGlassEnabled ? 'terminal-glass-btn active' : ''}`}
+                    onClick={() => {
+                      const next = !batchGlassEnabled;
+                      setBatchGlassEnabled(next);
+                      handleBatchApplyGlass(next);
+                      setShowColorMenu(false);
+                    }}
+                  >
+                    <span className="terminal-glass-icon" />
+                    <span>ガラス {batchGlassEnabled ? 'ON' : 'OFF'}</span>
+                    <span className="terminal-glass-beta">beta</span>
+                  </button>
                   <div className="color-menu-divider" />
                   <button className="color-menu-item color-menu-reset" onClick={() => { handleBatchResetColor(); setShowColorMenu(false); }}>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 8a6 6 0 1 1 1.8 4.3"/><path d="M2 12.3V8h4.3"/></svg>

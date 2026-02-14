@@ -157,6 +157,9 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
     setWindows(prev => prev.filter((_, i) => i !== index));
   };
 
+  // ガラス効果のトグル状態
+  const [glassEnabled, setGlassEnabled] = useState(false);
+
   // ウィンドウ名を編集
   const [editingWindowIndex, setEditingWindowIndex] = useState<number | null>(null);
   const handleRenameWindow = (index: number, newName: string) => {
@@ -773,7 +776,13 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                         className="terminal-color-action-btn"
                         onClick={() => {
                           const bgColor = computeTerminalBgColorFromHex(columnColor);
-                          terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
+                          terminalWindows.forEach(w => {
+                            if (glassEnabled) {
+                              window.electronAPI?.setTerminalGlass(w.id, true, bgColor);
+                            } else {
+                              window.electronAPI?.setTerminalColor(w.id, { bgColor });
+                            }
+                          });
                         }}
                       >
                         <span className="terminal-color-dot" style={{ background: columnColor }} />
@@ -789,7 +798,13 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                           className="terminal-color-action-btn"
                           onClick={() => {
                             const bgColor = computeTerminalBgColorFromHex(pColor);
-                            terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
+                            terminalWindows.forEach(w => {
+                              if (glassEnabled) {
+                                window.electronAPI?.setTerminalGlass(w.id, true, bgColor);
+                              } else {
+                                window.electronAPI?.setTerminalColor(w.id, { bgColor });
+                              }
+                            });
                           }}
                         >
                           <span className="terminal-color-dot" style={{ background: pColor }} />
@@ -801,7 +816,14 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                       type="button"
                       className="terminal-color-action-btn terminal-color-reset-btn"
                       onClick={() => {
-                        terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor: { r: 0, g: 0, b: 0 } }));
+                        setGlassEnabled(false);
+                        const black = { r: 0, g: 0, b: 0 };
+                        const white = { r: 230, g: 230, b: 235 };
+                        const wids = terminalWindows.map(w => w.id);
+                        window.electronAPI?.clearTerminalGlassState(wids);
+                        terminalWindows.forEach(w => {
+                          window.electronAPI?.setTerminalColor(w.id, { bgColor: black, textColor: white });
+                        });
                       }}
                     >
                       <span className="terminal-color-dot" style={{ background: '#000' }} />
@@ -814,12 +836,33 @@ export function EditCardModal({ card, onClose, onSave, onJump, onSendToIdeas, cu
                         defaultValue="#1a1a2e"
                         onChange={(e) => {
                           const bgColor = computeTerminalBgColorFromHex(e.target.value, 0.35);
-                          terminalWindows.forEach(w => window.electronAPI?.setTerminalColor(w.id, { bgColor }));
+                          terminalWindows.forEach(w => {
+                            if (glassEnabled) {
+                              window.electronAPI?.setTerminalGlass(w.id, true, bgColor);
+                            } else {
+                              window.electronAPI?.setTerminalColor(w.id, { bgColor });
+                            }
+                          });
                         }}
                       />
                       <span className="terminal-color-dot terminal-color-custom-dot" />
                       カスタムカラー
                     </label>
+                  </div>
+                  <div className="terminal-glass-section">
+                    <button
+                      type="button"
+                      className={`terminal-color-action-btn terminal-glass-btn ${glassEnabled ? 'active' : ''}`}
+                      onClick={() => {
+                        const next = !glassEnabled;
+                        setGlassEnabled(next);
+                        terminalWindows.forEach(w => window.electronAPI?.setTerminalGlass(w.id, next));
+                      }}
+                    >
+                      <span className="terminal-glass-icon" />
+                      ガラス
+                      <span className="terminal-glass-beta">beta</span>
+                    </button>
                   </div>
                 </div>
               </div>

@@ -23,6 +23,10 @@ const {
   openNewGenericWindow,
   closeWindow,
   setTerminalColor,
+  setTerminalGlass,
+  setTerminalGlassBatch,
+  preloadGlassProfile,
+  clearTerminalGlassState,
   // gridManager
   getDisplayInfo,
   arrangeTerminalGrid,
@@ -130,6 +134,11 @@ app.whenReady().then(() => {
   // 起動時に古いアップデートファイルをクリーンアップ
   startupCleanup();
 
+  // ガラスプロファイルを事前インポート（Terminal.app起動後に実行）
+  if (process.platform === 'darwin') {
+    setTimeout(() => preloadGlassProfile(), 5000);
+  }
+
   // 起動時アップデート自動チェック（15秒後）
   setTimeout(async () => {
     try {
@@ -158,6 +167,24 @@ app.whenReady().then(() => {
   // IPC: Terminalウィンドウの色を設定
   ipcMain.handle('set-terminal-color', async (_, windowId, options) => {
     setTerminalColor(windowId, options);
+    return true;
+  });
+
+  // IPC: Terminalウィンドウのガラス効果
+  ipcMain.handle('set-terminal-glass', async (_, windowId, enable, color) => {
+    setTerminalGlass(windowId, enable, color || null);
+    return true;
+  });
+
+  // IPC: Terminalウィンドウのガラス効果（バッチ）
+  ipcMain.handle('set-terminal-glass-batch', async (_, windowIds, enable, color) => {
+    setTerminalGlassBatch(windowIds, enable, color || null);
+    return true;
+  });
+
+  // IPC: ガラス状態キャッシュのクリア（リセット用、AppleScript実行なし）
+  ipcMain.handle('clear-terminal-glass-state', async (_, windowIds) => {
+    clearTerminalGlassState(windowIds);
     return true;
   });
 
