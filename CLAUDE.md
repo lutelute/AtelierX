@@ -133,8 +133,58 @@ sudo apt install wmctrl xdotool
    - `GridArrangeModal.tsx` / `ExportModal.tsx` / `MultiGridModal.tsx` が該当
 3. **`Board.tsx` ナビバー tooltip** - ナビボタンを追加・変更した場合は `title` 属性を具体的な説明にする
 4. **`PluginManager.tsx` ガイドバナー** - プラグインタイプが増えたら説明を更新
+5. **`docs/USER_GUIDE.md`** - ユーザー向けの操作説明を追加
+6. **`docs/DEV_GUIDE.md`** - 開発者・AI向けの技術仕様を追加
+7. **「機能ドキュメント」セクションの索引テーブル** - 新機能の行を追加
 
 > 新しいモーダルを追加する場合は、既存パターン（`mg-help-btn` + `mg-help-panel`）でヘルプパネルを付けること。
+
+## 機能ドキュメント（人間・AI共同編集）
+
+以下のドキュメントは人間開発者・ユーザー・AIが共同で参照・編集するための技術資料です。
+**コード修正時は関連ドキュメントも必ず更新してください。**
+
+### 総合ドキュメント
+
+| ドキュメント | 対象 | 内容 |
+|-------------|------|------|
+| `docs/USER_GUIDE.md` | ユーザー向け | 全機能の使い方・操作フロー・トラブルシューティング |
+| `docs/DEV_GUIDE.md` | 開発者・AI向け | 全機能のアーキテクチャ・型定義・IPC API・フック・変更チェックリスト |
+
+### 機能別詳細ドキュメント
+
+| ドキュメント | 対象 | 内容 |
+|-------------|------|------|
+| `docs/GLASS_EFFECT_USER_GUIDE.md` | ユーザー向け | ガラス効果の使い方、操作フロー、トラブルシューティング |
+| `docs/GLASS_EFFECT_DEV_GUIDE.md` | 開発者・AI向け | ガラス効果のアーキテクチャ、API仕様、内部状態、変更チェックリスト |
+
+### 全機能索引
+
+| # | 機能 | 主要ファイル | ドキュメント |
+|---|------|-------------|------------|
+| 1 | カンバンボード（カード・カラム・DnD） | `Board.tsx`, `Card.tsx`, `Column.tsx`, `useCardOperations.ts` | DEV_GUIDE §フック |
+| 2 | マルチタブ（アプリ切り替え） | `Board.tsx`, `useTabManagement.ts`, `TabAddPopover.tsx` | DEV_GUIDE §フック |
+| 3 | ウィンドウ管理・リンク | `useWindowStatus.ts`, `windowManager.cjs`, `WindowSelectModal.tsx` | DEV_GUIDE §フック |
+| 4 | 複数ウィンドウ対応 | `EditCardModal.tsx`, `types/index.ts` (WindowRef) | DEV_GUIDE §型定義 |
+| 5 | Grid配置 | `GridArrangeModal.tsx`, `gridManager.cjs` | DEV_GUIDE §IPC API |
+| 6 | マルチアプリGrid | `MultiGridModal.tsx`, `gridManager.cjs` | DEV_GUIDE §IPC API |
+| 7 | タイマー | `useTimerActions.ts`, `Card.tsx`, `checkboxConstants.ts` | DEV_GUIDE §フック |
+| 8 | ターミナル背景色（macOS） | `terminalColor.ts`, `windowManager.cjs` | DEV_GUIDE §ユーティリティ |
+| 9 | ガラス効果（macOS） | `windowManager.cjs` (darwin) | GLASS_EFFECT_DEV_GUIDE.md |
+| 10 | アイデア・バックログ | `IdeasPanel.tsx`, `AddIdeaModal.tsx` | USER_GUIDE §7 |
+| 11 | アーカイブ | `ArchiveSection.tsx` | USER_GUIDE §8 |
+| 12 | エクスポート・Obsidian連携 | `ExportModal.tsx`, `useExport.ts`, `NoteSelectModal.tsx` | USER_GUIDE §9 |
+| 13 | バックアップ・復元 | `useDataPersistence.ts`, `BackupSection.tsx` | DEV_GUIDE §データフロー |
+| 14 | プラグインシステム | `pluginManager.cjs`, `pluginAPI.cjs`, `PluginManager.tsx` | DEV_GUIDE §プラグイン |
+| 15 | サブタグ・優先順位 | `SubtagManager.tsx`, `checkboxConstants.ts` | DEV_GUIDE §ユーティリティ |
+| 16 | 設定 | `SettingsModal.tsx`, `settings/` | USER_GUIDE §12 |
+| 17 | アップデート | `UpdateBanner.tsx`, `updateManager.cjs`, `VersionChecker.tsx` | DEV_GUIDE §IPC API |
+| 18 | ヘルプ | `HelpModal.tsx` | USER_GUIDE §14 |
+
+> **運用ルール**:
+> - 機能のコードを変更した場合、対応するドキュメントの該当セクションを確認・更新すること
+> - 新機能を追加した場合、上記の索引テーブルに行を追加すること
+> - ガラス効果の詳細は専用ドキュメント（`GLASS_EFFECT_*`）を参照
 
 ## アーキテクチャ上の注意点
 
